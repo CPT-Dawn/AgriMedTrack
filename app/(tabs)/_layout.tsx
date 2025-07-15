@@ -2,15 +2,27 @@ import { HapticTab } from "@/components/HapticTab";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import TabBarBackground from "@/components/ui/TabBarBackground";
 import { Tabs } from "expo-router";
-import React from "react";
+import React, { useEffect } from "react";
 import { Platform } from "react-native";
+import changeNavigationBarColor from "react-native-navigation-bar-color";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppColors } from "../../constants/Colors";
 
 export default function TabLayout() {
+  // Set Android navigation bar color to match the app background
+  useEffect(() => {
+    if (Platform.OS === "android") {
+      try {
+        changeNavigationBarColor(AppColors.background, false, false); // Match nav bar color
+      } catch (e) {
+        console.log(e);
+      }
+    }
+  }, []);
+
   return (
     <SafeAreaView
-      edges={["top"]}
+      edges={["top", "bottom"]}
       style={{
         flex: 1,
         backgroundColor: AppColors.background,
@@ -39,7 +51,7 @@ export default function TabLayout() {
             position: "absolute",
             left: 8,
             right: 8,
-            bottom: 8,
+            bottom: Platform.OS === "android" ? 0 : 0, // Increase bottom margin on Android
           },
           tabBarLabelStyle: {
             fontSize: 12,
@@ -79,12 +91,10 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="settings"
+          name="log"
           options={{
-            title: "Settings",
-            tabBarIcon: ({ color, focused }) => (
-              <IconSymbol size={24} name="gearshape.fill" color={color} />
-            ),
+            tabBarButton: () => null,
+            tabBarStyle: { display: "none" },
           }}
         />
       </Tabs>

@@ -30,6 +30,8 @@ export interface StockEntry {
   supplierId: string;
   sizeId: string;
   quantity: number;
+  buyPrice?: number;
+  sellPrice?: number;
   billImageUrl?: string;
   notes?: string;
   updatedBy: string; // profile/user ID

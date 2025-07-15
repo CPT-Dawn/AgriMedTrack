@@ -1,12 +1,10 @@
-import * as ImagePicker from "expo-image-picker";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
-  Modal,
   Platform,
-  Pressable,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -15,10 +13,8 @@ import {
   View,
 } from "react-native";
 import { CreatableDropdown } from "../components/CreatableDropdown";
-import { IconSymbol } from "../components/ui/IconSymbol";
 import { AppColors } from "../constants/Colors";
 import { useStock } from "../hooks/useStock";
-import { StockEntryFormData } from "../types/stock";
 
 export default function StockScreen() {
   const {
@@ -34,11 +30,14 @@ export default function StockScreen() {
     getOrCreateSupplier,
     getOrCreateSize,
     clearError,
+    stockEntries,
   } = useStock();
 
-  const [modalVisible, setModalVisible] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState<StockEntryFormData>({
+  const [search, setSearch] = useState("");
+  const router = useRouter();
+  const [showLog, setShowLog] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
+  const [addForm, setAddForm] = useState({
     productId: "",
     productName: "",
     supplierId: "",
@@ -46,91 +45,15 @@ export default function StockScreen() {
     sizeId: "",
     sizeLabel: "",
     quantity: "",
+    notes: "",
   });
+  const [submitting, setSubmitting] = useState(false);
+  const [addErrors, setAddErrors] = useState<Record<string, string>>({});
 
-  const resetForm = () => {
-    setForm({
-      productId: "",
-      productName: "",
-      supplierId: "",
-      supplierName: "",
-      sizeId: "",
-      sizeLabel: "",
-      quantity: "",
-    });
-  };
+  // Remove: streakDays, showConfetti, confettiAnim, streakAnim, triggerConfetti, useEffect for confetti/streak, streak badge, confetti animation, and related styles
 
-  const handleImagePicker = async () => {
-    try {
-      const permissionResult =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!permissionResult.granted) {
-        Alert.alert(
-          "Permission Required",
-          "Camera roll permission is required to upload bill images."
-        );
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        setForm((prev) => ({
-          ...prev,
-          billImage: {
-            uri: asset.uri,
-            name: asset.fileName || `bill_${Date.now()}.jpg`,
-            type: "image/jpeg",
-          },
-        }));
-      }
-    } catch (error) {
-      console.error("Error picking image:", error);
-      Alert.alert("Error", "Failed to pick image");
-    }
-  };
-
-  const handleSubmit = async () => {
-    try {
-      setSubmitting(true);
-      clearError();
-
-      // Validation
-      if (!form.productName.trim()) {
-        Alert.alert("Validation Error", "Product name is required");
-        return;
-      }
-      if (!form.supplierName.trim()) {
-        Alert.alert("Validation Error", "Supplier name is required");
-        return;
-      }
-      if (!form.sizeLabel.trim()) {
-        Alert.alert("Validation Error", "Packaging size is required");
-        return;
-      }
-      if (!form.quantity.trim() || isNaN(parseInt(form.quantity))) {
-        Alert.alert("Validation Error", "Valid quantity is required");
-        return;
-      }
-
-      await addStockEntry(form);
-      setModalVisible(false);
-      resetForm();
-      Alert.alert("Success", "Stock entry added successfully");
-    } catch (err) {
-      console.error("Error adding stock entry:", err);
-      Alert.alert("Error", "Failed to add stock entry");
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  // Remove: modalVisible, submitting, form, resetForm, handleImagePicker, handleSubmit, all code for FAB, Modal, and form fields
+  // Remove related imports: ImagePicker, Modal, Pressable, Image, TextInput (if only used for add form), etc. Only keep TextInput for search bar.
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString("en-US", {
@@ -141,63 +64,185 @@ export default function StockScreen() {
     });
   };
 
-  const renderStockItem = (item: (typeof stockItems)[0]) => (
-    <View key={item.id} style={styles.stockCard}>
-      <View style={styles.stockCardHeader}>
-        <IconSymbol
-          name="pills.fill"
-          size={24}
-          color={AppColors.primary}
-          style={styles.stockIcon}
-        />
-        <View style={styles.stockHeaderText}>
+  // Find the most common unit for this product (by total quantity)
+  const getMainUnit = (item: (typeof stockItems)[0]) => {
+    const unitCount: Record<string, number> = {};
+    item.suppliers.forEach((supplierGroup) => {
+      supplierGroup.sizes.forEach((sizeGroup) => {
+        const unit = sizeGroup.size.unit;
+        unitCount[unit] = (unitCount[unit] || 0) + sizeGroup.quantity;
+      });
+    });
+    // Return the unit with the highest total quantity
+    return (
+      Object.entries(unitCount).sort((a, b) => b[1] - a[1])[0]?.[0] || "unit"
+    );
+  };
+
+  // Calculate total quantity in main unit
+  const getTotalQuantityByUnit = (
+    item: (typeof stockItems)[0],
+    unit: string
+  ) => {
+    let total = 0;
+    item.suppliers.forEach((supplierGroup) => {
+      supplierGroup.sizes.forEach((sizeGroup) => {
+        if (sizeGroup.size.unit === unit) {
+          total += sizeGroup.quantity;
+        }
+      });
+    });
+    return total;
+  };
+
+  // Utility: format quantity with best unit (g/kg, ml/L, etc.)
+  const formatQuantityWithUnit = (quantity: number, unit: string) => {
+    if (unit === "g" && quantity >= 1000)
+      return `${(quantity / 1000).toFixed(2)} Kg`;
+    if (unit === "ml" && quantity >= 1000)
+      return `${(quantity / 1000).toFixed(2)} L`;
+    if (unit === "mg" && quantity >= 1000)
+      return `${(quantity / 1000).toFixed(2)} g`;
+    if (
+      unit === "tablet" ||
+      unit === "vial" ||
+      unit === "bottle" ||
+      unit === "unit"
+    )
+      return `${quantity} ${unit}${quantity > 1 ? "s" : ""}`;
+    return `${quantity} ${unit}`;
+  };
+
+  // Utility: format date for log
+  const formatLogDate = (date: Date) => {
+    return date.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const handleAddStock = async () => {
+    const errors = {};
+    if (!addForm.productName.trim())
+      errors.productName = "Product name is required";
+    if (!addForm.supplierName.trim())
+      errors.supplierName = "Supplier name is required";
+    if (!addForm.sizeLabel.trim())
+      errors.sizeLabel = "Packaging size is required";
+    if (!addForm.quantity.trim() || isNaN(parseInt(addForm.quantity)))
+      errors.quantity = "Valid quantity is required";
+    setAddErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+    try {
+      setSubmitting(true);
+      clearError();
+      await addStockEntry(addForm);
+      setShowAdd(false);
+      setAddForm({
+        productId: "",
+        productName: "",
+        supplierId: "",
+        supplierName: "",
+        sizeId: "",
+        sizeLabel: "",
+        quantity: "",
+        notes: "",
+      });
+      setAddErrors({});
+      Alert.alert("Success", "Stock entry added successfully");
+    } catch (err) {
+      Alert.alert("Error", "Failed to add stock entry");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const renderStockItem = (item: (typeof stockItems)[0]) => {
+    // Gather all supplier/packaging/price/quantity rows for this product
+    const rows: any[] = [];
+    let totalQuantity = 0;
+    let unit = "";
+    item.suppliers.forEach((supplierGroup) => {
+      supplierGroup.sizes.forEach((sizeGroup) => {
+        // Find the matching stock entry for buy/sell price
+        const stockEntry = stockEntries.find(
+          (e) =>
+            e.productId === item.product.id &&
+            e.supplierId === supplierGroup.supplier.id &&
+            e.sizeId === sizeGroup.size.id
+        );
+        rows.push({
+          company: supplierGroup.supplier.name,
+          packaging: sizeGroup.size.label,
+          buyPrice: stockEntry?.buyPrice ?? "",
+          sellPrice: stockEntry?.sellPrice ?? "",
+          quantity: sizeGroup.quantity,
+        });
+        totalQuantity += sizeGroup.quantity;
+        if (!unit) unit = sizeGroup.size.unit;
+      });
+    });
+    function formatTotalQuantity(quantity: number, unit: string) {
+      if (unit === "ml" && quantity >= 1000)
+        return `${(quantity / 1000).toFixed(2)} L`;
+      if (unit === "g" && quantity >= 1000)
+        return `${(quantity / 1000).toFixed(2)} kg`;
+      if (unit === "mg" && quantity >= 1000)
+        return `${(quantity / 1000).toFixed(2)} g`;
+      if (unit === "kg" || unit === "L" || unit === "gm")
+        return `${quantity} ${unit}`;
+      return `${quantity} ${unit}`;
+    }
+    return (
+      <View key={item.id} style={styles.stockCard}>
+        <View style={styles.cardHeaderRow}>
           <Text style={styles.productName}>{item.product.name}</Text>
-          <Text style={styles.totalQuantity}>
-            Total: {item.totalQuantity} units
+          <Text style={styles.totalQtyText}>
+            {formatTotalQuantity(totalQuantity, unit)}
           </Text>
         </View>
-      </View>
-
-      {item.suppliers.map((supplierGroup, supplierIndex) => (
-        <View key={supplierIndex} style={styles.supplierSection}>
-          <Text style={styles.supplierName}>{supplierGroup.supplier.name}</Text>
-          <View style={styles.sizesContainer}>
-            {supplierGroup.sizes.map((sizeGroup, sizeIndex) => (
-              <View key={sizeIndex} style={styles.sizeChip}>
-                <Text style={styles.sizeLabel}>{sizeGroup.size.label}</Text>
-                <Text style={styles.sizeQuantity}>
-                  {sizeGroup.quantity} units
-                </Text>
-              </View>
-            ))}
-          </View>
+        <View style={styles.tableHeaderRow}>
+          <Text style={styles.tableHeader}>Company</Text>
+          <Text style={styles.tableHeader}>Packaging Size</Text>
+          <Text style={styles.tableHeader}>Buy Price (₹)</Text>
+          <Text style={styles.tableHeader}>Sell Price (₹)</Text>
+          <Text style={styles.tableHeader}>Quantity</Text>
         </View>
-      ))}
+        {rows.map((row, idx) => (
+          <View key={idx} style={styles.tableRow}>
+            <Text style={styles.tableCell}>{row.company}</Text>
+            <Text style={styles.tableCell}>{row.packaging}</Text>
+            <Text style={styles.tableCell}>{row.buyPrice}</Text>
+            <Text style={styles.tableCell}>{row.sellPrice}</Text>
+            <Text style={styles.tableCell}>{row.quantity}</Text>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  const renderActivityItem = (activity: (typeof activities)[0]) => (
+    <View key={activity.id} style={styles.activityLogItem}>
+      <View style={styles.activityLogRow}>
+        <Text style={styles.activityLogAction}>
+          {activity.action.toUpperCase()}
+        </Text>
+        <Text style={styles.activityLogProduct}>{activity.productName}</Text>
+        <Text style={styles.activityLogSupplier}>{activity.supplierName}</Text>
+        <Text style={styles.activityLogPackaging}>{activity.sizeName}</Text>
+        <Text style={styles.activityLogQty}>{activity.quantity}</Text>
+      </View>
+      <Text style={styles.activityLogDate}>
+        {formatLogDate(activity.timestamp)}
+      </Text>
     </View>
   );
 
-  const renderActivityItem = (activity: (typeof activities)[0]) => (
-    <View key={activity.id} style={styles.activityItem}>
-      <View style={styles.activityIcon}>
-        <IconSymbol
-          name={activity.action === "added" ? "plus" : "pencil"}
-          size={12}
-          color={AppColors.white}
-        />
-      </View>
-      <View style={styles.activityContent}>
-        <Text style={styles.activityText}>
-          <Text style={styles.activityAction}>{activity.action}</Text>{" "}
-          {activity.quantity} units of{" "}
-          <Text style={styles.activityProduct}>{activity.productName}</Text> (
-          {activity.sizeName}) from{" "}
-          <Text style={styles.activitySupplier}>{activity.supplierName}</Text>
-        </Text>
-        <Text style={styles.activityTime}>
-          {formatDate(activity.timestamp)}
-        </Text>
-      </View>
-    </View>
+  // Filtered stock items based on search
+  const filteredStockItems = stockItems.filter((item) =>
+    item.product.name.toLowerCase().includes(search.toLowerCase())
   );
 
   if (loading) {
@@ -219,12 +264,26 @@ export default function StockScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Stock Inventory</Text>
-        <Text style={styles.headerSubtitle}>
-          {stockItems.length} products •{" "}
-          {stockItems.reduce((sum, item) => sum + item.totalQuantity, 0)} total
-          units
-        </Text>
+        {/* Search Bar */}
+        <View style={styles.searchBarContainer}>
+          <MaterialIcons
+            name="search"
+            size={20}
+            color={AppColors.primary}
+            style={{ marginRight: 6 }}
+          />
+          <TextInput
+            style={styles.searchBar}
+            placeholder="Search medicine..."
+            value={search}
+            onChangeText={setSearch}
+            placeholderTextColor="#999"
+          />
+        </View>
       </View>
+
+      {/* Confetti Animation */}
+      {/* Remove: showConfetti, confettiAnim, useEffect for confetti/streak, streak badge, confetti animation */}
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Error Message */}
@@ -234,69 +293,20 @@ export default function StockScreen() {
           </View>
         )}
 
-        {/* Stock Items */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Current Stock</Text>
-          {stockItems.length === 0 ? (
-            <View style={styles.emptyState}>
-              <IconSymbol name="archivebox" size={48} color="#CCC" />
-              <Text style={styles.emptyStateText}>No stock items yet</Text>
-              <Text style={styles.emptyStateSubtext}>
-                Tap the + button to add your first stock entry
-              </Text>
-            </View>
-          ) : (
-            stockItems.map(renderStockItem)
-          )}
-        </View>
-
-        {/* Activity Log */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
-          {activities.length === 0 ? (
-            <Text style={styles.emptyActivityText}>No recent activity</Text>
-          ) : (
-            activities.map(renderActivityItem)
-          )}
-        </View>
-
-        <View style={styles.bottomPadding} />
-      </ScrollView>
-
-      {/* FAB */}
-      <Pressable style={styles.fab} onPress={() => setModalVisible(true)}>
-        <IconSymbol name="plus" size={24} color={AppColors.white} />
-      </Pressable>
-
-      {/* Add Stock Modal */}
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add New Stock</Text>
-              <Pressable
-                onPress={() => setModalVisible(false)}
-                style={styles.closeButton}
-              >
-                <IconSymbol name="xmark" size={20} color={AppColors.text} />
-              </Pressable>
-            </View>
-
-            <ScrollView style={styles.modalForm}>
+        {/* Toggle between Stock List, Log, and Add Stock */}
+        {showAdd ? (
+          <View style={styles.addCardOuter}>
+            <View style={styles.addCard}>
+              <Text style={styles.addTitle}>Add Stock</Text>
               {/* Product */}
               <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Medical Formula / Product</Text>
+                <Text style={styles.formLabel}>Product</Text>
                 <CreatableDropdown
                   options={products.map((p) => ({ id: p.id, label: p.name }))}
-                  value={form.productId}
+                  value={addForm.productId}
                   placeholder="Select or create product"
                   onSelect={(option) =>
-                    setForm((prev) => ({
+                    setAddForm((prev) => ({
                       ...prev,
                       productId: option.id,
                       productName: option.label,
@@ -307,18 +317,21 @@ export default function StockScreen() {
                     return { id: product.id, label: product.name };
                   }}
                   createLabel="Create product"
+                  style={styles.inputWithIcon}
                 />
+                {addErrors.productName && (
+                  <Text style={styles.inputError}>{addErrors.productName}</Text>
+                )}
               </View>
-
               {/* Supplier */}
               <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Supplier / Vendor</Text>
+                <Text style={styles.formLabel}>Supplier</Text>
                 <CreatableDropdown
                   options={suppliers.map((s) => ({ id: s.id, label: s.name }))}
-                  value={form.supplierId}
+                  value={addForm.supplierId}
                   placeholder="Select or create supplier"
                   onSelect={(option) =>
-                    setForm((prev) => ({
+                    setAddForm((prev) => ({
                       ...prev,
                       supplierId: option.id,
                       supplierName: option.label,
@@ -329,18 +342,23 @@ export default function StockScreen() {
                     return { id: supplier.id, label: supplier.name };
                   }}
                   createLabel="Create supplier"
+                  style={styles.inputWithIcon}
                 />
+                {addErrors.supplierName && (
+                  <Text style={styles.inputError}>
+                    {addErrors.supplierName}
+                  </Text>
+                )}
               </View>
-
               {/* Packaging Size */}
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Packaging Size</Text>
                 <CreatableDropdown
                   options={sizes.map((s) => ({ id: s.id, label: s.label }))}
-                  value={form.sizeId}
+                  value={addForm.sizeId}
                   placeholder="Select or create size"
                   onSelect={(option) =>
-                    setForm((prev) => ({
+                    setAddForm((prev) => ({
                       ...prev,
                       sizeId: option.id,
                       sizeLabel: option.label,
@@ -351,93 +369,145 @@ export default function StockScreen() {
                     return { id: size.id, label: size.label };
                   }}
                   createLabel="Create size"
+                  style={styles.inputWithIcon}
                 />
+                {addErrors.sizeLabel && (
+                  <Text style={styles.inputError}>{addErrors.sizeLabel}</Text>
+                )}
               </View>
-
               {/* Quantity */}
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Quantity</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Enter quantity"
-                  value={form.quantity}
-                  onChangeText={(text) =>
-                    setForm((prev) => ({ ...prev, quantity: text }))
-                  }
-                  keyboardType="numeric"
-                />
+                <View style={styles.inputWithIcon}>
+                  <MaterialIcons
+                    name="inventory"
+                    size={20}
+                    color={AppColors.primary}
+                    style={{ marginRight: 8 }}
+                  />
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="Enter quantity"
+                    value={addForm.quantity}
+                    onChangeText={(text) =>
+                      setAddForm((prev) => ({ ...prev, quantity: text }))
+                    }
+                    keyboardType="numeric"
+                  />
+                </View>
+                {addErrors.quantity && (
+                  <Text style={styles.inputError}>{addErrors.quantity}</Text>
+                )}
               </View>
-
-              {/* Bill Photo */}
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Bill Photo (Optional)</Text>
-                <Pressable
-                  style={styles.imageButton}
-                  onPress={handleImagePicker}
-                >
-                  {form.billImage ? (
-                    <View style={styles.imageContainer}>
-                      <Image
-                        source={{ uri: form.billImage.uri }}
-                        style={styles.billImage}
-                      />
-                      <Text style={styles.imageText}>Bill attached</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.imageContainer}>
-                      <IconSymbol
-                        name="camera"
-                        size={24}
-                        color={AppColors.primary}
-                      />
-                      <Text style={styles.imageText}>
-                        Tap to add bill photo
-                      </Text>
-                    </View>
-                  )}
-                </Pressable>
-              </View>
-
               {/* Notes */}
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Notes (Optional)</Text>
                 <TextInput
                   style={[styles.textInput, styles.notesInput]}
                   placeholder="Additional notes..."
-                  value={form.notes || ""}
+                  value={addForm.notes}
                   onChangeText={(text) =>
-                    setForm((prev) => ({ ...prev, notes: text }))
+                    setAddForm((prev) => ({ ...prev, notes: text }))
                   }
                   multiline
                   numberOfLines={3}
                 />
               </View>
-            </ScrollView>
-
-            {/* Modal Actions */}
-            <View style={styles.modalActions}>
-              <Pressable
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setModalVisible(false)}
-                disabled={submitting}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={handleSubmit}
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <ActivityIndicator size="small" color={AppColors.white} />
-                ) : (
-                  <Text style={styles.saveButtonText}>Save Stock</Text>
-                )}
-              </Pressable>
+              {/* Submit Button */}
+              <View style={styles.addActions}>
+                <MaterialIcons.Button
+                  name="check"
+                  backgroundColor={AppColors.primary}
+                  color="#fff"
+                  size={24}
+                  borderRadius={8}
+                  onPress={handleAddStock}
+                  disabled={submitting}
+                  style={styles.addButton}
+                >
+                  {submitting ? (
+                    <Text style={{ color: "#fff" }}>Saving...</Text>
+                  ) : (
+                    <Text style={{ color: "#fff" }}>Save Stock</Text>
+                  )}
+                </MaterialIcons.Button>
+                <MaterialIcons.Button
+                  name="close"
+                  backgroundColor="#fff"
+                  color={AppColors.primary}
+                  size={24}
+                  borderRadius={8}
+                  onPress={() => setShowAdd(false)}
+                  style={styles.cancelButton}
+                >
+                  <Text style={{ color: AppColors.primary }}>Cancel</Text>
+                </MaterialIcons.Button>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        ) : showLog ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Stock Activity Log</Text>
+            {activities.length === 0 ? (
+              <Text style={styles.emptyActivityText}>No recent activity</Text>
+            ) : (
+              activities.map(renderActivityItem)
+            )}
+          </View>
+        ) : (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Current Stock</Text>
+            {filteredStockItems.length === 0 ? (
+              <View style={styles.emptyState}>
+                <MaterialIcons name="archive" size={48} color="#CCC" />
+                <Text style={styles.emptyStateText}>No stock items found</Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Try a different search or tap the + button to add stock
+                </Text>
+              </View>
+            ) : (
+              filteredStockItems.map(renderStockItem)
+            )}
+          </View>
+        )}
+        <View style={styles.bottomPadding} />
+      </ScrollView>
+      {/* Floating Log Button */}
+      <View style={styles.fabLogContainer}>
+        <MaterialIcons.Button
+          name={showLog ? "close" : "history"}
+          backgroundColor={AppColors.primary}
+          color="#fff"
+          size={28}
+          borderRadius={28}
+          iconStyle={{ marginRight: 0 }}
+          onPress={() => {
+            setShowLog((prev) => !prev);
+            setShowAdd(false);
+          }}
+          style={styles.fabLog}
+          accessibilityLabel={
+            showLog ? "Back to Stock" : "View Stock Activity Log"
+          }
+        />
+      </View>
+      {/* Floating Add Button */}
+      <View style={styles.fabAddContainer}>
+        <MaterialIcons.Button
+          name={showAdd ? "close" : "add"}
+          backgroundColor={AppColors.primary}
+          color="#fff"
+          size={28}
+          borderRadius={28}
+          iconStyle={{ marginRight: 0 }}
+          onPress={() => {
+            setShowAdd((prev) => !prev);
+            setShowLog(false);
+          }}
+          style={styles.fabAdd}
+          accessibilityLabel={showAdd ? "Back to Stock" : "Add Stock"}
+        />
+      </View>
     </View>
   );
 }
@@ -521,14 +591,16 @@ const styles = StyleSheet.create({
   stockCard: {
     backgroundColor: AppColors.white,
     marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 16,
-    padding: 16,
+    marginBottom: 14,
+    borderRadius: 18,
+    padding: 18,
     shadowColor: AppColors.shadow,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 4,
+    borderWidth: 0.5,
+    borderColor: "#F0F0F0",
   },
   stockCardHeader: {
     flexDirection: "row",
@@ -744,9 +816,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 48,
   },
-  cancelButton: {
-    backgroundColor: "#F5F5F5",
-  },
   saveButton: {
     backgroundColor: AppColors.primary,
   },
@@ -759,5 +828,283 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
     color: AppColors.white,
+  },
+  quantityRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  quantityValue: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: AppColors.primary,
+  },
+  quantityUnit: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: AppColors.text,
+    marginLeft: 4,
+    marginBottom: 2,
+  },
+  // Remove: streakBadge, streakText, confetti styles
+  supplierList: {
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  supplierRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  supplierNameList: {
+    fontSize: 13,
+    color: "#444",
+    fontWeight: "500",
+    marginRight: 10,
+    minWidth: 80,
+  },
+  packagingLabel: {
+    fontSize: 13,
+    color: "#888",
+    marginRight: 10,
+    minWidth: 70,
+  },
+  packagingQty: {
+    fontSize: 13,
+    color: AppColors.primary,
+    fontWeight: "600",
+  },
+  totalAmountContainer: {
+    position: "absolute",
+    bottom: 12,
+    right: 18,
+    backgroundColor: "#F0F9FF",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    shadowColor: AppColors.primary,
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  totalAmountText: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: AppColors.primary,
+    letterSpacing: 0.2,
+  },
+  searchBarContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F5F5F5",
+    borderRadius: 10,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  searchBar: {
+    flex: 1,
+    fontSize: 16,
+    color: AppColors.text,
+    backgroundColor: "transparent",
+    paddingVertical: 6,
+    paddingHorizontal: 0,
+    borderWidth: 0,
+  },
+  activityLogItem: {
+    backgroundColor: "#F8F9FA",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
+    marginHorizontal: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  activityLogRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  activityLogAction: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#1976D2",
+    marginRight: 8,
+    minWidth: 60,
+  },
+  activityLogProduct: {
+    fontSize: 13,
+    color: "#333",
+    fontWeight: "500",
+    marginRight: 8,
+    minWidth: 80,
+  },
+  activityLogSupplier: {
+    fontSize: 12,
+    color: "#666",
+    marginRight: 8,
+    minWidth: 70,
+  },
+  activityLogPackaging: {
+    fontSize: 12,
+    color: "#888",
+    marginRight: 8,
+    minWidth: 60,
+  },
+  activityLogQty: {
+    fontSize: 13,
+    color: AppColors.primary,
+    fontWeight: "600",
+    minWidth: 30,
+    textAlign: "right",
+  },
+  activityLogDate: {
+    fontSize: 11,
+    color: "#999",
+    marginTop: 2,
+    textAlign: "right",
+  },
+  fabLogContainer: {
+    position: "absolute",
+    left: 20,
+    bottom: Platform.OS === "android" ? 80 : 70,
+    zIndex: 100,
+  },
+  fabLog: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 6,
+    shadowColor: AppColors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  fabAddContainer: {
+    position: "absolute",
+    right: 20,
+    bottom: Platform.OS === "android" ? 80 : 70,
+    zIndex: 100,
+  },
+  fabAdd: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 6,
+    shadowColor: AppColors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  addActions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 28,
+    marginBottom: 8,
+    justifyContent: "center",
+  },
+  addButton: {
+    minWidth: 120,
+    justifyContent: "center",
+  },
+  cancelButton: {
+    minWidth: 80,
+    backgroundColor: "#F5F5F5",
+    justifyContent: "center",
+  },
+  addCardOuter: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16,
+    marginBottom: 0,
+  },
+  addCard: {
+    width: "98%",
+    maxWidth: 420,
+    backgroundColor: "#fff",
+    borderRadius: 18,
+    paddingTop: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 32,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  addTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: AppColors.primary,
+    marginBottom: 18,
+    textAlign: "center",
+  },
+  inputWithIcon: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F5F7FA",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    marginBottom: 0,
+  },
+  inputError: {
+    color: AppColors.error,
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 2,
+  },
+  tableHeaderRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0",
+    paddingBottom: 4,
+    marginBottom: 4,
+  },
+  tableHeader: {
+    flex: 1,
+    fontWeight: "bold",
+    fontSize: 13,
+    color: AppColors.primary,
+    textAlign: "left",
+  },
+  tableRow: {
+    flexDirection: "row",
+    paddingVertical: 2,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#F0F0F0",
+  },
+  tableCell: {
+    flex: 1,
+    fontSize: 13,
+    color: "#333",
+    textAlign: "left",
+  },
+  cardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  totalQtyText: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: AppColors.primary,
   },
 });

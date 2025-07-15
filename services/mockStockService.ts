@@ -7,207 +7,362 @@ import {
   Supplier,
 } from "../types/stock";
 
-// Mock data storage
-let mockProducts: Product[] = [
-  {
-    id: "1",
-    name: "Amoxicillin",
-    category: "Antibiotics",
-    description: "Broad-spectrum antibiotic",
-    createdAt: new Date("2024-01-15"),
-  },
-  {
-    id: "2",
-    name: "Atorvastatin",
-    category: "Cardiovascular",
-    description: "Cholesterol-lowering medication",
-    createdAt: new Date("2024-01-20"),
-  },
-  {
-    id: "3",
-    name: "Metformin",
-    category: "Diabetes",
-    description: "Type 2 diabetes medication",
-    createdAt: new Date("2024-01-25"),
-  },
-  {
-    id: "4",
-    name: "Ibuprofen",
-    category: "Pain Relief",
-    description: "Anti-inflammatory pain reliever",
-    createdAt: new Date("2024-02-01"),
-  },
-  {
-    id: "5",
-    name: "Paracetamol",
-    category: "Pain Relief",
-    description: "Fever and pain reliever",
-    createdAt: new Date("2024-02-05"),
-  },
+// Replace all mock data with the provided fertilizer/pesticide data
+// 1. Define new mockProducts (unique Product Names)
+const mockProducts = [
+  { id: "1", name: "Urea", createdAt: new Date() },
+  { id: "2", name: "DAP", createdAt: new Date() },
+  { id: "3", name: "NPK 20:20:0", createdAt: new Date() },
+  { id: "4", name: "MOP", createdAt: new Date() },
+  { id: "5", name: "SSP", createdAt: new Date() },
+  { id: "6", name: "Compost", createdAt: new Date() },
+  { id: "7", name: "Confidor", createdAt: new Date() },
+  { id: "8", name: "Coragen", createdAt: new Date() },
+  { id: "9", name: "Karate", createdAt: new Date() },
+  { id: "10", name: "Thimet", createdAt: new Date() },
+  { id: "11", name: "Rogor", createdAt: new Date() },
+  { id: "12", name: "Agromin", createdAt: new Date() },
+  { id: "13", name: "Planofix", createdAt: new Date() },
+  { id: "14", name: "Humic Power", createdAt: new Date() },
+  { id: "15", name: "Biozyme", createdAt: new Date() },
+  { id: "16", name: "Sudozol", createdAt: new Date() },
 ];
-
-let mockSuppliers: Supplier[] = [
-  {
-    id: "1",
-    name: "GreenPharma Ltd",
-    contactInfo: {
-      email: "contact@greenpharma.com",
-      phone: "+1-555-0101",
-      address: "123 Medical Drive, Healthcare City",
-    },
-    createdAt: new Date("2024-01-10"),
-  },
-  {
-    id: "2",
-    name: "MediCorp Inc",
-    contactInfo: {
-      email: "sales@medicorp.com",
-      phone: "+1-555-0102",
-      address: "456 Pharma Boulevard, Medicine Town",
-    },
-    createdAt: new Date("2024-01-12"),
-  },
-  {
-    id: "3",
-    name: "VetMed Solutions",
-    contactInfo: {
-      email: "info@vetmed.com",
-      phone: "+1-555-0103",
-      address: "789 Veterinary Street, Animal Care City",
-    },
-    createdAt: new Date("2024-01-14"),
-  },
-  {
-    id: "4",
-    name: "AgriHealth Co",
-    contactInfo: {
-      email: "orders@agrihealth.com",
-      phone: "+1-555-0104",
-      address: "321 Agriculture Lane, Farm Health Valley",
-    },
-    createdAt: new Date("2024-01-16"),
-  },
+// 2. Define new mockSuppliers (unique Company names)
+const supplierNames = [
+  "IFFCO",
+  "Nagarjuna Fert.",
+  "Tata Chemicals",
+  "IPL",
+  "Coromandel",
+  "GSFC",
+  "Chambal Fertilizer",
+  "Zuari Agro",
+  "FACT",
+  "Local Organic Co.",
+  "GreenManure Pvt.",
+  "Bayer",
+  "Crystal Crop",
+  "FMC",
+  "Adama",
+  "Syngenta",
+  "UPL",
+  "Dhanuka",
+  "Rallis India",
+  "Indofil",
+  "PI Industries",
+  "Advent Agro",
+  "Mahadhan",
+  "Multiplex",
+  "Biostadt India",
+  "Zuari Biotech",
 ];
-
-let mockSizes: PackagingSize[] = [
-  {
-    id: "1",
-    label: "10mg tablet",
-    unit: "tablet",
-    createdAt: new Date("2024-01-01"),
-  },
-  {
-    id: "2",
-    label: "20mg tablet",
-    unit: "tablet",
-    createdAt: new Date("2024-01-01"),
-  },
-  {
-    id: "3",
-    label: "50mg tablet",
-    unit: "tablet",
-    createdAt: new Date("2024-01-01"),
-  },
-  {
-    id: "4",
-    label: "100mg tablet",
-    unit: "tablet",
-    createdAt: new Date("2024-01-01"),
-  },
-  {
-    id: "5",
-    label: "10ml vial",
-    unit: "vial",
-    createdAt: new Date("2024-01-01"),
-  },
-  {
-    id: "6",
-    label: "20ml vial",
-    unit: "vial",
-    createdAt: new Date("2024-01-01"),
-  },
-  {
-    id: "7",
-    label: "50ml bottle",
-    unit: "bottle",
-    createdAt: new Date("2024-01-01"),
-  },
-  {
-    id: "8",
-    label: "100ml bottle",
-    unit: "bottle",
-    createdAt: new Date("2024-01-01"),
-  },
+const mockSuppliers = supplierNames.map((name, idx) => ({
+  id: (idx + 1).toString(),
+  name,
+  createdAt: new Date(),
+}));
+// 3. Define new mockSizes (unique Packaging Size labels)
+const sizeLabels = [
+  "45 kg",
+  "50 kg",
+  "25 kg",
+  "100 ml",
+  "250 ml",
+  "500 ml",
+  "1 L",
+  "1 kg",
+  "5 kg",
+  "250 gm",
+  "500 gm",
 ];
-
-let mockStockEntries: StockEntry[] = [
+const mockSizes = sizeLabels.map((label, idx) => ({
+  id: (idx + 1).toString(),
+  label,
+  unit: label.match(/kg|gm|ml|L/)?.[0] || "unit",
+  createdAt: new Date(),
+}));
+// 4. Define new mockStockEntries (all rows from the provided table)
+const mockStockEntries = [
+  // Urea
   {
-    id: "1",
-    productId: "1", // Amoxicillin
-    supplierId: "1", // GreenPharma
-    sizeId: "1", // 10mg tablet
-    quantity: 500,
-    notes: "Bulk purchase for Q1",
-    updatedBy: "user1",
-    updatedAt: new Date("2024-07-01"),
-    createdAt: new Date("2024-07-01"),
+    productId: "1",
+    supplierId: "1",
+    sizeId: "1",
+    quantity: 120,
+    buyPrice: 240,
+    sellPrice: 266,
   },
   {
-    id: "2",
-    productId: "1", // Amoxicillin
-    supplierId: "2", // MediCorp
-    sizeId: "2", // 20mg tablet
-    quantity: 250,
-    notes: "Emergency stock",
-    updatedBy: "user1",
-    updatedAt: new Date("2024-07-02"),
-    createdAt: new Date("2024-07-02"),
+    productId: "1",
+    supplierId: "2",
+    sizeId: "2",
+    quantity: 70,
+    buyPrice: 265,
+    sellPrice: 290,
+  },
+  // DAP
+  {
+    productId: "2",
+    supplierId: "3",
+    sizeId: "2",
+    quantity: 80,
+    buyPrice: 1200,
+    sellPrice: 1350,
   },
   {
-    id: "3",
-    productId: "2", // Atorvastatin
-    supplierId: "1", // GreenPharma
-    sizeId: "3", // 50mg tablet
-    quantity: 300,
-    notes: "Regular order",
-    updatedBy: "user2",
-    updatedAt: new Date("2024-07-03"),
-    createdAt: new Date("2024-07-03"),
+    productId: "2",
+    supplierId: "4",
+    sizeId: "3",
+    quantity: 60,
+    buyPrice: 650,
+    sellPrice: 720,
+  },
+  // NPK 20:20:0
+  {
+    productId: "3",
+    supplierId: "5",
+    sizeId: "2",
+    quantity: 100,
+    buyPrice: 1050,
+    sellPrice: 1150,
   },
   {
-    id: "4",
-    productId: "3", // Metformin
-    supplierId: "3", // VetMed
-    sizeId: "4", // 100mg tablet
-    quantity: 400,
-    notes: "Monthly restock",
-    updatedBy: "user1",
-    updatedAt: new Date("2024-07-04"),
-    createdAt: new Date("2024-07-04"),
+    productId: "3",
+    supplierId: "6",
+    sizeId: "3",
+    quantity: 90,
+    buyPrice: 540,
+    sellPrice: 590,
+  },
+  // MOP
+  {
+    productId: "4",
+    supplierId: "7",
+    sizeId: "2",
+    quantity: 60,
+    buyPrice: 1200,
+    sellPrice: 1300,
   },
   {
-    id: "5",
-    productId: "4", // Ibuprofen
-    supplierId: "2", // MediCorp
-    sizeId: "5", // 10ml vial
-    quantity: 150,
-    notes: "Liquid form for pediatric use",
-    updatedBy: "user2",
-    updatedAt: new Date("2024-07-05"),
-    createdAt: new Date("2024-07-05"),
+    productId: "4",
+    supplierId: "8",
+    sizeId: "3",
+    quantity: 45,
+    buyPrice: 620,
+    sellPrice: 680,
+  },
+  // SSP
+  {
+    productId: "5",
+    supplierId: "9",
+    sizeId: "2",
+    quantity: 90,
+    buyPrice: 400,
+    sellPrice: 450,
   },
   {
-    id: "6",
-    productId: "5", // Paracetamol
-    supplierId: "4", // AgriHealth
-    sizeId: "7", // 50ml bottle
+    productId: "5",
+    supplierId: "5",
+    sizeId: "3",
+    quantity: 100,
+    buyPrice: 210,
+    sellPrice: 240,
+  },
+  // Compost
+  {
+    productId: "6",
+    supplierId: "10",
+    sizeId: "3",
+    quantity: 50,
+    buyPrice: 150,
+    sellPrice: 200,
+  },
+  {
+    productId: "6",
+    supplierId: "11",
+    sizeId: "2",
+    quantity: 30,
+    buyPrice: 280,
+    sellPrice: 330,
+  },
+  // Confidor
+  {
+    productId: "7",
+    supplierId: "12",
+    sizeId: "4",
     quantity: 200,
-    notes: "Syrup form",
-    updatedBy: "user1",
-    updatedAt: new Date("2024-07-06"),
-    createdAt: new Date("2024-07-06"),
+    buyPrice: 260,
+    sellPrice: 300,
   },
-];
+  {
+    productId: "7",
+    supplierId: "13",
+    sizeId: "5",
+    quantity: 150,
+    buyPrice: 630,
+    sellPrice: 700,
+  },
+  // Coragen
+  {
+    productId: "8",
+    supplierId: "14",
+    sizeId: "6",
+    quantity: 80,
+    buyPrice: 580,
+    sellPrice: 650,
+  },
+  {
+    productId: "8",
+    supplierId: "15",
+    sizeId: "4",
+    quantity: 40,
+    buyPrice: 1100,
+    sellPrice: 1200,
+  },
+  // Karate
+  {
+    productId: "9",
+    supplierId: "16",
+    sizeId: "5",
+    quantity: 100,
+    buyPrice: 480,
+    sellPrice: 550,
+  },
+  {
+    productId: "9",
+    supplierId: "17",
+    sizeId: "4",
+    quantity: 60,
+    buyPrice: 190,
+    sellPrice: 230,
+  },
+  // Thimet
+  {
+    productId: "10",
+    supplierId: "14",
+    sizeId: "8",
+    quantity: 150,
+    buyPrice: 170,
+    sellPrice: 200,
+  },
+  {
+    productId: "10",
+    supplierId: "13",
+    sizeId: "9",
+    quantity: 40,
+    buyPrice: 800,
+    sellPrice: 950,
+  },
+  // Rogor
+  {
+    productId: "11",
+    supplierId: "18",
+    sizeId: "6",
+    quantity: 60,
+    buyPrice: 280,
+    sellPrice: 320,
+  },
+  {
+    productId: "11",
+    supplierId: "19",
+    sizeId: "5",
+    quantity: 80,
+    buyPrice: 150,
+    sellPrice: 180,
+  },
+  // Agromin
+  {
+    productId: "12",
+    supplierId: "8",
+    sizeId: "6",
+    quantity: 90,
+    buyPrice: 220,
+    sellPrice: 250,
+  },
+  {
+    productId: "12",
+    supplierId: "20",
+    sizeId: "7",
+    quantity: 45,
+    buyPrice: 400,
+    sellPrice: 460,
+  },
+  // Planofix
+  {
+    productId: "13",
+    supplierId: "21",
+    sizeId: "4",
+    quantity: 110,
+    buyPrice: 100,
+    sellPrice: 120,
+  },
+  {
+    productId: "13",
+    supplierId: "22",
+    sizeId: "5",
+    quantity: 50,
+    buyPrice: 220,
+    sellPrice: 260,
+  },
+  // Humic Power
+  {
+    productId: "14",
+    supplierId: "23",
+    sizeId: "6",
+    quantity: 70,
+    buyPrice: 240,
+    sellPrice: 280,
+  },
+  {
+    productId: "14",
+    supplierId: "24",
+    sizeId: "7",
+    quantity: 40,
+    buyPrice: 460,
+    sellPrice: 530,
+  },
+  // Biozyme
+  {
+    productId: "15",
+    supplierId: "25",
+    sizeId: "5",
+    quantity: 85,
+    buyPrice: 200,
+    sellPrice: 240,
+  },
+  {
+    productId: "15",
+    supplierId: "8",
+    sizeId: "6",
+    quantity: 30,
+    buyPrice: 380,
+    sellPrice: 420,
+  },
+  // Sudozol
+  {
+    productId: "16",
+    supplierId: "19",
+    sizeId: "10",
+    quantity: 95,
+    buyPrice: 130,
+    sellPrice: 160,
+  },
+  {
+    productId: "16",
+    supplierId: "16",
+    sizeId: "11",
+    quantity: 60,
+    buyPrice: 250,
+    sellPrice: 300,
+  },
+].map((entry, idx) => ({
+  id: (idx + 1).toString(),
+  ...entry,
+  notes: "",
+  updatedBy: "user1",
+  updatedAt: new Date(),
+  createdAt: new Date(),
+}));
 
 let mockActivities: StockActivity[] = [
   {

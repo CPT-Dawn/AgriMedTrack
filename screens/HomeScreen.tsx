@@ -33,7 +33,6 @@ const QUICK_ACTIONS = [
   { id: "1", title: "Add Sale", icon: "💸", color: "#43cea2" },
   { id: "2", title: "Add Stock", icon: "💊", color: "#185a9d" },
   { id: "3", title: "View Reports", icon: "📊", color: "#ff6b6b" },
-  { id: "4", title: "Settings", icon: "⚙️", color: "#f39c12" },
 ];
 
 export default function HomeScreen() {
