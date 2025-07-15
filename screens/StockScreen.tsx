@@ -1,15 +1,17 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  FlatList,
   Platform,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { CreatableDropdown } from "../components/CreatableDropdown";
@@ -35,7 +37,6 @@ export default function StockScreen() {
 
   const [search, setSearch] = useState("");
   const router = useRouter();
-  const [showLog, setShowLog] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState({
     productId: "",
@@ -46,14 +47,14 @@ export default function StockScreen() {
     sizeLabel: "",
     quantity: "",
     notes: "",
+    buyPrice: "",
+    sellPrice: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [addErrors, setAddErrors] = useState<Record<string, string>>({});
-
-  // Remove: streakDays, showConfetti, confettiAnim, streakAnim, triggerConfetti, useEffect for confetti/streak, streak badge, confetti animation, and related styles
-
-  // Remove: modalVisible, submitting, form, resetForm, handleImagePicker, handleSubmit, all code for FAB, Modal, and form fields
-  // Remove related imports: ImagePicker, Modal, Pressable, Image, TextInput (if only used for add form), etc. Only keep TextInput for search bar.
+  const [expandedLogs, setExpandedLogs] = useState<Record<string, boolean>>({});
+  const searchInputRef = useRef<TextInput>(null);
+  const fabScale = useRef(new Animated.Value(1)).current;
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString("en-US", {
@@ -79,26 +80,10 @@ export default function StockScreen() {
     );
   };
 
-  // Calculate total quantity in main unit
-  const getTotalQuantityByUnit = (
-    item: (typeof stockItems)[0],
-    unit: string
-  ) => {
-    let total = 0;
-    item.suppliers.forEach((supplierGroup) => {
-      supplierGroup.sizes.forEach((sizeGroup) => {
-        if (sizeGroup.size.unit === unit) {
-          total += sizeGroup.quantity;
-        }
-      });
-    });
-    return total;
-  };
-
   // Utility: format quantity with best unit (g/kg, ml/L, etc.)
   const formatQuantityWithUnit = (quantity: number, unit: string) => {
     if (unit === "g" && quantity >= 1000)
-      return `${(quantity / 1000).toFixed(2)} Kg`;
+      return `${(quantity / 1000).toFixed(2)} kg`;
     if (unit === "ml" && quantity >= 1000)
       return `${(quantity / 1000).toFixed(2)} L`;
     if (unit === "mg" && quantity >= 1000)
@@ -113,18 +98,8 @@ export default function StockScreen() {
     return `${quantity} ${unit}`;
   };
 
-  // Utility: format date for log
-  const formatLogDate = (date: Date) => {
-    return date.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   const handleAddStock = async () => {
-    const errors = {};
+    const errors: Record<string, string> = {};
     if (!addForm.productName.trim())
       errors.productName = "Product name is required";
     if (!addForm.supplierName.trim())
@@ -138,7 +113,15 @@ export default function StockScreen() {
     try {
       setSubmitting(true);
       clearError();
-      await addStockEntry(addForm);
+
+      // Create a copy of the form data to submit
+      const formDataToSubmit = {
+        ...addForm,
+      };
+
+      // The service will handle the type conversion from string to number
+      await addStockEntry(formDataToSubmit);
+
       setShowAdd(false);
       setAddForm({
         productId: "",
@@ -149,6 +132,8 @@ export default function StockScreen() {
         sizeLabel: "",
         quantity: "",
         notes: "",
+        buyPrice: "",
+        sellPrice: "",
       });
       setAddErrors({});
       Alert.alert("Success", "Stock entry added successfully");
@@ -159,11 +144,37 @@ export default function StockScreen() {
     }
   };
 
-  const renderStockItem = (item: (typeof stockItems)[0]) => {
+  const toggleLogExpansion = (productId: string) => {
+    setExpandedLogs((prev) => ({
+      ...prev,
+      [productId]: !prev[productId],
+    }));
+  };
+
+  const handleFabPress = () => {
+    // Animate the FAB scale down
+    Animated.sequence([
+      Animated.timing(fabScale, {
+        toValue: 0.9,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fabScale, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    setShowAdd((prev) => !prev);
+  };
+
+  const renderStockItem = ({ item }: { item: (typeof stockItems)[0] }) => {
     // Gather all supplier/packaging/price/quantity rows for this product
     const rows: any[] = [];
     let totalQuantity = 0;
     let unit = "";
+
     item.suppliers.forEach((supplierGroup) => {
       supplierGroup.sizes.forEach((sizeGroup) => {
         // Find the matching stock entry for buy/sell price
@@ -173,6 +184,7 @@ export default function StockScreen() {
             e.supplierId === supplierGroup.supplier.id &&
             e.sizeId === sizeGroup.size.id
         );
+
         rows.push({
           company: supplierGroup.supplier.name,
           packaging: sizeGroup.size.label,
@@ -180,10 +192,12 @@ export default function StockScreen() {
           sellPrice: stockEntry?.sellPrice ?? "",
           quantity: sizeGroup.quantity,
         });
+
         totalQuantity += sizeGroup.quantity;
         if (!unit) unit = sizeGroup.size.unit;
       });
     });
+
     function formatTotalQuantity(quantity: number, unit: string) {
       if (unit === "ml" && quantity >= 1000)
         return `${(quantity / 1000).toFixed(2)} L`;
@@ -195,23 +209,42 @@ export default function StockScreen() {
         return `${quantity} ${unit}`;
       return `${quantity} ${unit}`;
     }
+
+    // Get product-specific activities
+    const productActivities = activities
+      .filter((activity) => activity.productName === item.product.name)
+      .slice(0, 3); // Only show the latest 3
+
+    const isLogExpanded = expandedLogs[item.id] || false;
+
     return (
-      <View key={item.id} style={styles.stockCard}>
+      <View style={styles.stockCard}>
+        {/* Card Header */}
         <View style={styles.cardHeaderRow}>
           <Text style={styles.productName}>{item.product.name}</Text>
           <Text style={styles.totalQtyText}>
             {formatTotalQuantity(totalQuantity, unit)}
           </Text>
         </View>
+
+        {/* Table Header */}
         <View style={styles.tableHeaderRow}>
           <Text style={styles.tableHeader}>Company</Text>
-          <Text style={styles.tableHeader}>Packaging Size</Text>
-          <Text style={styles.tableHeader}>Buy Price (₹)</Text>
-          <Text style={styles.tableHeader}>Sell Price (₹)</Text>
-          <Text style={styles.tableHeader}>Quantity</Text>
+          <Text style={styles.tableHeader}>Size</Text>
+          <Text style={styles.tableHeader}>Buy ₹</Text>
+          <Text style={styles.tableHeader}>Sell ₹</Text>
+          <Text style={styles.tableHeader}>Qty</Text>
         </View>
+
+        {/* Table Rows */}
         {rows.map((row, idx) => (
-          <View key={idx} style={styles.tableRow}>
+          <View
+            key={idx}
+            style={[
+              styles.tableRow,
+              idx % 2 === 1 ? styles.tableRowAlternate : null,
+            ]}
+          >
             <Text style={styles.tableCell}>{row.company}</Text>
             <Text style={styles.tableCell}>{row.packaging}</Text>
             <Text style={styles.tableCell}>{row.buyPrice}</Text>
@@ -219,30 +252,254 @@ export default function StockScreen() {
             <Text style={styles.tableCell}>{row.quantity}</Text>
           </View>
         ))}
+
+        {/* Activity Log Panel */}
+        <TouchableOpacity
+          style={styles.logPanelHeader}
+          onPress={() => toggleLogExpansion(item.id)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.logPanelTitle}>Latest Updates</Text>
+          <MaterialIcons
+            name={isLogExpanded ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+            size={20}
+            color={AppColors.text}
+          />
+        </TouchableOpacity>
+
+        {isLogExpanded && (
+          <View style={styles.logPanelContent}>
+            {productActivities.length > 0 ? (
+              productActivities.map((activity, idx) => (
+                <View key={idx} style={styles.logEntry}>
+                  <View style={styles.logAvatar}>
+                    <MaterialIcons
+                      name={
+                        activity.action === "added"
+                          ? "add-circle"
+                          : "remove-circle"
+                      }
+                      size={16}
+                      color={AppColors.primary}
+                    />
+                  </View>
+                  <View style={styles.logInfo}>
+                    <Text style={styles.logAction}>{activity.action}</Text>
+                    <Text style={styles.logQuantity}>{activity.quantity}</Text>
+                  </View>
+                  <Text style={styles.logTimestamp}>
+                    {formatDate(activity.timestamp)}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.noLogsText}>No recent activity</Text>
+            )}
+          </View>
+        )}
       </View>
     );
   };
 
-  const renderActivityItem = (activity: (typeof activities)[0]) => (
-    <View key={activity.id} style={styles.activityLogItem}>
-      <View style={styles.activityLogRow}>
-        <Text style={styles.activityLogAction}>
-          {activity.action.toUpperCase()}
-        </Text>
-        <Text style={styles.activityLogProduct}>{activity.productName}</Text>
-        <Text style={styles.activityLogSupplier}>{activity.supplierName}</Text>
-        <Text style={styles.activityLogPackaging}>{activity.sizeName}</Text>
-        <Text style={styles.activityLogQty}>{activity.quantity}</Text>
-      </View>
-      <Text style={styles.activityLogDate}>
-        {formatLogDate(activity.timestamp)}
-      </Text>
-    </View>
-  );
+  const renderAddForm = () => (
+    <View style={styles.addCardOuter}>
+      <View style={styles.addCard}>
+        <Text style={styles.addTitle}>Add Stock</Text>
 
-  // Filtered stock items based on search
-  const filteredStockItems = stockItems.filter((item) =>
-    item.product.name.toLowerCase().includes(search.toLowerCase())
+        {/* Product */}
+        <View style={styles.formGroup}>
+          <Text style={styles.formLabel}>Product</Text>
+          <CreatableDropdown
+            options={products.map((p) => ({ id: p.id, label: p.name }))}
+            value={addForm.productId}
+            placeholder="Select or create product"
+            onSelect={(option) =>
+              setAddForm((prev) => ({
+                ...prev,
+                productId: option.id,
+                productName: option.label,
+              }))
+            }
+            onCreate={async (name) => {
+              const product = await getOrCreateProduct(name);
+              return { id: product.id, label: product.name };
+            }}
+            createLabel="Create product"
+            style={styles.inputWithIcon}
+          />
+          {addErrors.productName && (
+            <Text style={styles.inputError}>{addErrors.productName}</Text>
+          )}
+        </View>
+
+        {/* Supplier */}
+        <View style={styles.formGroup}>
+          <Text style={styles.formLabel}>Supplier</Text>
+          <CreatableDropdown
+            options={suppliers.map((s) => ({ id: s.id, label: s.name }))}
+            value={addForm.supplierId}
+            placeholder="Select or create supplier"
+            onSelect={(option) =>
+              setAddForm((prev) => ({
+                ...prev,
+                supplierId: option.id,
+                supplierName: option.label,
+              }))
+            }
+            onCreate={async (name) => {
+              const supplier = await getOrCreateSupplier(name);
+              return { id: supplier.id, label: supplier.name };
+            }}
+            createLabel="Create supplier"
+            style={styles.inputWithIcon}
+          />
+          {addErrors.supplierName && (
+            <Text style={styles.inputError}>{addErrors.supplierName}</Text>
+          )}
+        </View>
+
+        {/* Packaging Size */}
+        <View style={styles.formGroup}>
+          <Text style={styles.formLabel}>Packaging Size</Text>
+          <CreatableDropdown
+            options={sizes.map((s) => ({ id: s.id, label: s.label }))}
+            value={addForm.sizeId}
+            placeholder="Select or create size"
+            onSelect={(option) =>
+              setAddForm((prev) => ({
+                ...prev,
+                sizeId: option.id,
+                sizeLabel: option.label,
+              }))
+            }
+            onCreate={async (label) => {
+              const size = await getOrCreateSize(label);
+              return { id: size.id, label: size.label };
+            }}
+            createLabel="Create size"
+            style={styles.inputWithIcon}
+          />
+          {addErrors.sizeLabel && (
+            <Text style={styles.inputError}>{addErrors.sizeLabel}</Text>
+          )}
+        </View>
+
+        {/* Buy Price */}
+        <View style={styles.formGroup}>
+          <Text style={styles.formLabel}>Buy Price (₹)</Text>
+          <View style={styles.inputWithIcon}>
+            <MaterialIcons
+              name="attach-money"
+              size={20}
+              color={AppColors.primary}
+              style={{ marginRight: 8 }}
+            />
+            <TextInput
+              style={styles.textInput}
+              placeholder="Enter buy price"
+              value={addForm.buyPrice}
+              onChangeText={(text) =>
+                setAddForm((prev) => ({ ...prev, buyPrice: text }))
+              }
+              keyboardType="numeric"
+            />
+          </View>
+        </View>
+
+        {/* Sell Price */}
+        <View style={styles.formGroup}>
+          <Text style={styles.formLabel}>Sell Price (₹)</Text>
+          <View style={styles.inputWithIcon}>
+            <MaterialIcons
+              name="attach-money"
+              size={20}
+              color={AppColors.primary}
+              style={{ marginRight: 8 }}
+            />
+            <TextInput
+              style={styles.textInput}
+              placeholder="Enter sell price"
+              value={addForm.sellPrice}
+              onChangeText={(text) =>
+                setAddForm((prev) => ({ ...prev, sellPrice: text }))
+              }
+              keyboardType="numeric"
+            />
+          </View>
+        </View>
+
+        {/* Quantity */}
+        <View style={styles.formGroup}>
+          <Text style={styles.formLabel}>Quantity</Text>
+          <View style={styles.inputWithIcon}>
+            <MaterialIcons
+              name="inventory"
+              size={20}
+              color={AppColors.primary}
+              style={{ marginRight: 8 }}
+            />
+            <TextInput
+              style={styles.textInput}
+              placeholder="Enter quantity"
+              value={addForm.quantity}
+              onChangeText={(text) =>
+                setAddForm((prev) => ({ ...prev, quantity: text }))
+              }
+              keyboardType="numeric"
+            />
+          </View>
+          {addErrors.quantity && (
+            <Text style={styles.inputError}>{addErrors.quantity}</Text>
+          )}
+        </View>
+
+        {/* Notes */}
+        <View style={styles.formGroup}>
+          <Text style={styles.formLabel}>Notes (Optional)</Text>
+          <TextInput
+            style={[styles.textInput, styles.notesInput]}
+            placeholder="Additional notes..."
+            value={addForm.notes}
+            onChangeText={(text) =>
+              setAddForm((prev) => ({ ...prev, notes: text }))
+            }
+            multiline
+            numberOfLines={3}
+          />
+        </View>
+
+        {/* Submit Button */}
+        <View style={styles.addActions}>
+          <MaterialIcons.Button
+            name="check"
+            backgroundColor={AppColors.primary}
+            color="#fff"
+            size={24}
+            borderRadius={8}
+            onPress={handleAddStock}
+            disabled={submitting}
+            style={styles.addButton}
+          >
+            {submitting ? (
+              <Text style={{ color: "#fff" }}>Saving...</Text>
+            ) : (
+              <Text style={{ color: "#fff" }}>Save Stock</Text>
+            )}
+          </MaterialIcons.Button>
+          <MaterialIcons.Button
+            name="close"
+            backgroundColor="#fff"
+            color={AppColors.primary}
+            size={24}
+            borderRadius={8}
+            onPress={() => setShowAdd(false)}
+            style={styles.cancelButton}
+          >
+            <Text style={{ color: AppColors.primary }}>Cancel</Text>
+          </MaterialIcons.Button>
+        </View>
+      </View>
+    </View>
   );
 
   if (loading) {
@@ -254,6 +511,11 @@ export default function StockScreen() {
     );
   }
 
+  // Filtered stock items based on search
+  const filteredStockItems = stockItems.filter((item) =>
+    item.product.name.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <View style={styles.container}>
       <StatusBar
@@ -264,250 +526,85 @@ export default function StockScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Stock Inventory</Text>
+
         {/* Search Bar */}
         <View style={styles.searchBarContainer}>
           <MaterialIcons
             name="search"
             size={20}
-            color={AppColors.primary}
+            color={AppColors.text}
             style={{ marginRight: 6 }}
           />
           <TextInput
+            ref={searchInputRef}
             style={styles.searchBar}
-            placeholder="Search medicine..."
+            placeholder="Search products..."
             value={search}
             onChangeText={setSearch}
             placeholderTextColor="#999"
+            autoCapitalize="none"
           />
+          <TouchableOpacity
+            onPress={() => {
+              // Voice search would be implemented here
+              Alert.alert("Voice Search", "Voice search feature coming soon!");
+            }}
+          >
+            <MaterialIcons
+              name="mic"
+              size={20}
+              color={AppColors.primary}
+              style={{ marginLeft: 6 }}
+            />
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Confetti Animation */}
-      {/* Remove: showConfetti, confettiAnim, useEffect for confetti/streak, streak badge, confetti animation */}
+      {/* Error Message */}
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Error Message */}
-        {error && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
-
-        {/* Toggle between Stock List, Log, and Add Stock */}
-        {showAdd ? (
-          <View style={styles.addCardOuter}>
-            <View style={styles.addCard}>
-              <Text style={styles.addTitle}>Add Stock</Text>
-              {/* Product */}
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Product</Text>
-                <CreatableDropdown
-                  options={products.map((p) => ({ id: p.id, label: p.name }))}
-                  value={addForm.productId}
-                  placeholder="Select or create product"
-                  onSelect={(option) =>
-                    setAddForm((prev) => ({
-                      ...prev,
-                      productId: option.id,
-                      productName: option.label,
-                    }))
-                  }
-                  onCreate={async (name) => {
-                    const product = await getOrCreateProduct(name);
-                    return { id: product.id, label: product.name };
-                  }}
-                  createLabel="Create product"
-                  style={styles.inputWithIcon}
-                />
-                {addErrors.productName && (
-                  <Text style={styles.inputError}>{addErrors.productName}</Text>
-                )}
-              </View>
-              {/* Supplier */}
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Supplier</Text>
-                <CreatableDropdown
-                  options={suppliers.map((s) => ({ id: s.id, label: s.name }))}
-                  value={addForm.supplierId}
-                  placeholder="Select or create supplier"
-                  onSelect={(option) =>
-                    setAddForm((prev) => ({
-                      ...prev,
-                      supplierId: option.id,
-                      supplierName: option.label,
-                    }))
-                  }
-                  onCreate={async (name) => {
-                    const supplier = await getOrCreateSupplier(name);
-                    return { id: supplier.id, label: supplier.name };
-                  }}
-                  createLabel="Create supplier"
-                  style={styles.inputWithIcon}
-                />
-                {addErrors.supplierName && (
-                  <Text style={styles.inputError}>
-                    {addErrors.supplierName}
-                  </Text>
-                )}
-              </View>
-              {/* Packaging Size */}
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Packaging Size</Text>
-                <CreatableDropdown
-                  options={sizes.map((s) => ({ id: s.id, label: s.label }))}
-                  value={addForm.sizeId}
-                  placeholder="Select or create size"
-                  onSelect={(option) =>
-                    setAddForm((prev) => ({
-                      ...prev,
-                      sizeId: option.id,
-                      sizeLabel: option.label,
-                    }))
-                  }
-                  onCreate={async (label) => {
-                    const size = await getOrCreateSize(label);
-                    return { id: size.id, label: size.label };
-                  }}
-                  createLabel="Create size"
-                  style={styles.inputWithIcon}
-                />
-                {addErrors.sizeLabel && (
-                  <Text style={styles.inputError}>{addErrors.sizeLabel}</Text>
-                )}
-              </View>
-              {/* Quantity */}
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Quantity</Text>
-                <View style={styles.inputWithIcon}>
-                  <MaterialIcons
-                    name="inventory"
-                    size={20}
-                    color={AppColors.primary}
-                    style={{ marginRight: 8 }}
-                  />
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="Enter quantity"
-                    value={addForm.quantity}
-                    onChangeText={(text) =>
-                      setAddForm((prev) => ({ ...prev, quantity: text }))
-                    }
-                    keyboardType="numeric"
-                  />
-                </View>
-                {addErrors.quantity && (
-                  <Text style={styles.inputError}>{addErrors.quantity}</Text>
-                )}
-              </View>
-              {/* Notes */}
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Notes (Optional)</Text>
-                <TextInput
-                  style={[styles.textInput, styles.notesInput]}
-                  placeholder="Additional notes..."
-                  value={addForm.notes}
-                  onChangeText={(text) =>
-                    setAddForm((prev) => ({ ...prev, notes: text }))
-                  }
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-              {/* Submit Button */}
-              <View style={styles.addActions}>
-                <MaterialIcons.Button
-                  name="check"
-                  backgroundColor={AppColors.primary}
-                  color="#fff"
-                  size={24}
-                  borderRadius={8}
-                  onPress={handleAddStock}
-                  disabled={submitting}
-                  style={styles.addButton}
-                >
-                  {submitting ? (
-                    <Text style={{ color: "#fff" }}>Saving...</Text>
-                  ) : (
-                    <Text style={{ color: "#fff" }}>Save Stock</Text>
-                  )}
-                </MaterialIcons.Button>
-                <MaterialIcons.Button
-                  name="close"
-                  backgroundColor="#fff"
-                  color={AppColors.primary}
-                  size={24}
-                  borderRadius={8}
-                  onPress={() => setShowAdd(false)}
-                  style={styles.cancelButton}
-                >
-                  <Text style={{ color: AppColors.primary }}>Cancel</Text>
-                </MaterialIcons.Button>
-              </View>
+      {/* Content */}
+      {showAdd ? (
+        renderAddForm()
+      ) : (
+        <FlatList
+          data={filteredStockItems}
+          renderItem={renderStockItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={() => (
+            <View style={styles.emptyState}>
+              <MaterialIcons name="archive" size={48} color="#CCC" />
+              <Text style={styles.emptyStateText}>No stock items found</Text>
+              <Text style={styles.emptyStateSubtext}>
+                Try a different search or tap the + button to add stock
+              </Text>
             </View>
-          </View>
-        ) : showLog ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Stock Activity Log</Text>
-            {activities.length === 0 ? (
-              <Text style={styles.emptyActivityText}>No recent activity</Text>
-            ) : (
-              activities.map(renderActivityItem)
-            )}
-          </View>
-        ) : (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Current Stock</Text>
-            {filteredStockItems.length === 0 ? (
-              <View style={styles.emptyState}>
-                <MaterialIcons name="archive" size={48} color="#CCC" />
-                <Text style={styles.emptyStateText}>No stock items found</Text>
-                <Text style={styles.emptyStateSubtext}>
-                  Try a different search or tap the + button to add stock
-                </Text>
-              </View>
-            ) : (
-              filteredStockItems.map(renderStockItem)
-            )}
-          </View>
-        )}
-        <View style={styles.bottomPadding} />
-      </ScrollView>
-      {/* Floating Log Button */}
-      <View style={styles.fabLogContainer}>
-        <MaterialIcons.Button
-          name={showLog ? "close" : "history"}
-          backgroundColor={AppColors.primary}
-          color="#fff"
-          size={28}
-          borderRadius={28}
-          iconStyle={{ marginRight: 0 }}
-          onPress={() => {
-            setShowLog((prev) => !prev);
-            setShowAdd(false);
-          }}
-          style={styles.fabLog}
-          accessibilityLabel={
-            showLog ? "Back to Stock" : "View Stock Activity Log"
-          }
+          )}
         />
-      </View>
+      )}
+
       {/* Floating Add Button */}
-      <View style={styles.fabAddContainer}>
-        <MaterialIcons.Button
-          name={showAdd ? "close" : "add"}
-          backgroundColor={AppColors.primary}
-          color="#fff"
-          size={28}
-          borderRadius={28}
-          iconStyle={{ marginRight: 0 }}
-          onPress={() => {
-            setShowAdd((prev) => !prev);
-            setShowLog(false);
-          }}
-          style={styles.fabAdd}
-          accessibilityLabel={showAdd ? "Back to Stock" : "Add Stock"}
-        />
-      </View>
+      <Animated.View
+        style={[styles.fabContainer, { transform: [{ scale: fabScale }] }]}
+      >
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={handleFabPress}
+          activeOpacity={0.8}
+        >
+          <MaterialIcons
+            name={showAdd ? "close" : "add"}
+            size={24}
+            color="#FFFFFF"
+          />
+        </TouchableOpacity>
+      </Animated.View>
     </View>
   );
 }
@@ -531,23 +628,33 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0 + 20,
     paddingHorizontal: 20,
-    paddingBottom: 20,
-    backgroundColor: AppColors.white,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: AppColors.border,
+    paddingBottom: 16,
+    backgroundColor: "#F5F5F5",
+    zIndex: 10,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: AppColors.text,
-    marginBottom: 4,
+    fontSize: 24,
+    fontWeight: "600",
+    color: "#263238",
+    marginBottom: 12,
   },
-  headerSubtitle: {
-    fontSize: 16,
-    color: "#666",
+  searchBarContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  content: {
+  searchBar: {
     flex: 1,
+    fontSize: 16,
+    color: "#263238",
+    padding: 0,
+  },
+  listContainer: {
+    paddingTop: 24,
+    paddingBottom: 100,
   },
   errorContainer: {
     margin: 16,
@@ -560,16 +667,6 @@ const styles = StyleSheet.create({
   errorText: {
     color: AppColors.error,
     fontSize: 14,
-  },
-  section: {
-    marginTop: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: AppColors.text,
-    marginHorizontal: 20,
-    marginBottom: 12,
   },
   emptyState: {
     alignItems: "center",
@@ -589,427 +686,203 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   stockCard: {
-    backgroundColor: AppColors.white,
+    backgroundColor: "#FFFFFF",
     marginHorizontal: 16,
-    marginBottom: 14,
-    borderRadius: 18,
-    padding: 18,
-    shadowColor: AppColors.shadow,
+    marginBottom: 24,
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: "#000000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 4,
-    borderWidth: 0.5,
-    borderColor: "#F0F0F0",
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  stockCardHeader: {
+  cardHeaderRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 12,
-  },
-  stockIcon: {
-    marginRight: 12,
-    marginTop: 2,
-  },
-  stockHeaderText: {
-    flex: 1,
   },
   productName: {
     fontSize: 18,
-    fontWeight: "600",
-    color: AppColors.text,
-    marginBottom: 2,
+    fontWeight: "700",
+    color: "#263238",
   },
-  totalQuantity: {
-    fontSize: 14,
-    color: AppColors.primary,
-    fontWeight: "500",
+  totalQtyText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0288D1",
   },
-  supplierSection: {
-    marginBottom: 12,
-  },
-  supplierName: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#666",
-    marginBottom: 8,
-  },
-  sizesContainer: {
+  tableHeaderRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0",
   },
-  sizeChip: {
-    backgroundColor: "#F0F9FF",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: "#E0F2FE",
-  },
-  sizeLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: AppColors.primary,
-  },
-  sizeQuantity: {
-    fontSize: 11,
-    color: "#666",
-  },
-  emptyActivityText: {
-    textAlign: "center",
-    color: "#999",
-    fontStyle: "italic",
-    marginHorizontal: 20,
-    marginVertical: 20,
-  },
-  activityItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginHorizontal: 20,
-    marginBottom: 12,
-  },
-  activityIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: AppColors.secondary,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-    marginTop: 2,
-  },
-  activityContent: {
+  tableHeader: {
     flex: 1,
-  },
-  activityText: {
-    fontSize: 14,
-    color: AppColors.text,
-    lineHeight: 20,
-  },
-  activityAction: {
+    fontSize: 12,
     fontWeight: "600",
-    textTransform: "capitalize",
+    color: "#F9A825",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
-  activityProduct: {
-    fontWeight: "500",
-    color: AppColors.primary,
+  tableRow: {
+    flexDirection: "row",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
   },
-  activitySupplier: {
-    fontWeight: "500",
-    color: AppColors.secondary,
+  tableRowAlternate: {
+    backgroundColor: "rgba(255, 112, 67, 0.05)",
   },
-  activityTime: {
-    fontSize: 12,
-    color: "#999",
-    marginTop: 2,
-  },
-  bottomPadding: {
-    height: 100,
-  },
-  fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: AppColors.accent,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  modalOverlay: {
+  tableCell: {
     flex: 1,
-    backgroundColor: AppColors.overlay,
-    justifyContent: "flex-end",
+    fontSize: 14,
+    color: "#263238",
   },
-  modalContent: {
-    backgroundColor: AppColors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: "90%",
-  },
-  modalHeader: {
+  logPanelHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: AppColors.border,
+    paddingTop: 12,
+    paddingBottom: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#F0F0F0",
+    marginTop: 4,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: AppColors.text,
+  logPanelTitle: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#263238",
   },
-  closeButton: {
-    padding: 4,
+  logPanelContent: {
+    paddingTop: 8,
   },
-  modalForm: {
+  logEntry: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 6,
+  },
+  logAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#F0F9FF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
+  },
+  logInfo: {
     flex: 1,
-    paddingHorizontal: 20,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  logAction: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#0288D1",
+    marginRight: 6,
+    textTransform: "capitalize",
+  },
+  logQuantity: {
+    fontSize: 13,
+    color: "#263238",
+  },
+  logTimestamp: {
+    fontSize: 12,
+    color: "#757575",
+  },
+  noLogsText: {
+    fontSize: 13,
+    color: "#757575",
+    fontStyle: "italic",
+    textAlign: "center",
+    paddingVertical: 8,
+  },
+  fabContainer: {
+    position: "absolute",
+    right: 20,
+    bottom: Platform.OS === "android" ? 20 : 30,
+    zIndex: 100,
+  },
+  fab: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#FF7043",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  addCardOuter: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16,
+    marginBottom: 0,
+    paddingHorizontal: 16,
+  },
+  addCard: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    paddingTop: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 32,
+    shadowColor: "#000000",
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  addTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: AppColors.primary,
+    marginBottom: 18,
+    textAlign: "center",
   },
   formGroup: {
-    marginTop: 20,
+    marginBottom: 16,
   },
   formLabel: {
     fontSize: 14,
     fontWeight: "500",
-    color: AppColors.text,
+    color: "#263238",
     marginBottom: 8,
   },
-  textInput: {
-    borderWidth: 1,
-    borderColor: AppColors.border,
+  inputWithIcon: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F5F7FA",
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+  },
+  textInput: {
+    flex: 1,
     fontSize: 16,
-    color: AppColors.text,
-    backgroundColor: AppColors.white,
+    color: "#263238",
+    paddingVertical: 12,
   },
   notesInput: {
     height: 80,
     textAlignVertical: "top",
-  },
-  imageButton: {
-    borderWidth: 1,
-    borderColor: AppColors.border,
-    borderRadius: 8,
-    borderStyle: "dashed",
-    padding: 20,
-    alignItems: "center",
-  },
-  imageContainer: {
-    alignItems: "center",
-  },
-  billImage: {
-    width: 80,
-    height: 60,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  imageText: {
-    fontSize: 14,
-    color: AppColors.primary,
-    fontWeight: "500",
-  },
-  modalActions: {
-    flexDirection: "row",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: AppColors.border,
-    gap: 12,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 48,
-  },
-  saveButton: {
-    backgroundColor: AppColors.primary,
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: AppColors.text,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: AppColors.white,
-  },
-  quantityRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  quantityValue: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: AppColors.primary,
-  },
-  quantityUnit: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: AppColors.text,
-    marginLeft: 4,
-    marginBottom: 2,
-  },
-  // Remove: streakBadge, streakText, confetti styles
-  supplierList: {
-    marginTop: 2,
-    marginBottom: 4,
-  },
-  supplierRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 2,
-  },
-  supplierNameList: {
-    fontSize: 13,
-    color: "#444",
-    fontWeight: "500",
-    marginRight: 10,
-    minWidth: 80,
-  },
-  packagingLabel: {
-    fontSize: 13,
-    color: "#888",
-    marginRight: 10,
-    minWidth: 70,
-  },
-  packagingQty: {
-    fontSize: 13,
-    color: AppColors.primary,
-    fontWeight: "600",
-  },
-  totalAmountContainer: {
-    position: "absolute",
-    bottom: 12,
-    right: 18,
-    backgroundColor: "#F0F9FF",
+    backgroundColor: "#F5F7FA",
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 4,
-    shadowColor: AppColors.primary,
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
   },
-  totalAmountText: {
-    fontSize: 15,
-    fontWeight: "bold",
-    color: AppColors.primary,
-    letterSpacing: 0.2,
-  },
-  searchBarContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F5F5F5",
-    borderRadius: 10,
-    marginTop: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
-  },
-  searchBar: {
-    flex: 1,
-    fontSize: 16,
-    color: AppColors.text,
-    backgroundColor: "transparent",
-    paddingVertical: 6,
-    paddingHorizontal: 0,
-    borderWidth: 0,
-  },
-  activityLogItem: {
-    backgroundColor: "#F8F9FA",
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 8,
-    marginHorizontal: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
-  },
-  activityLogRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 2,
-  },
-  activityLogAction: {
+  inputError: {
+    color: AppColors.error,
     fontSize: 12,
-    fontWeight: "bold",
-    color: "#1976D2",
-    marginRight: 8,
-    minWidth: 60,
-  },
-  activityLogProduct: {
-    fontSize: 13,
-    color: "#333",
-    fontWeight: "500",
-    marginRight: 8,
-    minWidth: 80,
-  },
-  activityLogSupplier: {
-    fontSize: 12,
-    color: "#666",
-    marginRight: 8,
-    minWidth: 70,
-  },
-  activityLogPackaging: {
-    fontSize: 12,
-    color: "#888",
-    marginRight: 8,
-    minWidth: 60,
-  },
-  activityLogQty: {
-    fontSize: 13,
-    color: AppColors.primary,
-    fontWeight: "600",
-    minWidth: 30,
-    textAlign: "right",
-  },
-  activityLogDate: {
-    fontSize: 11,
-    color: "#999",
-    marginTop: 2,
-    textAlign: "right",
-  },
-  fabLogContainer: {
-    position: "absolute",
-    left: 20,
-    bottom: Platform.OS === "android" ? 80 : 70,
-    zIndex: 100,
-  },
-  fabLog: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 6,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  fabAddContainer: {
-    position: "absolute",
-    right: 20,
-    bottom: Platform.OS === "android" ? 80 : 70,
-    zIndex: 100,
-  },
-  fabAdd: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 6,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    marginTop: 4,
+    marginLeft: 2,
   },
   addActions: {
     flexDirection: "row",
@@ -1026,85 +899,5 @@ const styles = StyleSheet.create({
     minWidth: 80,
     backgroundColor: "#F5F5F5",
     justifyContent: "center",
-  },
-  addCardOuter: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 16,
-    marginBottom: 0,
-  },
-  addCard: {
-    width: "98%",
-    maxWidth: 420,
-    backgroundColor: "#fff",
-    borderRadius: 18,
-    paddingTop: 24,
-    paddingHorizontal: 24,
-    paddingBottom: 32,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-  },
-  addTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: AppColors.primary,
-    marginBottom: 18,
-    textAlign: "center",
-  },
-  inputWithIcon: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F5F7FA",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 2,
-    marginBottom: 0,
-  },
-  inputError: {
-    color: AppColors.error,
-    fontSize: 12,
-    marginTop: 4,
-    marginLeft: 2,
-  },
-  tableHeaderRow: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
-    paddingBottom: 4,
-    marginBottom: 4,
-  },
-  tableHeader: {
-    flex: 1,
-    fontWeight: "bold",
-    fontSize: 13,
-    color: AppColors.primary,
-    textAlign: "left",
-  },
-  tableRow: {
-    flexDirection: "row",
-    paddingVertical: 2,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#F0F0F0",
-  },
-  tableCell: {
-    flex: 1,
-    fontSize: 13,
-    color: "#333",
-    textAlign: "left",
-  },
-  cardHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  totalQtyText: {
-    fontSize: 15,
-    fontWeight: "bold",
-    color: AppColors.primary,
   },
 });

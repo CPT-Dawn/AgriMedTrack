@@ -78,6 +78,8 @@ export interface StockEntryFormData {
   sizeId: string;
   sizeLabel: string;
   quantity: string;
+  buyPrice?: string;
+  sellPrice?: string;
   billImage?: {
     uri: string;
     name: string;

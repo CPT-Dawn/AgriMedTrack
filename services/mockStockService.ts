@@ -532,6 +532,8 @@ export const stockService = {
       supplierId: data.supplierId,
       sizeId: data.sizeId,
       quantity: parseInt(data.quantity),
+      buyPrice: data.buyPrice ? parseFloat(data.buyPrice) : undefined,
+      sellPrice: data.sellPrice ? parseFloat(data.sellPrice) : undefined,
       notes: data.notes || "",
       billImageUrl: data.billImage
         ? `mock://bill-${Date.now()}.jpg`
@@ -559,6 +561,8 @@ export const stockService = {
     const updatedEntry = {
       ...entry,
       quantity: data.quantity ? parseInt(data.quantity) : entry.quantity,
+      buyPrice: data.buyPrice ? parseFloat(data.buyPrice) : entry.buyPrice,
+      sellPrice: data.sellPrice ? parseFloat(data.sellPrice) : entry.sellPrice,
       notes: data.notes !== undefined ? data.notes : entry.notes,
       billImageUrl: data.billImage
         ? `mock://bill-${Date.now()}.jpg`
