@@ -538,6 +538,7 @@ export const stockService = {
       billImageUrl: data.billImage
         ? `mock://bill-${Date.now()}.jpg`
         : undefined,
+      batchId: data.batchId, // Add support for batchId
       updatedBy: userId,
       createdAt: new Date(),
       updatedAt: new Date(),

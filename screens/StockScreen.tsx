@@ -1,6 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useRouter } from "expo-router";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -14,11 +14,18 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { AddStockModal } from "../components/AddStockModal";
+import { AddStockForm } from "../components/AddStockForm";
+import { BatchActivityLog } from "../components/BatchActivityLog";
 import { StockCard } from "../components/StockCard";
 import { AppColors } from "../constants/Colors";
 import { useStock } from "../hooks/useStock";
-import { StockEntryFormData, StockItem } from "../types/stock";
+import {
+  BatchEntryFormData,
+  StockActivity,
+  StockBatch,
+  StockEntryFormData,
+  StockItem,
+} from "../types/stock";
 
 export default function StockScreen() {
   const {
@@ -39,28 +46,121 @@ export default function StockScreen() {
 
   const [search, setSearch] = useState("");
   const router = useRouter();
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showAllLogs, setShowAllLogs] = useState(false);
   const [expandedLogs, setExpandedLogs] = useState<Record<string, boolean>>({});
   const searchInputRef = useRef<TextInput>(null);
-  const fabScale = useRef(new Animated.Value(1)).current;
+  const leftBubbleScale = useRef(new Animated.Value(1)).current;
+  const rightBubbleScale = useRef(new Animated.Value(1)).current;
+  const [highlightedProductId, setHighlightedProductId] = useState<
+    string | null
+  >(null);
+  const [isLogsExpanded, setIsLogsExpanded] = useState(false);
+  const [loadingMoreLogs, setLoadingMoreLogs] = useState(false);
+  const [logPage, setLogPage] = useState(1);
+  const LOGS_PER_PAGE = 5;
 
-  // Handle FAB press with animation
-  const handleFabPress = () => {
+  // Current view state
+  const [currentView, setCurrentView] = useState<"stock" | "logs" | "add">(
+    "stock"
+  );
+
+  // Group activities by batch for the global log view
+  const activityBatches = useMemo(() => {
+    // First, group activities by batchId
+    const batchMap = new Map<string, StockActivity[]>();
+
+    // Handle activities without batchId (legacy data)
+    const unbatchedActivities: StockActivity[] = [];
+
+    activities.forEach((activity) => {
+      if (activity.batchId) {
+        if (!batchMap.has(activity.batchId)) {
+          batchMap.set(activity.batchId, []);
+        }
+        batchMap.get(activity.batchId)?.push(activity);
+      } else {
+        unbatchedActivities.push(activity);
+      }
+    });
+
+    // Convert to StockBatch objects
+    const batches: StockBatch[] = [];
+
+    // Add batched activities
+    batchMap.forEach((activities, batchId) => {
+      if (activities.length > 0) {
+        batches.push({
+          id: batchId,
+          addedBy: activities[0].updatedBy,
+          addedByName: activities[0].updatedByName,
+          addedAt: activities[0].timestamp,
+          items: activities,
+        });
+      }
+    });
+
+    // Add individual unbatched activities as single-item batches
+    unbatchedActivities.forEach((activity) => {
+      batches.push({
+        id: activity.id,
+        addedBy: activity.updatedBy,
+        addedByName: activity.updatedByName,
+        addedAt: activity.timestamp,
+        items: [activity],
+      });
+    });
+
+    // Sort batches by date (newest first)
+    return batches.sort((a, b) => b.addedAt.getTime() - a.addedAt.getTime());
+  }, [activities]);
+
+  // Paginated batches
+  const paginatedBatches = useMemo(() => {
+    return activityBatches.slice(0, logPage * LOGS_PER_PAGE);
+  }, [activityBatches, logPage]);
+
+  // Handle left bubble press (Activity Log)
+  const handleLogBubblePress = () => {
     Animated.sequence([
-      Animated.timing(fabScale, {
+      Animated.timing(leftBubbleScale, {
         toValue: 0.9,
         duration: 100,
         useNativeDriver: true,
       }),
-      Animated.timing(fabScale, {
+      Animated.timing(leftBubbleScale, {
         toValue: 1,
         duration: 100,
         useNativeDriver: true,
       }),
     ]).start();
 
-    setShowAddModal(true);
+    // Toggle between logs view and stock view
+    setCurrentView(currentView === "logs" ? "stock" : "logs");
+  };
+
+  // Handle right bubble press (Add Stock)
+  const handleAddBubblePress = () => {
+    Animated.sequence([
+      Animated.timing(rightBubbleScale, {
+        toValue: 0.9,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(rightBubbleScale, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Toggle between add view and stock view
+    setCurrentView(currentView === "add" ? "stock" : "add");
+  };
+
+  // Handle back to stock view
+  const handleBackToStock = () => {
+    setCurrentView("stock");
+    // Reset any highlighted product
+    setHighlightedProductId(null);
   };
 
   // Toggle log expansion for a specific product
@@ -72,14 +172,35 @@ export default function StockScreen() {
   }, []);
 
   // Handle stock entry submission
-  const handleAddStock = async (formData: StockEntryFormData) => {
+  const handleAddStock = async (
+    formData: StockEntryFormData | BatchEntryFormData
+  ) => {
     try {
       clearError();
       await addStockEntry(formData);
-      Alert.alert("Success", "Stock entry added successfully");
+      setCurrentView("stock"); // Return to stock view after adding
+      return Promise.resolve();
     } catch (err) {
       Alert.alert("Error", "Failed to add stock entry");
-      throw err;
+      return Promise.reject(err);
+    }
+  };
+
+  // Handle highlighting a product when clicked in the log
+  const handleHighlightProduct = (productId: string) => {
+    setHighlightedProductId(productId);
+    setCurrentView("stock"); // Switch to stock view to show the highlighted product
+  };
+
+  // Load more logs
+  const handleLoadMoreLogs = () => {
+    if (paginatedBatches.length < activityBatches.length) {
+      setLoadingMoreLogs(true);
+      // Simulate loading delay
+      setTimeout(() => {
+        setLogPage((prev) => prev + 1);
+        setLoadingMoreLogs(false);
+      }, 500);
     }
   };
 
@@ -87,11 +208,12 @@ export default function StockScreen() {
   const renderStockItem = useCallback(
     ({ item }: { item: StockItem }) => {
       // Get product-specific activities
-      const productActivities = activities
-        .filter((activity) => activity.productName === item.product.name)
-        .slice(0, 3); // Only show the latest 3
+      const productActivities = activities.filter(
+        (activity) => activity.productName === item.product.name
+      );
 
       const isLogExpanded = expandedLogs[item.id] || false;
+      const isHighlighted = highlightedProductId === item.product.id;
 
       return (
         <StockCard
@@ -100,60 +222,48 @@ export default function StockScreen() {
           productActivities={productActivities}
           isLogExpanded={isLogExpanded}
           onToggleLog={toggleLogExpansion}
+          onHighlightProduct={handleHighlightProduct}
         />
       );
     },
-    [activities, expandedLogs, stockEntries, toggleLogExpansion]
+    [
+      activities,
+      expandedLogs,
+      stockEntries,
+      toggleLogExpansion,
+      highlightedProductId,
+    ]
   );
 
   // Render all activity logs
   const renderAllLogs = () => {
     return (
       <View style={styles.allLogsContainer}>
-        <View style={styles.allLogsHeader}>
-          <Text style={styles.allLogsTitle}>Activity Logs</Text>
-          <TouchableOpacity
-            onPress={() => setShowAllLogs(false)}
-            style={styles.closeButton}
-          >
-            <MaterialIcons name="close" size={24} color={AppColors.text} />
-          </TouchableOpacity>
-        </View>
-
-        <FlatList
-          data={activities}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.logItem}>
-              <View style={styles.logAvatar}>
-                <MaterialIcons
-                  name={
-                    item.action === "added"
-                      ? "add-circle"
-                      : item.action === "updated"
-                      ? "edit"
-                      : "remove-circle"
-                  }
-                  size={18}
-                  color={AppColors.primary}
-                />
-              </View>
-              <View style={styles.logContent}>
-                <Text style={styles.logText}>
-                  <Text style={styles.logAction}>{item.action}</Text>{" "}
-                  {item.quantity} {item.sizeName} of{" "}
-                  <Text style={styles.logProduct}>{item.productName}</Text> from{" "}
-                  <Text style={styles.logSupplier}>{item.supplierName}</Text>
-                </Text>
-                <Text style={styles.logTime}>
-                  {new Date(item.timestamp).toLocaleString()}
-                </Text>
-              </View>
-            </View>
-          )}
-          contentContainerStyle={styles.logsList}
+        <BatchActivityLog
+          batches={paginatedBatches}
+          isExpanded={true}
+          onToggle={() => setIsLogsExpanded(!isLogsExpanded)}
+          onItemPress={handleHighlightProduct}
+          loading={loadingMoreLogs}
+          onLoadMore={handleLoadMoreLogs}
+          hideCount={true}
         />
       </View>
+    );
+  };
+
+  // Render add stock form
+  const renderAddStockForm = () => {
+    return (
+      <AddStockForm
+        onSubmit={handleAddStock}
+        products={products}
+        suppliers={suppliers}
+        sizes={sizes}
+        getOrCreateProduct={getOrCreateProduct}
+        getOrCreateSupplier={getOrCreateSupplier}
+        getOrCreateSize={getOrCreateSize}
+      />
     );
   };
 
@@ -172,6 +282,51 @@ export default function StockScreen() {
     item.product.name.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Get the header title based on current view
+  const getHeaderTitle = () => {
+    switch (currentView) {
+      case "logs":
+        return "Stock Log";
+      case "add":
+        return "Add Stock";
+      default:
+        return "Stock Inventory";
+    }
+  };
+
+  // Render content based on current view
+  const renderContent = () => {
+    switch (currentView) {
+      case "logs":
+        return renderAllLogs();
+      case "add":
+        return renderAddStockForm();
+      default:
+        return (
+          <FlatList
+            data={filteredStockItems}
+            renderItem={renderStockItem}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
+            initialNumToRender={6}
+            maxToRenderPerBatch={10}
+            windowSize={10}
+            removeClippedSubviews={Platform.OS === "android"}
+            ListEmptyComponent={() => (
+              <View style={styles.emptyState}>
+                <MaterialIcons name="archive" size={48} color="#CCC" />
+                <Text style={styles.emptyStateText}>No stock items found</Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Try a different search or tap the + button to add stock
+                </Text>
+              </View>
+            )}
+          />
+        );
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar
@@ -181,66 +336,61 @@ export default function StockScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Stock Inventory</Text>
+        <View style={styles.headerTitleContainer}>
+          {currentView !== "stock" && (
+            <TouchableOpacity
+              onPress={handleBackToStock}
+              style={styles.backButton}
+              accessibilityLabel="Back to stock inventory"
+            >
+              <MaterialIcons
+                name="arrow-back"
+                size={24}
+                color={AppColors.text}
+              />
+            </TouchableOpacity>
+          )}
+          <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
+        </View>
 
-        {/* Search Bar */}
-        <View style={styles.searchBarContainer}>
-          <MaterialIcons
-            name="search"
-            size={20}
-            color={AppColors.text}
-            style={{ marginRight: 6 }}
-          />
-          <TextInput
-            ref={searchInputRef}
-            style={styles.searchBar}
-            placeholder="Search products..."
-            value={search}
-            onChangeText={setSearch}
-            placeholderTextColor="#999"
-            autoCapitalize="none"
-            accessibilityLabel="Search products"
-          />
-          <TouchableOpacity
-            onPress={() => {
-              // Voice search would be implemented here
-              Alert.alert("Voice Search", "Voice search feature coming soon!");
-            }}
-            accessibilityLabel="Voice search"
-          >
+        {/* Search Bar - Only show in stock view */}
+        {currentView === "stock" && (
+          <View style={styles.searchBarContainer}>
             <MaterialIcons
-              name="mic"
+              name="search"
               size={20}
-              color={AppColors.primary}
-              style={{ marginLeft: 6 }}
+              color={AppColors.text}
+              style={{ marginRight: 6 }}
             />
-          </TouchableOpacity>
-        </View>
-
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => setShowAddModal(true)}
-            accessibilityLabel="Add new stock"
-          >
-            <MaterialIcons
-              name="add-circle"
-              size={18}
-              color={AppColors.primary}
+            <TextInput
+              ref={searchInputRef}
+              style={styles.searchBar}
+              placeholder="Search products..."
+              value={search}
+              onChangeText={setSearch}
+              placeholderTextColor="#999"
+              autoCapitalize="none"
+              accessibilityLabel="Search products"
             />
-            <Text style={styles.actionButtonText}>Add Stock</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => setShowAllLogs(true)}
-            accessibilityLabel="View all activity logs"
-          >
-            <MaterialIcons name="history" size={18} color={AppColors.primary} />
-            <Text style={styles.actionButtonText}>View Logs</Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              onPress={() => {
+                // Voice search would be implemented here
+                Alert.alert(
+                  "Voice Search",
+                  "Voice search feature coming soon!"
+                );
+              }}
+              accessibilityLabel="Voice search"
+            >
+              <MaterialIcons
+                name="mic"
+                size={20}
+                color={AppColors.primary}
+                style={{ marginLeft: 6 }}
+              />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* Error Message */}
@@ -250,58 +400,71 @@ export default function StockScreen() {
         </View>
       )}
 
-      {/* Content: Stock List or All Logs */}
-      {showAllLogs ? (
-        renderAllLogs()
-      ) : (
-        <FlatList
-          data={filteredStockItems}
-          renderItem={renderStockItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContainer}
-          showsVerticalScrollIndicator={false}
-          initialNumToRender={6}
-          maxToRenderPerBatch={10}
-          windowSize={10}
-          removeClippedSubviews={Platform.OS === "android"}
-          ListEmptyComponent={() => (
-            <View style={styles.emptyState}>
-              <MaterialIcons name="archive" size={48} color="#CCC" />
-              <Text style={styles.emptyStateText}>No stock items found</Text>
-              <Text style={styles.emptyStateSubtext}>
-                Try a different search or tap the + button to add stock
-              </Text>
-            </View>
-          )}
-        />
-      )}
+      {/* Content based on current view */}
+      {renderContent()}
 
-      {/* Floating Add Button - Always visible */}
+      {/* Floating Bubbles */}
+      {/* Left Bubble - Activity Log */}
       <Animated.View
-        style={[styles.fabContainer, { transform: [{ scale: fabScale }] }]}
+        style={[
+          styles.leftBubbleContainer,
+          { transform: [{ scale: leftBubbleScale }] },
+        ]}
       >
         <TouchableOpacity
-          style={styles.fab}
-          onPress={handleFabPress}
+          style={[
+            styles.bubble,
+            {
+              backgroundColor:
+                currentView === "logs"
+                  ? AppColors.secondary
+                  : AppColors.primary,
+            },
+          ]}
+          onPress={handleLogBubblePress}
           activeOpacity={0.8}
-          accessibilityLabel="Add stock"
+          accessibilityLabel={
+            currentView === "logs"
+              ? "Close activity logs"
+              : "View activity logs"
+          }
         >
-          <MaterialIcons name="add" size={24} color="#FFFFFF" />
+          <MaterialIcons
+            name={currentView === "logs" ? "close" : "history"}
+            size={24}
+            color="#FFFFFF"
+          />
         </TouchableOpacity>
       </Animated.View>
 
-      {/* Add Stock Modal */}
-      <AddStockModal
-        visible={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onSubmit={handleAddStock}
-        products={products}
-        suppliers={suppliers}
-        sizes={sizes}
-        getOrCreateProduct={getOrCreateProduct}
-        getOrCreateSupplier={getOrCreateSupplier}
-        getOrCreateSize={getOrCreateSize}
-      />
+      {/* Right Bubble - Add Stock */}
+      <Animated.View
+        style={[
+          styles.rightBubbleContainer,
+          { transform: [{ scale: rightBubbleScale }] },
+        ]}
+      >
+        <TouchableOpacity
+          style={[
+            styles.bubble,
+            {
+              backgroundColor:
+                currentView === "add" ? AppColors.secondary : AppColors.accent,
+            },
+          ]}
+          onPress={handleAddBubblePress}
+          activeOpacity={0.8}
+          accessibilityLabel={
+            currentView === "add" ? "Close add stock form" : "Add new stock"
+          }
+        >
+          <MaterialIcons
+            name={currentView === "add" ? "close" : "add"}
+            size={24}
+            color="#FFFFFF"
+          />
+        </TouchableOpacity>
+      </Animated.View>
     </View>
   );
 }
@@ -329,11 +492,19 @@ const styles = StyleSheet.create({
     backgroundColor: "#F5F5F5",
     zIndex: 10,
   },
+  headerTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  backButton: {
+    padding: 4,
+    marginRight: 8,
+  },
   headerTitle: {
     fontSize: 24,
     fontWeight: "600",
     color: "#263238",
-    marginBottom: 12,
   },
   searchBarContainer: {
     flexDirection: "row",
@@ -349,34 +520,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#263238",
     padding: 0,
-  },
-  actionButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 12,
-  },
-  actionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    elevation: 2,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    flex: 1,
-    marginHorizontal: 4,
-    justifyContent: "center",
-    minHeight: 44,
-  },
-  actionButtonText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: AppColors.primary,
-    marginLeft: 6,
   },
   listContainer: {
     paddingTop: 12,
@@ -411,17 +554,22 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 4,
   },
-  fabContainer: {
+  leftBubbleContainer: {
     position: "absolute",
-    right: 20,
-    bottom: Platform.OS === "android" ? 20 : 30,
+    left: 20,
+    bottom: Platform.OS === "android" ? 80 : 100,
     zIndex: 100,
   },
-  fab: {
-    width: 56, // Increased size for better visibility
-    height: 56, // Increased size for better visibility
+  rightBubbleContainer: {
+    position: "absolute",
+    right: 20,
+    bottom: Platform.OS === "android" ? 80 : 100,
+    zIndex: 100,
+  },
+  bubble: {
+    width: 56,
+    height: 56,
     borderRadius: 28,
-    backgroundColor: "#FF7043",
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000000",
@@ -433,68 +581,6 @@ const styles = StyleSheet.create({
   allLogsContainer: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-  },
-  allLogsHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
-  },
-  allLogsTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: AppColors.text,
-  },
-  closeButton: {
-    padding: 8,
-  },
-  logsList: {
-    padding: 16,
-  },
-  logItem: {
-    flexDirection: "row",
-    marginBottom: 16,
-    padding: 12,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: AppColors.primary,
-  },
-  logAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#E3F2FD",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  logContent: {
-    flex: 1,
-  },
-  logText: {
-    fontSize: 14,
-    color: AppColors.text,
-    lineHeight: 20,
-  },
-  logAction: {
-    fontWeight: "600",
-    color: AppColors.primary,
-    textTransform: "capitalize",
-  },
-  logProduct: {
-    fontWeight: "500",
-    color: AppColors.text,
-  },
-  logSupplier: {
-    fontStyle: "italic",
-    color: "#666",
-  },
-  logTime: {
-    fontSize: 12,
-    color: "#999",
-    marginTop: 4,
   },
 });

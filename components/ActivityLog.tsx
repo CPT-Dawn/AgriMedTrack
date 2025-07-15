@@ -91,8 +91,26 @@ export const ActivityLog: React.FC<ActivityLogProps> = ({
         return "edit";
       case "removed":
         return "remove-circle";
+      case "sold":
+        return "shopping-cart";
       default:
         return "history";
+    }
+  };
+
+  // Get activity color based on action
+  const getActivityColor = (action: string) => {
+    switch (action) {
+      case "added":
+        return AppColors.success;
+      case "updated":
+        return AppColors.primary;
+      case "removed":
+        return AppColors.error;
+      case "sold":
+        return AppColors.secondary;
+      default:
+        return AppColors.primary;
     }
   };
 
@@ -117,8 +135,7 @@ export const ActivityLog: React.FC<ActivityLogProps> = ({
           <Text
             style={[styles.title, isExpanded ? styles.titleExpanded : null]}
           >
-            Latest Updates{" "}
-            {activities.length > 0 ? `(${Math.min(activities.length, 3)})` : ""}
+            Activity Log {activities.length > 0 ? `(${activities.length})` : ""}
           </Text>
         </View>
         <View style={styles.toggleButtonContainer}>
@@ -137,18 +154,32 @@ export const ActivityLog: React.FC<ActivityLogProps> = ({
       {isExpanded && (
         <View style={styles.content}>
           {activities.length > 0 ? (
-            activities.slice(0, 3).map((activity, index) => (
+            activities.map((activity, index) => (
               <View key={activity.id || index} style={styles.activityItem}>
-                <View style={styles.avatar}>
+                <View
+                  style={[
+                    styles.avatar,
+                    {
+                      backgroundColor: `${getActivityColor(activity.action)}15`,
+                    },
+                  ]}
+                >
                   <MaterialIcons
                     name={getActivityIcon(activity.action)}
                     size={16}
-                    color={AppColors.primary}
+                    color={getActivityColor(activity.action)}
                   />
                 </View>
                 <View style={styles.activityInfo}>
                   <Text style={styles.actionText}>
-                    <Text style={styles.actionType}>{activity.action}</Text>{" "}
+                    <Text
+                      style={[
+                        styles.actionType,
+                        { color: getActivityColor(activity.action) },
+                      ]}
+                    >
+                      {activity.action}
+                    </Text>{" "}
                     {activity.quantity} {activity.sizeName}
                   </Text>
                   <Text style={styles.timestamp}>
@@ -159,7 +190,7 @@ export const ActivityLog: React.FC<ActivityLogProps> = ({
             ))
           ) : (
             <Text style={styles.emptyText}>
-              No recent activity for this product
+              No activity recorded for this product
             </Text>
           )}
         </View>
@@ -170,9 +201,7 @@ export const ActivityLog: React.FC<ActivityLogProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
-    marginTop: 8,
+    marginTop: 0,
   },
   header: {
     flexDirection: "row",
@@ -231,7 +260,6 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#F0F9FF",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -244,7 +272,6 @@ const styles = StyleSheet.create({
     color: AppColors.text,
   },
   actionType: {
-    color: AppColors.primary,
     fontWeight: "500",
     textTransform: "capitalize",
   },

@@ -7,6 +7,7 @@ import {
   supplierService,
 } from "../services/mockStockService";
 import {
+  BatchEntryFormData,
   PackagingSize,
   Product,
   StockActivity,
@@ -184,38 +185,79 @@ export function useStock() {
   // Add new stock entry
   const addStockEntry = useCallback(
     async (
-      formData: StockEntryFormData,
+      formData: StockEntryFormData | BatchEntryFormData,
       userId: string = "current-user"
     ): Promise<void> => {
       try {
         setError(null);
 
-        // Ensure all related entities exist
-        const product = await getOrCreateProduct(formData.productName);
-        const supplier = await getOrCreateSupplier(formData.supplierName);
-        const size = await getOrCreateSize(formData.sizeLabel);
+        // Check if this is a batch entry
+        if ("items" in formData) {
+          // Handle batch entry
+          const batchId = Date.now().toString(); // Generate a batch ID
 
-        // Create the stock entry with actual IDs
-        const entryData = {
-          ...formData,
-          productId: product.id,
-          supplierId: supplier.id,
-          sizeId: size.id,
-        };
+          // Process each item in the batch
+          for (const item of formData.items) {
+            // Ensure all related entities exist
+            const product = await getOrCreateProduct(item.productName);
+            const supplier = await getOrCreateSupplier(item.supplierName);
+            const size = await getOrCreateSize(item.sizeLabel);
 
-        const newEntry = await stockService.create(entryData, userId);
-        setStockEntries((prev) => [newEntry, ...prev]);
+            // Create the stock entry with actual IDs and batch ID
+            const entryData = {
+              ...item,
+              productId: product.id,
+              supplierId: supplier.id,
+              sizeId: size.id,
+              batchId: batchId,
+            };
 
-        // Log the activity
-        await activityService.logActivity({
-          action: "added",
-          stockEntryId: newEntry.id,
-          productName: product.name,
-          supplierName: supplier.name,
-          sizeName: size.label,
-          quantity: newEntry.quantity,
-          updatedBy: userId,
-        });
+            const newEntry = await stockService.create(entryData, userId);
+            setStockEntries((prev) => [newEntry, ...prev]);
+
+            // Log the activity with batch ID
+            await activityService.logActivity({
+              action: "added",
+              stockEntryId: newEntry.id,
+              productName: product.name,
+              supplierName: supplier.name,
+              sizeName: size.label,
+              quantity: newEntry.quantity,
+              updatedBy: userId,
+              updatedByName: "Current User", // In a real app, get from auth
+              batchId: batchId,
+            });
+          }
+        } else {
+          // Handle single entry
+          // Ensure all related entities exist
+          const product = await getOrCreateProduct(formData.productName);
+          const supplier = await getOrCreateSupplier(formData.supplierName);
+          const size = await getOrCreateSize(formData.sizeLabel);
+
+          // Create the stock entry with actual IDs
+          const entryData = {
+            ...formData,
+            productId: product.id,
+            supplierId: supplier.id,
+            sizeId: size.id,
+          };
+
+          const newEntry = await stockService.create(entryData, userId);
+          setStockEntries((prev) => [newEntry, ...prev]);
+
+          // Log the activity
+          await activityService.logActivity({
+            action: "added",
+            stockEntryId: newEntry.id,
+            productName: product.name,
+            supplierName: supplier.name,
+            sizeName: size.label,
+            quantity: newEntry.quantity,
+            updatedBy: userId,
+            updatedByName: "Current User", // In a real app, get from auth
+          });
+        }
       } catch (err) {
         console.error("Error adding stock entry:", err);
         setError("Failed to add stock entry");

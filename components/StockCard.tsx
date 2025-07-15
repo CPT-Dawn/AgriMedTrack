@@ -1,8 +1,8 @@
-import React, { memo } from "react";
+import React, { memo, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { AppColors } from "../constants/Colors";
-import { StockActivity, StockItem } from "../types/stock";
-import { ActivityLog } from "./ActivityLog";
+import { StockActivity, StockBatch, StockItem } from "../types/stock";
+import { BatchActivityLog } from "./BatchActivityLog";
 
 interface StockCardProps {
   item: StockItem;
@@ -10,10 +10,18 @@ interface StockCardProps {
   productActivities: StockActivity[];
   isLogExpanded: boolean;
   onToggleLog: (productId: string) => void;
+  onHighlightProduct?: (productId: string) => void;
 }
 
 export const StockCard: React.FC<StockCardProps> = memo(
-  ({ item, stockEntries, productActivities, isLogExpanded, onToggleLog }) => {
+  ({
+    item,
+    stockEntries,
+    productActivities,
+    isLogExpanded,
+    onToggleLog,
+    onHighlightProduct,
+  }) => {
     // Gather all supplier/packaging/price/quantity rows for this product
     const rows: any[] = [];
     let totalQuantity = 0;
@@ -54,14 +62,79 @@ export const StockCard: React.FC<StockCardProps> = memo(
       return `${quantity} ${unit}`;
     }
 
+    // Determine stock health status
+    const getStockHealthColor = () => {
+      if (totalQuantity <= 5) return AppColors.error;
+      if (totalQuantity <= 15) return AppColors.warning;
+      return AppColors.success;
+    };
+
+    // Group activities by batch
+    const activityBatches = useMemo(() => {
+      // First, group activities by batchId
+      const batchMap = new Map<string, StockActivity[]>();
+
+      // Handle activities without batchId (legacy data)
+      const unbatchedActivities: StockActivity[] = [];
+
+      productActivities.forEach((activity) => {
+        if (activity.batchId) {
+          if (!batchMap.has(activity.batchId)) {
+            batchMap.set(activity.batchId, []);
+          }
+          batchMap.get(activity.batchId)?.push(activity);
+        } else {
+          unbatchedActivities.push(activity);
+        }
+      });
+
+      // Convert to StockBatch objects
+      const batches: StockBatch[] = [];
+
+      // Add batched activities
+      batchMap.forEach((activities, batchId) => {
+        if (activities.length > 0) {
+          batches.push({
+            id: batchId,
+            addedBy: activities[0].updatedBy,
+            addedByName: activities[0].updatedByName,
+            addedAt: activities[0].timestamp,
+            items: activities,
+          });
+        }
+      });
+
+      // Add individual unbatched activities as single-item batches
+      unbatchedActivities.forEach((activity) => {
+        batches.push({
+          id: activity.id,
+          addedBy: activity.updatedBy,
+          addedByName: activity.updatedByName,
+          addedAt: activity.timestamp,
+          items: [activity],
+        });
+      });
+
+      // Sort batches by date (newest first)
+      return batches.sort((a, b) => b.addedAt.getTime() - a.addedAt.getTime());
+    }, [productActivities]);
+
     return (
       <View style={styles.card}>
         {/* Card Header */}
         <View style={styles.headerRow}>
           <Text style={styles.productName}>{item.product.name}</Text>
-          <Text style={styles.totalQty}>
-            {formatTotalQuantity(totalQuantity, unit)}
-          </Text>
+          <View style={styles.quantityContainer}>
+            <View
+              style={[
+                styles.stockHealthIndicator,
+                { backgroundColor: getStockHealthColor() },
+              ]}
+            />
+            <Text style={styles.totalQty}>
+              {formatTotalQuantity(totalQuantity, unit)}
+            </Text>
+          </View>
         </View>
 
         {/* Table Header */}
@@ -91,24 +164,12 @@ export const StockCard: React.FC<StockCardProps> = memo(
         ))}
 
         {/* Activity Log Section */}
-        <View style={styles.logSection}>
-          <View style={styles.logSeparator}>
-            <View style={styles.logSeparatorLine} />
-            <Text style={styles.logSeparatorText}>Activity Log</Text>
-            <View style={styles.logSeparatorLine} />
-          </View>
-
-          <ActivityLog
-            activities={productActivities}
-            isExpanded={isLogExpanded}
-            onToggle={() => onToggleLog(item.id)}
-            productId={item.id}
-          />
-
-          {!isLogExpanded && productActivities.length > 0 && (
-            <Text style={styles.logHint}>Tap to view recent activities</Text>
-          )}
-        </View>
+        <BatchActivityLog
+          batches={activityBatches}
+          isExpanded={isLogExpanded}
+          onToggle={() => onToggleLog(item.id)}
+          onItemPress={onHighlightProduct}
+        />
       </View>
     );
   }
@@ -137,6 +198,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: "#263238",
+    flex: 1,
+    marginRight: 8,
+  },
+  quantityContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  stockHealthIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 6,
   },
   totalQty: {
     fontSize: 18,
@@ -170,33 +243,5 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: "#263238",
-  },
-  logSection: {
-    marginTop: 16,
-  },
-  logSeparator: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  logSeparatorLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#E0E0E0",
-  },
-  logSeparatorText: {
-    marginHorizontal: 8,
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#757575",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  logHint: {
-    fontSize: 12,
-    color: AppColors.primary,
-    textAlign: "center",
-    marginTop: 4,
-    fontStyle: "italic",
   },
 });

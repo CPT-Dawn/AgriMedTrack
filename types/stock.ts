@@ -34,6 +34,7 @@ export interface StockEntry {
   sellPrice?: number;
   billImageUrl?: string;
   notes?: string;
+  batchId?: string; // Reference to the batch this entry belongs to
   updatedBy: string; // profile/user ID
   updatedAt: Date;
   createdAt: Date;
@@ -58,15 +59,27 @@ export interface StockItem {
 // For activity log
 export interface StockActivity {
   id: string;
-  action: "added" | "updated" | "removed";
+  action: "added" | "updated" | "removed" | "sold";
   stockEntryId: string;
   productName: string;
   supplierName: string;
   sizeName: string;
   quantity: number;
+  batchId?: string; // Reference to the batch this activity belongs to
   updatedBy: string;
   updatedByName?: string;
   timestamp: Date;
+}
+
+// New interface for batch entries
+export interface StockBatch {
+  id: string;
+  addedBy: string;
+  addedByName?: string;
+  addedAt: Date;
+  billUrl?: string;
+  billThumbnail?: string;
+  items: StockActivity[];
 }
 
 // Form data types
@@ -86,4 +99,16 @@ export interface StockEntryFormData {
     type: string;
   };
   notes?: string;
+  batchId?: string; // Optional batch ID if part of a batch
+}
+
+// Batch form data
+export interface BatchEntryFormData {
+  addedBy: string;
+  billImage?: {
+    uri: string;
+    name: string;
+    type: string;
+  };
+  items: StockEntryFormData[];
 }
