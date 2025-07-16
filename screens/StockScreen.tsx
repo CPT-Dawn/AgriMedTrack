@@ -20,6 +20,7 @@ import { Theme } from "../constants/Theme";
 import { useStock } from "../hooks/useStock";
 import {
   BatchEntryFormData,
+  StockBatch,
   StockEntryFormData,
   StockItem,
 } from "../types/stock";
@@ -61,6 +62,7 @@ export default function StockScreen() {
   const [currentView, setCurrentView] = useState<"stock" | "logs" | "add">(
     "stock"
   );
+  const [editBatch, setEditBatch] = useState<StockBatch | null>(null);
 
   // Use the new batch logs directly instead of deriving them from activities
   const paginatedBatchLogs = useMemo(() => {
@@ -128,6 +130,7 @@ export default function StockScreen() {
       clearError();
       await addStockEntry(formData);
       setCurrentView("stock"); // Return to stock view after adding
+      setEditBatch(null); // Clear edit state
       return Promise.resolve();
     } catch (err) {
       Alert.alert("Error", "Failed to add stock entry");
@@ -139,6 +142,27 @@ export default function StockScreen() {
   const handleHighlightProduct = (productId: string) => {
     setHighlightedProductId(productId);
     setCurrentView("stock"); // Switch to stock view to show the highlighted product
+  };
+
+  // Handle edit batch
+  const handleEditBatch = (batch: StockBatch) => {
+    setEditBatch(batch);
+    setCurrentView("add");
+  };
+
+  // Handle delete batch
+  const handleDeleteBatch = (batchId: string) => {
+    Alert.alert("Delete Batch", "Are you sure you want to delete this batch?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => {
+          // TODO: Implement actual deletion logic
+          console.log("Delete batch:", batchId);
+        },
+      },
+    ]);
   };
 
   // Load more logs
@@ -188,6 +212,8 @@ export default function StockScreen() {
         isExpanded={true}
         onToggle={() => setIsLogsExpanded(!isLogsExpanded)}
         onItemPress={handleHighlightProduct}
+        onEditBatch={handleEditBatch}
+        onDeleteBatch={handleDeleteBatch}
         loading={loadingMoreLogs}
         onLoadMore={handleLoadMoreLogs}
         hideCount={true}
@@ -207,6 +233,24 @@ export default function StockScreen() {
         getOrCreateProduct={getOrCreateProduct}
         getOrCreateSupplier={getOrCreateSupplier}
         getOrCreateSize={getOrCreateSize}
+        initialData={
+          editBatch
+            ? {
+                addedBy: editBatch.addedBy,
+                items: editBatch.items.map((item) => ({
+                  productId: item.stockEntryId,
+                  productName: item.productName,
+                  supplierId: "",
+                  supplierName: item.supplierName,
+                  sizeId: "",
+                  sizeLabel: item.sizeName,
+                  quantity: item.quantity.toString(),
+                  buyPrice: item.buyPrice?.toString() || "",
+                  sellPrice: "",
+                })),
+              }
+            : undefined
+        }
       />
     );
   };

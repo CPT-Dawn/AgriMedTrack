@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface Profile {
   id: string;
@@ -53,7 +54,7 @@ const SUMMARY_DATA: SummaryCard[] = [
   },
   {
     id: "2",
-    title: "Months's Sales",
+    title: "Month's Sales",
     value: "₹15,420",
     icon: "trending-up",
     color: Theme.colors.secondary,
@@ -119,6 +120,7 @@ const RECENT_ACTIVITIES: ActivityItem[] = [
 ];
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const [currentProfile, setCurrentProfile] = useState<Profile>(PROFILES[0]);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [greeting, setGreeting] = useState("");
@@ -217,13 +219,20 @@ export default function HomeScreen() {
     <View style={styles.summaryCard}>
       <View style={styles.summaryCardHeader}>
         <View
-          style={[styles.summaryIcon, { backgroundColor: item.color + "20" }]}
+          style={[styles.summaryIcon, { backgroundColor: item.color + "15" }]}
         >
           <MaterialIcons name={item.icon as any} size={24} color={item.color} />
         </View>
         {item.trend && (
-          <View style={styles.trendBadge}>
-            <Text style={styles.trendText}>{item.trend}</Text>
+          <View
+            style={[
+              styles.trendBadge,
+              { backgroundColor: Theme.colors.success + "15" },
+            ]}
+          >
+            <Text style={[styles.trendText, { color: Theme.colors.success }]}>
+              {item.trend}
+            </Text>
           </View>
         )}
       </View>
@@ -249,7 +258,7 @@ export default function HomeScreen() {
       <View
         style={[
           styles.activityIcon,
-          { backgroundColor: getActivityColor(item.type) + "20" },
+          { backgroundColor: getActivityColor(item.type) + "15" },
         ]}
       >
         <MaterialIcons
@@ -265,7 +274,7 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" translucent={false} />
 
-      {/* Header with Profile */}
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.greetingContainer}>
@@ -331,6 +340,7 @@ export default function HomeScreen() {
 
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Summary Cards */}
@@ -350,7 +360,12 @@ export default function HomeScreen() {
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActions}>
             <TouchableOpacity style={styles.quickActionButton}>
-              <View style={styles.quickActionIcon}>
+              <View
+                style={[
+                  styles.quickActionIcon,
+                  { backgroundColor: Theme.colors.primary },
+                ]}
+              >
                 <MaterialIcons
                   name="add-shopping-cart"
                   size={24}
@@ -361,7 +376,12 @@ export default function HomeScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.quickActionButton}>
-              <View style={styles.quickActionIcon}>
+              <View
+                style={[
+                  styles.quickActionIcon,
+                  { backgroundColor: Theme.colors.secondary },
+                ]}
+              >
                 <MaterialIcons
                   name="add-box"
                   size={24}
@@ -372,7 +392,12 @@ export default function HomeScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.quickActionButton}>
-              <View style={styles.quickActionIcon}>
+              <View
+                style={[
+                  styles.quickActionIcon,
+                  { backgroundColor: Theme.colors.accent },
+                ]}
+              >
                 <MaterialIcons
                   name="history"
                   size={24}
@@ -415,17 +440,16 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.background,
   },
   header: {
-    backgroundColor: Theme.colors.surface,
-    paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0 + 20,
+    backgroundColor: Theme.colors.background,
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight || 0 : 0,
     paddingHorizontal: Theme.spacing.xl,
-    paddingBottom: Theme.spacing.xl,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
+    paddingBottom: Theme.spacing.lg,
   },
   headerContent: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: Theme.spacing.md,
   },
   greetingContainer: {
     flex: 1,
@@ -443,11 +467,12 @@ const styles = StyleSheet.create({
   profileButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Theme.colors.surfacePressed,
+    backgroundColor: Theme.colors.surface,
     borderRadius: Theme.borderRadius["2xl"],
     paddingHorizontal: Theme.spacing.md,
     paddingVertical: Theme.spacing.sm,
     gap: Theme.spacing.sm,
+    ...Theme.shadows.sm,
   },
   profileAvatar: {
     fontSize: Theme.typography.fontSize["2xl"],
@@ -455,7 +480,6 @@ const styles = StyleSheet.create({
   profileDropdown: {
     backgroundColor: Theme.colors.surface,
     borderRadius: Theme.borderRadius.xl,
-    marginTop: Theme.spacing.md,
     padding: Theme.spacing.sm,
     ...Theme.shadows.lg,
   },
@@ -481,15 +505,15 @@ const styles = StyleSheet.create({
     fontWeight: Theme.typography.fontWeight.semibold,
     color: Theme.colors.text,
   },
-  profileOptionRole: {
-    fontSize: Theme.typography.fontSize.xs,
-    color: Theme.colors.textMuted,
-  },
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 100,
+  },
   section: {
-    padding: Theme.spacing.xl,
+    paddingHorizontal: Theme.spacing.xl,
+    marginBottom: Theme.spacing["2xl"],
   },
   sectionTitle: {
     fontSize: Theme.typography.fontSize.lg,
@@ -509,7 +533,7 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.surface,
     borderRadius: Theme.borderRadius["2xl"],
     padding: Theme.spacing.lg,
-    ...Theme.shadows.sm,
+    ...Theme.shadows.md,
   },
   summaryCardHeader: {
     flexDirection: "row",
@@ -525,7 +549,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   trendBadge: {
-    backgroundColor: Theme.colors.secondary + "20",
     borderRadius: Theme.borderRadius.xl,
     paddingHorizontal: Theme.spacing.sm,
     paddingVertical: 4,
@@ -533,7 +556,6 @@ const styles = StyleSheet.create({
   trendText: {
     fontSize: Theme.typography.fontSize.xs,
     fontWeight: Theme.typography.fontWeight.semibold,
-    color: Theme.colors.secondary,
   },
   summaryValue: {
     fontSize: Theme.typography.fontSize["2xl"],
@@ -552,25 +574,24 @@ const styles = StyleSheet.create({
   },
   quickActionButton: {
     flex: 1,
-    backgroundColor: Theme.colors.accent,
+    backgroundColor: Theme.colors.surface,
     borderRadius: Theme.borderRadius.xl,
     paddingVertical: Theme.spacing.lg,
     alignItems: "center",
     gap: Theme.spacing.sm,
-    ...Theme.shadows.sm,
+    ...Theme.shadows.md,
   },
   quickActionIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Theme.colors.white + "20",
     justifyContent: "center",
     alignItems: "center",
   },
   quickActionText: {
     fontSize: Theme.typography.fontSize.sm,
     fontWeight: Theme.typography.fontWeight.semibold,
-    color: Theme.colors.white,
+    color: Theme.colors.text,
   },
   activityHeader: {
     flexDirection: "row",

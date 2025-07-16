@@ -4,6 +4,7 @@ import {
   StockActivity,
   StockEntry,
   StockEntryFormData,
+  StockBatch,
   Supplier,
 } from "../types/stock";
 
@@ -82,7 +83,7 @@ const mockSizes = sizeLabels.map((label, idx) => ({
   createdAt: new Date(),
 }));
 // 4. Define new mockStockEntries (all rows from the provided table)
-const mockStockEntries = [
+const mockStockData = [
   // Urea
   {
     productId: "1",
@@ -550,6 +551,21 @@ const mockBatchActivityData = [
     ],
   },
 ];
+
+// Convert mock data to proper StockEntry format
+let mockStockEntries: StockEntry[] = mockStockData.map((data, index) => ({
+  id: (index + 1).toString(),
+  productId: data.productId,
+  supplierId: data.supplierId,
+  sizeId: data.sizeId,
+  quantity: data.quantity,
+  buyPrice: data.buyPrice,
+  sellPrice: data.sellPrice,
+  notes: "",
+  updatedBy: "user-1",
+  updatedAt: new Date(),
+  createdAt: new Date(),
+}));
 
 // User names for the batch logs
 const mockUserNames = ["Gopal", "Anil", "Papa", "Gopal", "Anil", "Papa"];

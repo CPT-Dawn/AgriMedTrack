@@ -1112,69 +1112,27 @@ export default function SalesScreen() {
       <View style={{ flex: 1, backgroundColor: Theme.colors.background }}>
         {/* Sticky Header */}
         <View
-          style={[
-            styles.header,
-            {
-              backgroundColor: Theme.colors.surface,
-              borderBottomLeftRadius: 24,
-              borderBottomRightRadius: 24,
-              shadowColor: "#000",
-              shadowOpacity: 0.06,
-              shadowRadius: 8,
-              elevation: 4,
-              zIndex: 10,
-              paddingTop: insets.top + 8,
-              paddingBottom: 16,
-            },
-          ]}
+          style={{
+            backgroundColor: Theme.colors.background,
+            paddingTop: insets.top,
+            paddingHorizontal: Theme.spacing.xl,
+            flexDirection: "row",
+            alignItems: "center",
+            paddingBottom: Theme.spacing.xs,
+          }}
         >
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
+          <TouchableOpacity
+            onPress={handleBackToSales}
+            accessibilityLabel="Back to sales"
+            style={{ padding: 4, marginRight: Theme.spacing.sm }}
           >
-            <TouchableOpacity
-              onPress={handleBackToSales}
-              accessibilityLabel="Back to sales"
-              style={{ padding: 8, borderRadius: 12 }}
-            >
-              <MaterialIcons
-                name="arrow-back"
-                size={28}
-                color={Theme.colors.text}
-              />
-            </TouchableOpacity>
-            <Text
-              style={{
-                fontSize: 22,
-                fontWeight: "700",
-                color: Theme.colors.text,
-                flex: 1,
-                textAlign: "center",
-              }}
-            >
-              New Sale
-            </Text>
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: Theme.colors.primary + "22",
-                alignItems: "center",
-                justifyContent: "center",
-                marginLeft: 8,
-              }}
-            >
-              <MaterialIcons
-                name="person"
-                size={24}
-                color={Theme.colors.primary}
-              />
-            </View>
-          </View>
+            <MaterialIcons
+              name="arrow-back"
+              size={28}
+              color={Theme.colors.text}
+            />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>New Sale</Text>
         </View>
         {/* Input Row */}
         <KeyboardAwareScrollView

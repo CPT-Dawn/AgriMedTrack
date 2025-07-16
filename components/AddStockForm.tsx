@@ -1,4 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import * as ImagePicker from "expo-image-picker";
 import React, { useRef, useState } from "react";
 import {
@@ -47,10 +48,13 @@ interface AddStockFormProps {
   ) => Promise<void>;
   products: { id: string; name: string }[];
   suppliers: { id: string; name: string }[];
-  sizes: { id: string; label: string }[];
+  sizes: { id: string; label: string; unit: string }[];
   getOrCreateProduct: (name: string) => Promise<{ id: string; name: string }>;
   getOrCreateSupplier: (name: string) => Promise<{ id: string; name: string }>;
-  getOrCreateSize: (label: string) => Promise<{ id: string; label: string }>;
+  getOrCreateSize: (
+    label: string
+  ) => Promise<{ id: string; label: string; unit: string }>;
+  initialData?: BatchEntryFormData;
 }
 
 export const AddStockForm: React.FC<AddStockFormProps> = ({
@@ -61,9 +65,9 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
   getOrCreateProduct,
   getOrCreateSupplier,
   getOrCreateSize,
+  initialData,
 }) => {
   const [invoiceDate, setInvoiceDate] = useState(new Date());
-  const [notes, setNotes] = useState("");
   const [form, setForm] = useState<StockEntryFormData>({
     productId: "",
     productName: "",
@@ -72,24 +76,24 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
     sizeId: "",
     sizeLabel: "",
     quantity: "",
-    notes: "",
     buyPrice: "",
     sellPrice: "",
   });
-  const [items, setItems] = useState<StockEntryFormData[]>([
-    {
-      productId: "",
-      productName: "",
-      supplierId: "",
-      supplierName: "",
-      sizeId: "",
-      sizeLabel: "",
-      quantity: "",
-      notes: "",
-      buyPrice: "",
-      sellPrice: "",
-    },
-  ]);
+  const [items, setItems] = useState<StockEntryFormData[]>(
+    initialData?.items || [
+      {
+        productId: "",
+        productName: "",
+        supplierId: "",
+        supplierName: "",
+        sizeId: "",
+        sizeLabel: "",
+        quantity: "",
+        buyPrice: "",
+        sellPrice: "",
+      },
+    ]
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
@@ -99,6 +103,12 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
     type: string;
   } | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Date/Time state
+  const [stockDate, setStockDate] = useState(new Date());
+  const [stockTime, setStockTime] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   const handleImagePicker = async () => {
     const permissionResult =
@@ -161,7 +171,6 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
       sizeId: "",
       sizeLabel: "",
       quantity: "",
-      notes: "",
       buyPrice: "",
       sellPrice: "",
     });
@@ -179,7 +188,6 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
         sizeId: "",
         sizeLabel: "",
         quantity: "",
-        notes: "",
         buyPrice: "",
         sellPrice: "",
       },
@@ -237,13 +245,11 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
           sizeId: "",
           sizeLabel: "",
           quantity: "",
-          notes: "",
           buyPrice: "",
           sellPrice: "",
         },
       ]);
       setBillImage(null);
-      setNotes("");
       Alert.alert("Success", "Stock entry added successfully");
     } catch (error) {
       Alert.alert("Error", "Failed to add stock entry");
@@ -273,7 +279,6 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
           sizeId: "",
           sizeLabel: "",
           quantity: "",
-          notes: "",
           buyPrice: "",
           sellPrice: "",
         },
@@ -326,8 +331,7 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
 
       {/* Product Information Section */}
       <View style={styles.itemSection}>
-        <Text style={styles.sectionLabel}>Product Information</Text>
-
+        {/* Product Name - Full Width */}
         <View style={styles.inputGroup}>
           <Text style={styles.inputLabel}>
             Product Name <Text style={styles.requiredAsterisk}>*</Text>
@@ -360,42 +364,44 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
           </View>
         </View>
 
+        {/* Supplier - Full Width */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>
+            Supplier <Text style={styles.requiredAsterisk}>*</Text>
+          </Text>
+          <View style={styles.dropdownContainer}>
+            <CreatableDropdown
+              options={suppliers.map((s) => ({ id: s.id, label: s.name }))}
+              value={item.supplierId}
+              placeholder="Select supplier"
+              onSelect={(option) =>
+                updateProduct(index, {
+                  supplierId: option.id,
+                  supplierName: option.label,
+                })
+              }
+              onCreate={async (newLabel: string) => {
+                try {
+                  const newSupplier = await getOrCreateSupplier(newLabel);
+                  updateProduct(index, {
+                    supplierId: newSupplier.id,
+                    supplierName: newSupplier.name,
+                  });
+                  return { id: newSupplier.id, label: newSupplier.name };
+                } catch (error) {
+                  Alert.alert("Error", "Failed to create new supplier");
+                  throw error;
+                }
+              }}
+            />
+          </View>
+        </View>
+
+        {/* Size and Unit - 2 fields in one row */}
         <View style={styles.inputRow}>
           <View style={[styles.inputGroup, styles.flex1]}>
             <Text style={styles.inputLabel}>
-              Supplier <Text style={styles.requiredAsterisk}>*</Text>
-            </Text>
-            <View style={styles.dropdownContainer}>
-              <CreatableDropdown
-                options={suppliers.map((s) => ({ id: s.id, label: s.name }))}
-                value={item.supplierId}
-                placeholder="Select supplier"
-                onSelect={(option) =>
-                  updateProduct(index, {
-                    supplierId: option.id,
-                    supplierName: option.label,
-                  })
-                }
-                onCreate={async (newLabel: string) => {
-                  try {
-                    const newSupplier = await getOrCreateSupplier(newLabel);
-                    updateProduct(index, {
-                      supplierId: newSupplier.id,
-                      supplierName: newSupplier.name,
-                    });
-                    return { id: newSupplier.id, label: newSupplier.name };
-                  } catch (error) {
-                    Alert.alert("Error", "Failed to create new supplier");
-                    throw error;
-                  }
-                }}
-              />
-            </View>
-          </View>
-
-          <View style={[styles.inputGroup, styles.flex1]}>
-            <Text style={styles.inputLabel}>
-              Packaging Size <Text style={styles.requiredAsterisk}>*</Text>
+              Size <Text style={styles.requiredAsterisk}>*</Text>
             </Text>
             <View style={styles.dropdownContainer}>
               <CreatableDropdown
@@ -424,33 +430,58 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
               />
             </View>
           </View>
-        </View>
 
-        <View style={styles.inputRow}>
           <View style={[styles.inputGroup, styles.flex1]}>
-            <Text style={styles.inputLabel}>Quantity *</Text>
+            <Text style={styles.inputLabel}>Unit</Text>
             <View style={styles.inputContainer}>
               <MaterialIcons
-                name="inventory"
+                name="straighten"
                 size={20}
                 color={colors.gray[400]}
                 style={styles.inputIcon}
               />
               <TextInput
                 style={[styles.textInput, styles.inputWithIcon]}
-                value={item.quantity}
-                onChangeText={(value) =>
-                  updateProduct(index, { quantity: value })
-                }
-                placeholder="Enter quantity"
-                keyboardType="numeric"
+                value={sizes.find((s) => s.id === item.sizeId)?.unit || ""}
+                placeholder="ML, KG, G"
                 placeholderTextColor={colors.gray[400]}
+                editable={false}
               />
             </View>
           </View>
+        </View>
 
+        {/* Quantity - Full width */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>
+            Quantity <Text style={styles.requiredAsterisk}>*</Text>
+          </Text>
+          <View style={styles.inputContainer}>
+            <MaterialIcons
+              name="inventory"
+              size={20}
+              color={colors.gray[400]}
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={[styles.textInput, styles.inputWithIcon]}
+              value={item.quantity}
+              onChangeText={(value) =>
+                updateProduct(index, { quantity: value })
+              }
+              placeholder="Enter quantity"
+              keyboardType="numeric"
+              placeholderTextColor={colors.gray[400]}
+            />
+          </View>
+        </View>
+
+        {/* Buy Price and Sell Price - 2 fields in one row */}
+        <View style={styles.inputRow}>
           <View style={[styles.inputGroup, styles.flex1]}>
-            <Text style={styles.inputLabel}>Buy Price (₹)</Text>
+            <Text style={styles.inputLabel}>
+              Buy Price (₹) <Text style={styles.requiredAsterisk}>*</Text>
+            </Text>
             <View style={styles.inputContainer}>
               <MaterialIcons
                 name="attach-money"
@@ -470,11 +501,11 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
               />
             </View>
           </View>
-        </View>
 
-        <View style={styles.inputRow}>
           <View style={[styles.inputGroup, styles.flex1]}>
-            <Text style={styles.inputLabel}>Sell Price (₹)</Text>
+            <Text style={styles.inputLabel}>
+              Sell Price (₹) <Text style={styles.requiredAsterisk}>*</Text>
+            </Text>
             <View style={styles.inputContainer}>
               <MaterialIcons
                 name="sell"
@@ -507,14 +538,126 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
       <ScrollView
         ref={scrollViewRef}
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingTop: 0,
+          paddingBottom: 150,
+        }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Date & Time Section */}
+        <View style={{ flexDirection: "row", gap: 14, marginBottom: 18 }}>
+          {/* Date Field */}
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{ fontWeight: "600", marginBottom: 4, color: colors.text }}
+            >
+              Date
+            </Text>
+            <TouchableOpacity
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: Theme.colors.surface,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: Theme.colors.border,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                shadowColor: "#000",
+                shadowOpacity: 0.04,
+                shadowRadius: 4,
+                elevation: 2,
+              }}
+              onPress={() => setShowDatePicker(true)}
+              accessibilityLabel="Select date"
+              activeOpacity={0.85}
+            >
+              <MaterialIcons
+                name="event"
+                size={20}
+                color={Theme.colors.primary}
+                style={{ marginRight: 8 }}
+              />
+              <Text style={{ color: Theme.colors.text, fontSize: 16, flex: 1 }}>
+                {stockDate ? stockDate.toLocaleDateString() : "Select"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {/* Time Field */}
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{ fontWeight: "600", marginBottom: 4, color: colors.text }}
+            >
+              Time
+            </Text>
+            <TouchableOpacity
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: Theme.colors.surface,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: Theme.colors.border,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                shadowColor: "#000",
+                shadowOpacity: 0.04,
+                shadowRadius: 4,
+                elevation: 2,
+              }}
+              onPress={() => setShowTimePicker(true)}
+              accessibilityLabel="Select time"
+              activeOpacity={0.85}
+            >
+              <MaterialIcons
+                name="schedule"
+                size={20}
+                color={Theme.colors.primary}
+                style={{ marginRight: 8 }}
+              />
+              <Text style={{ color: Theme.colors.text, fontSize: 16, flex: 1 }}>
+                {stockTime
+                  ? stockTime.toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "Select"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        {/* Date Picker Modal */}
+        {showDatePicker && (
+          <DateTimePicker
+            value={stockDate}
+            mode="date"
+            display={Platform.OS === "ios" ? "spinner" : "default"}
+            onChange={(event, selectedDate) => {
+              setShowDatePicker(false);
+              if (selectedDate) setStockDate(selectedDate);
+            }}
+          />
+        )}
+        {/* Time Picker Modal */}
+        {showTimePicker && (
+          <DateTimePicker
+            value={stockTime}
+            mode="time"
+            display={Platform.OS === "ios" ? "spinner" : "default"}
+            onChange={(event, selectedTime) => {
+              setShowTimePicker(false);
+              if (selectedTime) setStockTime(selectedTime);
+            }}
+            is24Hour={true}
+          />
+        )}
+        {/* Product Section (FlatList) */}
         <FlatList
           data={items}
           keyExtractor={(_, idx) => `item-${idx}`}
           renderItem={({ item, index }) => renderItemCard(item, index)}
-          contentContainerStyle={{ paddingBottom: 8 }}
+          contentContainerStyle={{ paddingBottom: 0 }}
           showsVerticalScrollIndicator={false}
         />
         <TouchableOpacity
@@ -524,18 +667,8 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
         >
           <Text style={styles.addProductText}>+ Add Another Product</Text>
         </TouchableOpacity>
-        {/* Notes Section */}
-        <Text style={styles.sectionTitle}>Notes</Text>
-        <TextInput
-          style={styles.notesInput}
-          placeholder="Notes (optional)"
-          value={notes}
-          onChangeText={setNotes}
-          placeholderTextColor={colors.gray[400]}
-          multiline
-        />
         {/* Bill Image Upload */}
-        <View style={styles.inputGroup}>
+        <View style={[styles.inputGroup, { marginTop: 20 }]}>
           <Text style={styles.inputLabel}>Bill Photo</Text>
           {billImage ? (
             <View style={styles.imagePreviewContainer}>
@@ -574,18 +707,22 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
             </TouchableOpacity>
           )}
         </View>
-        {/* Action Buttons */}
-        <View style={styles.actionButtonsRow}>
+
+        {/* Confirm & Save Button */}
+        <View style={{}}>
           <TouchableOpacity
-            style={styles.primaryButton}
+            style={[
+              styles.primaryButton,
+              submitting && styles.primaryButtonDisabled,
+            ]}
             onPress={handleSubmit}
             disabled={submitting}
-            accessibilityLabel="Add stock"
+            accessibilityLabel="Confirm and save stock"
           >
             {submitting ? (
               <ActivityIndicator color={colors.white} size="small" />
             ) : (
-              <Text style={styles.primaryButtonText}>Add Stock</Text>
+              <Text style={styles.primaryButtonText}>Confirm & Save</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -604,7 +741,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 100,
+    paddingBottom: 8,
   },
   batchToggleContainer: {
     flexDirection: "row",
@@ -638,20 +775,27 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   inputLabel: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: colors.gray[700],
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.gray[600],
     marginBottom: 8,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
   textInput: {
     backgroundColor: colors.white,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.gray[300],
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    borderRadius: 10,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 16,
+    fontSize: 15,
     color: colors.text,
+    shadowColor: colors.gray[900],
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   textArea: {
     minHeight: 80,
@@ -676,11 +820,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.white,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.gray[300],
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    borderRadius: 10,
+    paddingHorizontal: 14,
     paddingVertical: 12,
+    shadowColor: colors.gray[900],
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
   datePickerButton: {
     backgroundColor: colors.white,
@@ -798,13 +947,24 @@ const styles = StyleSheet.create({
   itemCard: {
     backgroundColor: colors.white,
     borderRadius: 16,
-    padding: 16,
+    padding: 18,
     marginBottom: 16,
     shadowColor: colors.gray[900],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    // Add subtle gradient-like effect with border
+    borderTopWidth: 1,
+    borderTopColor: colors.gray[100],
+    borderLeftWidth: 1,
+    borderLeftColor: colors.gray[100],
+    borderRightWidth: 1,
+    borderRightColor: colors.gray[300],
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[300],
   },
   itemHeader: {
     flexDirection: "row",
@@ -825,24 +985,30 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   itemNumberText: {
     color: colors.white,
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   itemHeaderText: {
     flex: 1,
   },
   itemTitle: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
     color: colors.text,
   },
   itemSubtitle: {
     fontSize: 12,
-    color: colors.gray[600],
+    color: colors.gray[500],
     marginTop: 4,
+    fontWeight: "500",
   },
   removeButton: {
     padding: 8,
@@ -865,21 +1031,26 @@ const styles = StyleSheet.create({
   },
   dropdownContainer: {
     backgroundColor: colors.white,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.gray[300],
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    shadowColor: colors.gray[900],
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
   inputWithIcon: {
     flex: 1,
     paddingLeft: 8,
   },
   inputIcon: {
-    marginRight: 12,
+    marginRight: 10,
   },
   errorContainer: {
     flexDirection: "row",
@@ -1038,15 +1209,25 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     flex: 1,
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingVertical: 12,
+    backgroundColor: "#43a047",
+    borderRadius: 16,
+    paddingVertical: 18,
     alignItems: "center",
+    shadowColor: "#2e7d32",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  primaryButtonDisabled: {
+    backgroundColor: colors.gray[300],
+    shadowOpacity: 0,
+    elevation: 0,
   },
   primaryButtonText: {
     color: colors.white,
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "700",
   },
   secondaryButton: {
     flex: 1,
@@ -1071,17 +1252,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  notesInput: {
-    backgroundColor: colors.gray[50],
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: colors.text,
-    borderWidth: 1,
-    borderColor: colors.gray[300],
-    minHeight: 100,
-    textAlignVertical: "top",
-  },
+
   batchListCard: {
     backgroundColor: colors.white,
     borderRadius: 16,
@@ -1107,16 +1278,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   actionButtonsRow: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.white,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.gray[200],
-    flexDirection: "row",
-    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    marginTop: 30,
+    marginBottom: 40,
   },
 });

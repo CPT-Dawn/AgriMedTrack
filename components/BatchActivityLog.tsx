@@ -30,6 +30,8 @@ interface BatchActivityLogProps {
   isExpanded: boolean;
   onToggle: () => void;
   onItemPress?: (productId: string) => void;
+  onEditBatch?: (batch: StockBatch) => void;
+  onDeleteBatch?: (batchId: string) => void;
   loading?: boolean;
   onLoadMore?: () => void;
   hideCount?: boolean; // Add this new prop to control whether to show the count
@@ -41,6 +43,8 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
   isExpanded,
   onToggle,
   onItemPress,
+  onEditBatch,
+  onDeleteBatch,
   loading = false,
   onLoadMore,
   hideCount = false, // Add this new prop to control whether to show the count
@@ -48,6 +52,8 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
 }) => {
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
+  const [cardScale] = useState<{ [id: string]: Animated.Value }>({});
 
   // Configure layout animation
   const configureLayoutAnimation = () => {
@@ -95,115 +101,221 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
     outputRange: ["0deg", "180deg"],
   });
 
+  // --- Card animation helpers ---
+  const getCardScale = (id: string) => {
+    if (!cardScale[id]) {
+      cardScale[id] = new Animated.Value(1);
+    }
+    return cardScale[id];
+  };
+
+  const animateCardPressIn = (id: string) => {
+    Animated.spring(getCardScale(id), {
+      toValue: 0.97,
+      useNativeDriver: true,
+      speed: 30,
+      bounciness: 8,
+    }).start();
+  };
+
+  const animateCardPressOut = (id: string) => {
+    Animated.spring(getCardScale(id), {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 30,
+      bounciness: 8,
+    }).start();
+  };
+
   // Render a batch item
   const renderBatchItem = ({ item: batch }: { item: StockBatch }) => {
+    const expanded = expandedBatchId === batch.id;
+    const scale = getCardScale(batch.id);
     return (
-      <View style={styles.batchCard}>
-        <View style={styles.batchHeader}>
-          <View style={styles.batchHeaderContent}>
-            {/* User avatar instead of inventory icon */}
-            <View style={styles.userAvatar}>
-              <Text style={styles.userInitial}>
-                {(batch.addedByName || "User").charAt(0).toUpperCase()}
+      <Animated.View style={{ transform: [{ scale }], marginBottom: 12 }}>
+        <TouchableOpacity
+          activeOpacity={0.95}
+          onPress={() => {
+            LayoutAnimation.configureNext(
+              LayoutAnimation.Presets.easeInEaseOut
+            );
+            setExpandedBatchId(expanded ? null : batch.id);
+          }}
+          onPressIn={() => animateCardPressIn(batch.id)}
+          onPressOut={() => animateCardPressOut(batch.id)}
+          accessibilityLabel={expanded ? "Collapse batch" : "Expand batch"}
+        >
+          <View style={styles.batchCard}>
+            <View style={styles.batchHeader}>
+              <View style={styles.batchHeaderContent}>
+                {/* User avatar instead of inventory icon */}
+                <View style={styles.userAvatar}>
+                  <Text style={styles.userInitial}>
+                    {(batch.addedByName || "User").charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.batchHeaderText}>
+                  <Text style={styles.batchTitle}>
+                    {batch.addedByName || "User"}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Date and time in top right */}
+              <Text style={styles.batchDate}>{formatDate(batch.addedAt)}</Text>
+            </View>
+
+            {/* Table-like layout for entries */}
+            <View style={styles.entriesTable}>
+              {/* Table header */}
+              <View style={styles.tableHeader}>
+                <Text style={[styles.tableHeaderCell, styles.productCell]}>
+                  Product
+                </Text>
+                <Text style={[styles.tableHeaderCell, styles.supplierCell]}>
+                  Supplier
+                </Text>
+                <Text style={[styles.tableHeaderCell, styles.sizeCell]}>
+                  Size
+                </Text>
+                <Text style={[styles.tableHeaderCell, styles.priceCell]}>
+                  Price
+                </Text>
+                <Text style={[styles.tableHeaderCell, styles.qtyCell]}>
+                  Qty
+                </Text>
+                <Text style={[styles.tableHeaderCell, styles.totalCell]}>
+                  Total
+                </Text>
+              </View>
+
+              {/* Table rows */}
+              {batch.items.map((item, index) => (
+                <TouchableOpacity
+                  key={item.id || index}
+                  style={[
+                    styles.tableRow,
+                    index < batch.items.length - 1 && styles.tableRowDivider,
+                  ]}
+                  onPress={() => onItemPress && onItemPress(item.stockEntryId)}
+                  activeOpacity={onItemPress ? 0.7 : 1}
+                >
+                  <Text
+                    style={[styles.tableCell, styles.productCell]}
+                    numberOfLines={1}
+                  >
+                    {item.productName}
+                  </Text>
+                  <Text
+                    style={[styles.tableCell, styles.supplierCell]}
+                    numberOfLines={1}
+                  >
+                    {item.supplierName}
+                  </Text>
+                  <Text
+                    style={[styles.tableCell, styles.sizeCell]}
+                    numberOfLines={1}
+                  >
+                    {item.sizeName}
+                  </Text>
+                  <Text style={[styles.tableCell, styles.priceCell]}>
+                    ₹{item.buyPrice || 0}
+                  </Text>
+                  <Text style={[styles.tableCell, styles.qtyCell]}>
+                    {item.quantity}
+                  </Text>
+                  <Text style={[styles.tableCell, styles.totalCell]}>
+                    ₹{(item.buyPrice || 0) * item.quantity}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Batch total */}
+            <View style={styles.batchTotal}>
+              <Text style={styles.batchTotalLabel}>Batch Total:</Text>
+              <Text style={styles.batchTotalValue}>
+                ₹
+                {batch.items.reduce(
+                  (total, item) => total + (item.buyPrice || 0) * item.quantity,
+                  0
+                )}
               </Text>
             </View>
-            <View style={styles.batchHeaderText}>
-              <Text style={styles.batchTitle}>
-                {batch.addedByName || "User"}
-              </Text>
-            </View>
-          </View>
 
-          {/* Date and time in top right */}
-          <Text style={styles.batchDate}>{formatDate(batch.addedAt)}</Text>
-        </View>
-
-        {/* Table-like layout for entries */}
-        <View style={styles.entriesTable}>
-          {/* Table header */}
-          <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderCell, styles.productCell]}>
-              Product
-            </Text>
-            <Text style={[styles.tableHeaderCell, styles.supplierCell]}>
-              Supplier
-            </Text>
-            <Text style={[styles.tableHeaderCell, styles.sizeCell]}>Size</Text>
-            <Text style={[styles.tableHeaderCell, styles.priceCell]}>
-              Price
-            </Text>
-            <Text style={[styles.tableHeaderCell, styles.qtyCell]}>Qty</Text>
-            <Text style={[styles.tableHeaderCell, styles.totalCell]}>
-              Total
-            </Text>
-          </View>
-
-          {/* Table rows */}
-          {batch.items.map((item, index) => (
-            <TouchableOpacity
-              key={item.id || index}
-              style={[
-                styles.tableRow,
-                index < batch.items.length - 1 && styles.tableRowDivider,
-              ]}
-              onPress={() => onItemPress && onItemPress(item.stockEntryId)}
-              activeOpacity={onItemPress ? 0.7 : 1}
-            >
-              <Text
-                style={[styles.tableCell, styles.productCell]}
-                numberOfLines={1}
+            {/* Bill image thumbnail if available */}
+            {batch.billUrl && (
+              <TouchableOpacity
+                style={styles.billPreviewFooter}
+                onPress={() => batch.billUrl && setImagePreview(batch.billUrl)}
+                accessibilityLabel="View bill image"
               >
-                {item.productName}
-              </Text>
-              <Text
-                style={[styles.tableCell, styles.supplierCell]}
-                numberOfLines={1}
-              >
-                {item.supplierName}
-              </Text>
-              <Text
-                style={[styles.tableCell, styles.sizeCell]}
-                numberOfLines={1}
-              >
-                {item.sizeName}
-              </Text>
-              <Text style={[styles.tableCell, styles.priceCell]}>
-                ₹{item.buyPrice || 0}
-              </Text>
-              <Text style={[styles.tableCell, styles.qtyCell]}>
-                {item.quantity}
-              </Text>
-              <Text style={[styles.tableCell, styles.totalCell]}>
-                ₹{(item.buyPrice || 0) * item.quantity}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Batch total */}
-        <View style={styles.batchTotal}>
-          <Text style={styles.batchTotalLabel}>Batch Total:</Text>
-          <Text style={styles.batchTotalValue}>
-            ₹
-            {batch.items.reduce(
-              (total, item) => total + (item.buyPrice || 0) * item.quantity,
-              0
+                <MaterialIcons
+                  name="receipt"
+                  size={16}
+                  color={AppColors.primary}
+                />
+                <Text style={styles.billText}>View Bill</Text>
+              </TouchableOpacity>
             )}
-          </Text>
-        </View>
 
-        {/* Bill image thumbnail if available */}
-        {batch.billUrl && (
-          <TouchableOpacity
-            style={styles.billPreviewFooter}
-            onPress={() => batch.billUrl && setImagePreview(batch.billUrl)}
-            accessibilityLabel="View bill image"
-          >
-            <MaterialIcons name="receipt" size={16} color={AppColors.primary} />
-            <Text style={styles.billText}>View Bill</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+            {/* Expanded actions */}
+            {expanded && (
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "flex-end",
+                  gap: 12,
+                  marginTop: 18,
+                  paddingHorizontal: 16,
+                  paddingBottom: 16,
+                }}
+              >
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: Theme.colors.primary,
+                    borderRadius: 8,
+                    paddingVertical: 10,
+                    paddingHorizontal: 22,
+                  }}
+                  onPress={() => onEditBatch && onEditBatch(batch)}
+                  accessibilityLabel="Edit batch"
+                >
+                  <Text
+                    style={{
+                      color: Theme.colors.white,
+                      fontWeight: "600",
+                      fontSize: 15,
+                    }}
+                  >
+                    Edit
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: AppColors.error,
+                    borderRadius: 8,
+                    paddingVertical: 10,
+                    paddingHorizontal: 22,
+                  }}
+                  onPress={() => onDeleteBatch && onDeleteBatch(batch.id)}
+                  accessibilityLabel="Delete batch"
+                >
+                  <Text
+                    style={{
+                      color: Theme.colors.white,
+                      fontWeight: "600",
+                      fontSize: 15,
+                    }}
+                  >
+                    Delete
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
     );
   };
 
