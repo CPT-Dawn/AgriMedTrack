@@ -1,9 +1,11 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Animated,
+  Dimensions,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -19,6 +21,21 @@ import {
 import { SaleItemInput } from "../components/SaleItemInput";
 import { AppColors } from "../constants/Colors";
 import { Theme } from "../constants/Theme";
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const HEADER_VERTICAL = Math.max(
+  Theme.spacing.sm,
+  Math.round(SCREEN_HEIGHT * 0.018)
+);
+const HEADER_HORIZONTAL = Math.max(
+  Theme.spacing.lg,
+  Math.round(SCREEN_WIDTH * 0.045)
+);
+const SEARCHBAR_VERTICAL = Math.max(
+  Theme.spacing.xs,
+  Math.round(SCREEN_HEIGHT * 0.012)
+);
+const SEARCHBAR_MIN_HEIGHT = Math.max(40, Math.round(SCREEN_HEIGHT * 0.055));
 
 // Local color reference for backward compatibility
 const colors = {
@@ -760,8 +777,21 @@ export default function SalesScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
-
+      <LinearGradient
+        colors={[Theme.colors.surface, Theme.colors.surfacePressed]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={{
+          ...StyleSheet.absoluteFillObject,
+          zIndex: 0,
+          height: HEADER_VERTICAL * 3,
+        }}
+        pointerEvents="none"
+      />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={Theme.colors.surface}
+      />
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTitleContainer}>
@@ -860,26 +890,30 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   header: {
-    paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0 + 20,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    backgroundColor: colors.white,
+    paddingTop: HEADER_VERTICAL,
+    paddingHorizontal: HEADER_HORIZONTAL,
+    paddingBottom: HEADER_VERTICAL,
+    backgroundColor: Theme.colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderBottomColor: Theme.colors.shadow + "10", // subtle border for depth
+    ...Theme.shadows.md,
+    zIndex: 10,
   },
   headerTitleContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: Theme.spacing.md,
   },
   backButton: {
-    padding: 4,
-    marginRight: 8,
+    padding: Theme.spacing.xs,
+    marginRight: Theme.spacing.sm,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: "600",
-    color: colors.text,
+    fontSize: Theme.typography.fontSize["2xl"],
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.text,
+    flex: 1,
+    textAlign: "left",
   },
   userInfo: {
     flexDirection: "row",
@@ -1214,14 +1248,12 @@ const styles = StyleSheet.create({
   },
   // Sale card styles
   saleCard: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    marginBottom: 16,
-    shadowColor: colors.gray[900],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius["2xl"],
+    marginHorizontal: Theme.spacing.lg,
+    marginBottom: Theme.spacing["2xl"],
+    padding: Theme.spacing.lg,
+    ...Theme.shadows.lg,
   },
   saleCardHeader: {
     flexDirection: "row",
@@ -1377,43 +1409,47 @@ const styles = StyleSheet.create({
   searchBarContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    minHeight: 48,
-    marginTop: 12,
+    backgroundColor: Theme.colors.surfacePressed,
+    borderRadius: Theme.borderRadius.xl,
+    paddingHorizontal: HEADER_HORIZONTAL,
+    paddingVertical: SEARCHBAR_VERTICAL,
+    minHeight: SEARCHBAR_MIN_HEIGHT,
+    marginTop: SEARCHBAR_VERTICAL,
     borderWidth: 1,
-    borderColor: colors.gray[200],
-    shadowColor: colors.gray[900],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+    borderColor: Theme.colors.surfacePressed,
+    // Double shadow for 3D effect
+    ...Theme.shadows.sm,
+    ...Platform.select({
+      ios: {
+        shadowColor: Theme.colors.shadow,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.13,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 7,
+      },
+    }),
   },
   searchBarContainerActive: {
-    borderColor: colors.primary,
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 4,
+    borderColor: Theme.colors.primary,
+    ...Theme.shadows.md,
   },
   searchBar: {
     flex: 1,
-    fontSize: 16,
-    color: colors.text,
+    fontSize: Theme.typography.fontSize.base,
+    color: Theme.colors.text,
     padding: 0,
     backgroundColor: "transparent",
   },
   searchBarActive: {
-    color: colors.primary,
+    color: Theme.colors.primary,
   },
   clearButton: {
-    marginLeft: 6,
-    padding: 4,
-    borderRadius: 12,
-    backgroundColor: colors.gray[100],
-    justifyContent: "center",
-    alignItems: "center",
+    marginLeft: Theme.spacing.xs,
+    padding: Theme.spacing.xs,
+    borderRadius: Theme.borderRadius.full,
+    backgroundColor: "transparent",
   },
   listContainer: {
     paddingTop: 12,
