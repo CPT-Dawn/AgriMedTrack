@@ -1,440 +1,671 @@
-import ParallaxScrollView from "@/components/ParallaxScrollView";
-import { ThemedText } from "@/components/ThemedText";
-import { IconSymbol } from "@/components/ui/IconSymbol";
-import React from "react";
-import { Pressable, StyleSheet, View } from "react-native";
-import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import React, { useEffect, useState } from "react";
+import {
+  Animated,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-const BUSINESS_METRICS = {
-  totalSales: "₹1,25,000",
-  totalItems: 156,
-  lowStockItems: 8,
-  monthlyGrowth: "+12.5%",
+// Theme colors matching the design system
+const colors = {
+  primary: "#0288D1",
+  secondary: "#F9A825",
+  accent: "#FF7043",
+  bg: "#F5F5F5",
+  text: "#263238",
+  white: "#FFFFFF",
+  gray: {
+    50: "#F9FAFB",
+    100: "#F3F4F6",
+    200: "#E5E7EB",
+    300: "#D1D5DB",
+    400: "#9CA3AF",
+    500: "#6B7280",
+    600: "#4B5563",
+    700: "#374151",
+    800: "#1F2937",
+    900: "#111827",
+  },
 };
 
-const RECENT_SALES = [
+interface Profile {
+  id: string;
+  name: string;
+  avatar: string;
+  role: string;
+}
+
+interface SummaryCard {
+  id: string;
+  title: string;
+  value: string;
+  icon: string;
+  color?: string;
+  trend?: string;
+}
+
+interface ActivityItem {
+  id: string;
+  user: Profile;
+  action: string;
+  details: string;
+  timestamp: string;
+  type: "stock" | "sale" | "payment";
+}
+
+// Mock data
+const PROFILES: Profile[] = [
+  { id: "1", name: "Gopal", avatar: "👨‍💼", role: "Sales Manager" },
+  { id: "2", name: "Anil", avatar: "👨‍🌾", role: "Field Agent" },
+  { id: "3", name: "Papa", avatar: "👩‍💼", role: "Account Manager" },
+];
+
+const SUMMARY_DATA: SummaryCard[] = [
   {
     id: "1",
-    customer: "Green Valley Farm",
-    amount: "₹12,500",
-    time: "2 hours ago",
+    title: "Total Items in Stock",
+    value: "1,247",
+    icon: "inventory",
+    color: colors.primary,
   },
-  { id: "2", customer: "Sunrise Dairy", amount: "₹8,750", time: "4 hours ago" },
-  { id: "3", customer: "AgroMart", amount: "₹15,200", time: "6 hours ago" },
+  {
+    id: "2",
+    title: "Today's Sales",
+    value: "₹15,420",
+    icon: "trending-up",
+    color: colors.secondary,
+    trend: "+12%",
+  },
+  {
+    id: "3",
+    title: "Pending Payments",
+    value: "₹8,750",
+    icon: "payment",
+    color: colors.accent,
+  },
+  {
+    id: "4",
+    title: "Low Stock Alerts",
+    value: "5",
+    icon: "warning",
+    color: "#EF4444",
+  },
 ];
 
-const LOW_STOCK_ALERTS = [
-  { id: "1", item: "Amoxicillin 100mg", current: 5, min: 10 },
-  { id: "2", item: "Ivermectin 10ml", current: 3, min: 8 },
-  { id: "3", item: "Vitamin B12", current: 2, min: 5 },
-];
-
-const QUICK_ACTIONS = [
-  { id: "1", title: "Add Sale", icon: "💸", color: "#43cea2" },
-  { id: "2", title: "Add Stock", icon: "💊", color: "#185a9d" },
-  { id: "3", title: "View Reports", icon: "📊", color: "#ff6b6b" },
+const RECENT_ACTIVITIES: ActivityItem[] = [
+  {
+    id: "1",
+    user: PROFILES[1],
+    action: "added",
+    details: "3× Urea 50kg",
+    timestamp: "10:42 AM",
+    type: "stock",
+  },
+  {
+    id: "2",
+    user: PROFILES[2],
+    action: "sold",
+    details: "2× Glyphosate",
+    timestamp: "12:13 PM",
+    type: "sale",
+  },
+  {
+    id: "3",
+    user: PROFILES[0],
+    action: "received payment",
+    details: "₹2,400 from Gopal",
+    timestamp: "09:15 AM",
+    type: "payment",
+  },
+  {
+    id: "4",
+    user: PROFILES[1],
+    action: "added",
+    details: "5× NPK Fertilizer",
+    timestamp: "Yesterday",
+    type: "stock",
+  },
+  {
+    id: "5",
+    user: PROFILES[2],
+    action: "sold",
+    details: "1× Pesticide",
+    timestamp: "Yesterday",
+    type: "sale",
+  },
 ];
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: "#43cea2", dark: "#232526" }}
-      headerImage={
-        <Animated.View
-          entering={FadeInDown.duration(800)}
-          style={styles.headerImageWrap}
-        >
-          <IconSymbol
-            name="house.fill"
-            size={120}
-            color="#fff"
-            style={{ opacity: 0.9 }}
-          />
-          <ThemedText type="title" style={styles.headerTitle}>
-            AgriMedTrack
-          </ThemedText>
-          <ThemedText style={styles.headerSubtitle}>
-            Your Agricultural Medicine Hub
-          </ThemedText>
-        </Animated.View>
+  const [currentProfile, setCurrentProfile] = useState<Profile>(PROFILES[0]);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [greeting, setGreeting] = useState("");
+
+  // Animated values
+  const dropdownOpacity = new Animated.Value(0);
+  const dropdownScale = new Animated.Value(0.8);
+
+  // Update greeting based on time
+  useEffect(() => {
+    const updateGreeting = () => {
+      const hour = new Date().getHours();
+      let timeGreeting = "";
+
+      if (hour < 12) {
+        timeGreeting = "Good Morning";
+      } else if (hour < 17) {
+        timeGreeting = "Good Afternoon";
+      } else {
+        timeGreeting = "Good Evening";
       }
-    >
-      {/* Welcome Section */}
-      <Animated.View
-        entering={FadeInUp.delay(100).duration(600)}
-        style={styles.welcomeSection}
-      >
-        <ThemedText type="subtitle" style={styles.welcomeText}>
-          Welcome back! 👋
-        </ThemedText>
-        <ThemedText style={styles.dateText}>
-          Today is a great day for business
-        </ThemedText>
-      </Animated.View>
 
-      {/* Business Metrics */}
-      <Animated.View
-        entering={FadeInUp.delay(200).duration(600)}
-        style={styles.section}
-      >
-        <ThemedText type="subtitle" style={styles.sectionTitle}>
-          📈 Business Overview
-        </ThemedText>
-        <View style={styles.metricsGrid}>
-          <View style={styles.metricCard}>
-            <ThemedText style={styles.metricIcon}>💰</ThemedText>
-            <ThemedText style={styles.metricValue}>
-              {BUSINESS_METRICS.totalSales}
-            </ThemedText>
-            <ThemedText style={styles.metricLabel}>Total Sales</ThemedText>
-            <ThemedText style={styles.metricGrowth}>
-              {BUSINESS_METRICS.monthlyGrowth}
-            </ThemedText>
-          </View>
-          <View style={styles.metricCard}>
-            <ThemedText style={styles.metricIcon}>📦</ThemedText>
-            <ThemedText style={styles.metricValue}>
-              {BUSINESS_METRICS.totalItems}
-            </ThemedText>
-            <ThemedText style={styles.metricLabel}>Stock Items</ThemedText>
-            <ThemedText style={styles.metricGrowth}>+5 items</ThemedText>
-          </View>
-          <View style={styles.metricCard}>
-            <ThemedText style={styles.metricIcon}>⚠️</ThemedText>
-            <ThemedText style={styles.metricValue}>
-              {BUSINESS_METRICS.lowStockItems}
-            </ThemedText>
-            <ThemedText style={styles.metricLabel}>Low Stock</ThemedText>
-            <ThemedText style={styles.metricGrowth}>Needs attention</ThemedText>
-          </View>
+      setGreeting(`${timeGreeting}, ${currentProfile.name} 👋`);
+    };
+
+    updateGreeting();
+    const interval = setInterval(updateGreeting, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, [currentProfile]);
+
+  // Animate profile dropdown
+  useEffect(() => {
+    if (showProfileDropdown) {
+      Animated.parallel([
+        Animated.timing(dropdownOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(dropdownScale, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(dropdownOpacity, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(dropdownScale, {
+          toValue: 0.8,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [showProfileDropdown, dropdownOpacity, dropdownScale]);
+
+  const handleProfileSelect = (profile: Profile) => {
+    setCurrentProfile(profile);
+    setShowProfileDropdown(false);
+  };
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case "stock":
+        return "add-circle";
+      case "sale":
+        return "shopping-cart";
+      case "payment":
+        return "payment";
+      default:
+        return "info";
+    }
+  };
+
+  const getActivityColor = (type: string) => {
+    switch (type) {
+      case "stock":
+        return colors.primary;
+      case "sale":
+        return colors.secondary;
+      case "payment":
+        return colors.accent;
+      default:
+        return colors.gray[500];
+    }
+  };
+
+  // Render summary card
+  const renderSummaryCard = ({ item }: { item: SummaryCard }) => (
+    <View style={styles.summaryCard}>
+      <View style={styles.summaryCardHeader}>
+        <View
+          style={[styles.summaryIcon, { backgroundColor: item.color + "20" }]}
+        >
+          <MaterialIcons name={item.icon as any} size={24} color={item.color} />
         </View>
-      </Animated.View>
+        {item.trend && (
+          <View style={styles.trendBadge}>
+            <Text style={styles.trendText}>{item.trend}</Text>
+          </View>
+        )}
+      </View>
+      <Text style={styles.summaryValue}>{item.value}</Text>
+      <Text style={styles.summaryTitle}>{item.title}</Text>
+    </View>
+  );
 
-      {/* Quick Actions */}
-      <Animated.View
-        entering={FadeInUp.delay(300).duration(600)}
-        style={styles.section}
+  // Render activity item
+  const renderActivityItem = ({ item }: { item: ActivityItem }) => (
+    <View style={styles.activityItem}>
+      <View style={styles.activityAvatar}>
+        <Text style={styles.avatarText}>{item.user.avatar}</Text>
+      </View>
+      <View style={styles.activityContent}>
+        <Text style={styles.activityText}>
+          <Text style={styles.activityUser}>{item.user.name}</Text>{" "}
+          {item.action}{" "}
+          <Text style={styles.activityDetails}>{item.details}</Text>
+        </Text>
+        <Text style={styles.activityTime}>{item.timestamp}</Text>
+      </View>
+      <View
+        style={[
+          styles.activityIcon,
+          { backgroundColor: getActivityColor(item.type) + "20" },
+        ]}
       >
-        <ThemedText type="subtitle" style={styles.sectionTitle}>
-          ⚡ Quick Actions
-        </ThemedText>
-        <View style={styles.actionsGrid}>
-          {QUICK_ACTIONS.map((action, index) => (
-            <Pressable
-              key={action.id}
-              style={[styles.actionCard, { backgroundColor: action.color }]}
-            >
-              <ThemedText style={styles.actionIcon}>{action.icon}</ThemedText>
-              <ThemedText style={styles.actionTitle}>{action.title}</ThemedText>
-            </Pressable>
-          ))}
+        <MaterialIcons
+          name={getActivityIcon(item.type) as any}
+          size={16}
+          color={getActivityColor(item.type)}
+        />
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+
+      {/* Header with Profile */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <View style={styles.greetingContainer}>
+            <Text style={styles.greeting}>{greeting}</Text>
+            <Text style={styles.subtitle}>Welcome to AgriMedTrack</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.profileButton}
+            onPress={() => setShowProfileDropdown(!showProfileDropdown)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.profileAvatar}>{currentProfile.avatar}</Text>
+            <MaterialIcons
+              name={
+                showProfileDropdown
+                  ? "keyboard-arrow-up"
+                  : "keyboard-arrow-down"
+              }
+              size={20}
+              color={colors.gray[600]}
+            />
+          </TouchableOpacity>
         </View>
-      </Animated.View>
 
-      {/* Recent Sales */}
-      <Animated.View
-        entering={FadeInUp.delay(400).duration(600)}
-        style={styles.section}
+        {/* Profile Dropdown */}
+        {showProfileDropdown && (
+          <Animated.View
+            style={[
+              styles.profileDropdown,
+              {
+                opacity: dropdownOpacity,
+                transform: [{ scale: dropdownScale }],
+              },
+            ]}
+          >
+            {PROFILES.map((profile) => (
+              <TouchableOpacity
+                key={profile.id}
+                style={[
+                  styles.profileOption,
+                  currentProfile.id === profile.id &&
+                    styles.profileOptionActive,
+                ]}
+                onPress={() => handleProfileSelect(profile)}
+              >
+                <Text style={styles.profileOptionAvatar}>{profile.avatar}</Text>
+                <View style={styles.profileOptionInfo}>
+                  <Text style={styles.profileOptionName}>{profile.name}</Text>
+                  <Text style={styles.profileOptionRole}>{profile.role}</Text>
+                </View>
+                {currentProfile.id === profile.id && (
+                  <MaterialIcons
+                    name="check"
+                    size={20}
+                    color={colors.primary}
+                  />
+                )}
+              </TouchableOpacity>
+            ))}
+          </Animated.View>
+        )}
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
       >
-        <ThemedText type="subtitle" style={styles.sectionTitle}>
-          🕒 Recent Sales
-        </ThemedText>
-        <View style={styles.card}>
-          {RECENT_SALES.map((sale, index) => (
-            <View
-              key={sale.id}
-              style={[
-                styles.saleRow,
-                index < RECENT_SALES.length - 1 && styles.saleRowBorder,
-              ]}
-            >
-              <View style={styles.saleInfo}>
-                <ThemedText style={styles.customerName}>
-                  {sale.customer}
-                </ThemedText>
-                <ThemedText style={styles.saleTime}>{sale.time}</ThemedText>
+        {/* Summary Cards */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Dashboard Overview</Text>
+          <View style={styles.summaryGrid}>
+            {SUMMARY_DATA.map((item) => (
+              <View key={item.id} style={styles.summaryCardWrapper}>
+                {renderSummaryCard({ item })}
               </View>
-              <ThemedText style={styles.saleAmount}>{sale.amount}</ThemedText>
-            </View>
-          ))}
-          <Pressable style={styles.viewAllButton}>
-            <ThemedText style={styles.viewAllText}>View All Sales ›</ThemedText>
-          </Pressable>
+            ))}
+          </View>
         </View>
-      </Animated.View>
 
-      {/* Low Stock Alerts */}
-      <Animated.View
-        entering={FadeInUp.delay(500).duration(600)}
-        style={styles.section}
-      >
-        <ThemedText type="subtitle" style={styles.sectionTitle}>
-          🚨 Low Stock Alerts
-        </ThemedText>
-        <View style={styles.card}>
-          {LOW_STOCK_ALERTS.map((alert, index) => (
-            <View
-              key={alert.id}
-              style={[
-                styles.alertRow,
-                index < LOW_STOCK_ALERTS.length - 1 && styles.alertRowBorder,
-              ]}
-            >
-              <View style={styles.alertInfo}>
-                <ThemedText style={styles.alertItem}>{alert.item}</ThemedText>
-                <ThemedText style={styles.alertStatus}>
-                  Current: {alert.current} | Min: {alert.min}
-                </ThemedText>
+        {/* Quick Actions */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={styles.quickActions}>
+            <TouchableOpacity style={styles.quickActionButton}>
+              <View style={styles.quickActionIcon}>
+                <MaterialIcons
+                  name="add-shopping-cart"
+                  size={24}
+                  color={colors.white}
+                />
               </View>
-              <Pressable style={styles.restockButton}>
-                <ThemedText style={styles.restockText}>Restock</ThemedText>
-              </Pressable>
-            </View>
-          ))}
-          <Pressable style={styles.viewAllButton}>
-            <ThemedText style={styles.viewAllText}>
-              View All Alerts ›
-            </ThemedText>
-          </Pressable>
-        </View>
-      </Animated.View>
+              <Text style={styles.quickActionText}>New Sale</Text>
+            </TouchableOpacity>
 
-      {/* Business Tips */}
-      <Animated.View
-        entering={FadeInUp.delay(600).duration(600)}
-        style={styles.tipSection}
-      >
-        <View style={styles.tipCard}>
-          <ThemedText style={styles.tipIcon}>💡</ThemedText>
-          <ThemedText style={styles.tipTitle}>Business Tip</ThemedText>
-          <ThemedText style={styles.tipText}>
-            Keep track of seasonal demands for agricultural medicines. Stock up
-            before peak farming seasons!
-          </ThemedText>
+            <TouchableOpacity style={styles.quickActionButton}>
+              <View style={styles.quickActionIcon}>
+                <MaterialIcons name="add-box" size={24} color={colors.white} />
+              </View>
+              <Text style={styles.quickActionText}>Add Stock</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.quickActionButton}>
+              <View style={styles.quickActionIcon}>
+                <MaterialIcons name="history" size={24} color={colors.white} />
+              </View>
+              <Text style={styles.quickActionText}>View Logs</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </Animated.View>
-    </ParallaxScrollView>
+
+        {/* Recent Activity */}
+        <View style={styles.section}>
+          <View style={styles.activityHeader}>
+            <Text style={styles.sectionTitle}>Recent Activity</Text>
+            <TouchableOpacity style={styles.viewAllButton}>
+              <Text style={styles.viewAllText}>View All</Text>
+              <MaterialIcons
+                name="arrow-forward"
+                size={16}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.activityList}>
+            {RECENT_ACTIVITIES.map((item) => (
+              <View key={item.id}>{renderActivityItem({ item })}</View>
+            ))}
+          </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImageWrap: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 40,
-    marginBottom: 8,
+  container: {
+    flex: 1,
+    backgroundColor: colors.bg,
   },
-  headerTitle: {
-    color: "#fff",
-    fontSize: 36,
-    fontWeight: "bold",
-    marginTop: 8,
-    textShadowColor: "#0008",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
+  header: {
+    backgroundColor: colors.white,
+    paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0 + 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
   },
-  headerSubtitle: {
-    color: "#fff",
-    fontSize: 16,
-    marginTop: 4,
-    opacity: 0.9,
-    textShadowColor: "#0008",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
-  welcomeSection: {
-    marginBottom: 24,
-  },
-  welcomeText: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#185a9d",
-    marginBottom: 4,
-  },
-  dateText: {
-    fontSize: 16,
-    color: "#666",
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#185a9d",
-    marginBottom: 12,
-    marginLeft: 4,
-  },
-  metricsGrid: {
+  headerContent: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 12,
-  },
-  metricCard: {
-    flex: 1,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
     alignItems: "center",
-    shadowColor: "#43cea2",
+  },
+  greetingContainer: {
+    flex: 1,
+  },
+  greeting: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: colors.text,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: colors.gray[600],
+  },
+  profileButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.gray[50],
+    borderRadius: 24,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  profileAvatar: {
+    fontSize: 24,
+  },
+  profileDropdown: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    marginTop: 12,
+    padding: 8,
+    shadowColor: colors.gray[900],
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },
-  metricIcon: {
-    fontSize: 24,
-    marginBottom: 8,
+  profileOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    gap: 12,
   },
-  metricValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#43cea2",
-    marginBottom: 4,
+  profileOptionActive: {
+    backgroundColor: colors.primary + "10",
   },
-  metricLabel: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 4,
+  profileOptionAvatar: {
+    fontSize: 20,
   },
-  metricGrowth: {
+  profileOptionInfo: {
+    flex: 1,
+  },
+  profileOptionName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.text,
+  },
+  profileOptionRole: {
     fontSize: 12,
-    color: "#43cea2",
-    fontWeight: "bold",
+    color: colors.gray[600],
   },
-  actionsGrid: {
+  scrollView: {
+    flex: 1,
+  },
+  section: {
+    padding: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: colors.text,
+    marginBottom: 16,
+  },
+  summaryGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 12,
   },
-  actionCard: {
+  summaryCardWrapper: {
     width: "48%",
-    backgroundColor: "#43cea2",
-    borderRadius: 16,
-    padding: 20,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
   },
-  actionIcon: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  actionTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#fff",
-    textAlign: "center",
-  },
-  card: {
-    backgroundColor: "#fff",
+  summaryCard: {
+    backgroundColor: colors.white,
     borderRadius: 16,
     padding: 16,
-    shadowColor: "#43cea2",
+    shadowColor: colors.gray[900],
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  saleRow: {
+  summaryCardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 12,
-  },
-  saleRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  saleInfo: {
-    flex: 1,
-  },
-  customerName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#185a9d",
-  },
-  saleTime: {
-    fontSize: 14,
-    color: "#666",
-    marginTop: 2,
-  },
-  saleAmount: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#43cea2",
-  },
-  alertRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-  },
-  alertRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  alertInfo: {
-    flex: 1,
-  },
-  alertItem: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#185a9d",
-  },
-  alertStatus: {
-    fontSize: 14,
-    color: "#ff6b6b",
-    marginTop: 2,
-  },
-  restockButton: {
-    backgroundColor: "#ff6b6b",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  restockText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "bold",
-  },
-  viewAllButton: {
-    alignItems: "center",
-    paddingVertical: 12,
-    marginTop: 8,
-  },
-  viewAllText: {
-    color: "#43cea2",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  tipSection: {
-    marginBottom: 40,
-  },
-  tipCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
-    alignItems: "center",
-    shadowColor: "#43cea2",
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  tipIcon: {
-    fontSize: 32,
     marginBottom: 12,
   },
-  tipTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#185a9d",
-    marginBottom: 8,
+  summaryIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  tipText: {
+  trendBadge: {
+    backgroundColor: colors.secondary + "20",
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  trendText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.secondary,
+  },
+  summaryValue: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: colors.text,
+    marginBottom: 4,
+  },
+  summaryTitle: {
+    fontSize: 12,
+    color: colors.gray[600],
+    fontWeight: "500",
+  },
+  quickActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  quickActionButton: {
+    flex: 1,
+    backgroundColor: colors.accent,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+    gap: 8,
+    shadowColor: colors.gray[900],
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  quickActionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.white + "20",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  quickActionText: {
     fontSize: 14,
-    color: "#666",
-    textAlign: "center",
+    fontWeight: "600",
+    color: colors.white,
+  },
+  activityHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  viewAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  viewAllText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.primary,
+  },
+  activityList: {
+    gap: 12,
+  },
+  activityItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+    shadowColor: colors.gray[900],
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  activityAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.gray[100],
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarText: {
+    fontSize: 16,
+  },
+  activityContent: {
+    flex: 1,
+  },
+  activityText: {
+    fontSize: 14,
+    color: colors.text,
     lineHeight: 20,
+  },
+  activityUser: {
+    fontWeight: "600",
+  },
+  activityDetails: {
+    fontWeight: "500",
+  },
+  activityTime: {
+    fontSize: 12,
+    color: colors.gray[500],
+    marginTop: 2,
+  },
+  activityIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

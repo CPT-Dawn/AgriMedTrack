@@ -230,7 +230,7 @@ export function useStock() {
               sizeName: size.label,
               quantity: newEntry.quantity,
               updatedBy: userId,
-              updatedByName: "Current User", // In a real app, get from auth
+              updatedByName: "Gopal", // In a real app, get from auth
               batchId: batchId,
             });
           }
@@ -261,7 +261,7 @@ export function useStock() {
             sizeName: size.label,
             quantity: newEntry.quantity,
             updatedBy: userId,
-            updatedByName: "Current User", // In a real app, get from auth
+            updatedByName: "Gopal", // In a real app, get from auth
           });
         }
       } catch (err) {

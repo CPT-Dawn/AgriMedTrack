@@ -116,7 +116,7 @@ export const AddStockModal: React.FC<AddStockModalProps> = ({
         }),
       ]).start();
     }
-  }, [visible]);
+  }, [visible, fadeAnim, slideAnim]);
 
   const handleImagePicker = async () => {
     const permissionResult =
@@ -182,7 +182,7 @@ export const AddStockModal: React.FC<AddStockModalProps> = ({
       setSubmitting(true);
       await onSubmit(form);
       onClose();
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to add stock entry");
     } finally {
       setSubmitting(false);

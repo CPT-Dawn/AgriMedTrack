@@ -374,7 +374,7 @@ let mockActivities: StockActivity[] = [
     sizeName: "50ml bottle",
     quantity: 200,
     updatedBy: "user1",
-    updatedByName: "John Doe",
+    updatedByName: "Gopal",
     timestamp: new Date("2024-07-06T10:30:00"),
   },
   {
@@ -386,7 +386,7 @@ let mockActivities: StockActivity[] = [
     sizeName: "10ml vial",
     quantity: 150,
     updatedBy: "user2",
-    updatedByName: "Jane Smith",
+    updatedByName: "Anil",
     timestamp: new Date("2024-07-05T14:20:00"),
   },
   {
@@ -398,7 +398,7 @@ let mockActivities: StockActivity[] = [
     sizeName: "100mg tablet",
     quantity: 400,
     updatedBy: "user1",
-    updatedByName: "John Doe",
+    updatedByName: "Gopal",
     timestamp: new Date("2024-07-04T09:15:00"),
   },
   {
@@ -410,7 +410,7 @@ let mockActivities: StockActivity[] = [
     sizeName: "50mg tablet",
     quantity: 300,
     updatedBy: "user2",
-    updatedByName: "Jane Smith",
+    updatedByName: "Anil",
     timestamp: new Date("2024-07-03T11:45:00"),
   },
   {
@@ -422,7 +422,7 @@ let mockActivities: StockActivity[] = [
     sizeName: "20mg tablet",
     quantity: 250,
     updatedBy: "user1",
-    updatedByName: "John Doe",
+    updatedByName: "Gopal",
     timestamp: new Date("2024-07-02T16:30:00"),
   },
 ];
@@ -552,14 +552,7 @@ const mockBatchActivityData = [
 ];
 
 // User names for the batch logs
-const mockUserNames = [
-  "Raj Kumar",
-  "Anita Singh",
-  "Vikram Patel",
-  "Meera Sharma",
-  "Sunil Verma",
-  "Priya Gupta",
-];
+const mockUserNames = ["Gopal", "Anil", "Papa", "Gopal", "Anil", "Papa"];
 
 // Convert mock batch data to StockBatch format
 const generateMockBatchLogs = (): StockBatch[] => {
