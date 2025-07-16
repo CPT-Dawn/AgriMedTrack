@@ -1,5 +1,15 @@
-import React, { memo, useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import React, { memo, useEffect, useMemo, useRef } from "react";
+import {
+  Animated,
+  Easing,
+  LayoutAnimation,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  UIManager,
+  View,
+} from "react-native";
 import { Theme } from "../constants/Theme";
 import { StockActivity, StockBatch, StockItem } from "../types/stock";
 import { BatchActivityLog } from "./BatchActivityLog";
@@ -13,6 +23,15 @@ interface StockCardProps {
   onHighlightProduct?: (productId: string) => void;
   qtyRightAlign?: boolean;
   showBuyValues?: boolean;
+  wiggle?: boolean; // new prop
+}
+
+// Enable layout animations on Android
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 const StockCardComponent: React.FC<StockCardProps> = ({
@@ -24,6 +43,7 @@ const StockCardComponent: React.FC<StockCardProps> = ({
   onHighlightProduct,
   qtyRightAlign = false,
   showBuyValues = true,
+  wiggle = false,
 }) => {
   // Gather all supplier/packaging/price/quantity rows for this product
   const rows: any[] = [];
@@ -122,82 +142,202 @@ const StockCardComponent: React.FC<StockCardProps> = ({
     return batches.sort((a, b) => b.addedAt.getTime() - a.addedAt.getTime());
   }, [productActivities]);
 
+  // Wiggle animation
+  const wiggleAnim = useRef(new Animated.Value(0)).current;
+
+  // Animated expansion
+  const expandAnim = useRef(new Animated.Value(isLogExpanded ? 1 : 0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.timing(expandAnim, {
+      toValue: isLogExpanded ? 1 : 0,
+      duration: 320,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [isLogExpanded]);
+
+  // Card press feedback
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      useNativeDriver: true,
+    }).start();
+  };
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 3,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  // Chevron rotation
+  const chevronRotate = expandAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "180deg"],
+  });
+
+  // Expandable section style
+  const expandedStyle = {
+    height: expandAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 180], // 180px max height for log
+    }),
+    opacity: expandAnim,
+  };
+
+  // Wiggle animation
+  useEffect(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  }, [isLogExpanded]);
+
+  useEffect(() => {
+    if (wiggle) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(wiggleAnim, {
+            toValue: 1,
+            duration: 60,
+            useNativeDriver: true,
+          }),
+          Animated.timing(wiggleAnim, {
+            toValue: -1,
+            duration: 60,
+            useNativeDriver: true,
+          }),
+          Animated.timing(wiggleAnim, {
+            toValue: 0,
+            duration: 60,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      wiggleAnim.stopAnimation();
+      wiggleAnim.setValue(0);
+    }
+  }, [wiggle]);
+
   return (
-    <View style={styles.card}>
-      {/* Card Header */}
-      <View style={styles.headerRow}>
-        <Text style={styles.productName}>{item.product.name}</Text>
-        <View style={styles.quantityContainer}>
-          <View
-            style={[
-              styles.stockHealthIndicator,
-              { backgroundColor: getStockHealthColor() },
-            ]}
-          />
-          <Text style={styles.totalQty}>
-            {formatTotalQuantity(totalQuantity, unit)}
-          </Text>
+    <TouchableOpacity
+      activeOpacity={0.95}
+      onPress={() => onToggleLog(item.id)}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={{ width: "100%" }}
+      accessibilityRole="button"
+      accessibilityLabel={`Expand activity log for ${item.product.name}`}
+    >
+      <Animated.View
+        style={[
+          styles.card,
+          wiggle && { transform: [{ translateX: wiggleAnim }] },
+          {
+            transform: [
+              ...(wiggle ? [{ translateX: wiggleAnim }] : []),
+              { scale: scaleAnim },
+            ],
+            backgroundColor: isLogExpanded
+              ? Theme.colors.surfacePressed
+              : Theme.colors.surface,
+            shadowOpacity: isLogExpanded ? 0.18 : 0.08,
+            elevation: isLogExpanded ? 6 : 2,
+          },
+        ]}
+      >
+        {/* Card header and content */}
+        <View style={styles.headerRow}>
+          <Text style={styles.productName}>{item.product.name}</Text>
+          <View style={styles.quantityContainer}>
+            <View
+              style={[
+                styles.stockHealthIndicator,
+                { backgroundColor: getStockHealthColor() },
+              ]}
+            />
+            <Text style={styles.totalQty}>
+              {formatTotalQuantity(totalQuantity, unit)}
+            </Text>
+          </View>
         </View>
-      </View>
 
-      {/* Table Header */}
-      <View style={styles.tableHeaderRow}>
-        <Text style={[styles.tableHeader, styles.companyHeader]}>Company</Text>
-        <Text style={[styles.tableHeader, styles.equalHeader]}>Size</Text>
-        <Text style={[styles.tableHeader, styles.equalHeader]}>Buy ₹</Text>
-        <Text style={[styles.tableHeader, styles.equalHeader]}>Sell ₹</Text>
-        <Text
-          style={[
-            styles.tableHeader,
-            styles.equalHeader,
-            qtyRightAlign && styles.qtyHeaderRight,
-          ]}
-        >
-          Qty
-        </Text>
-      </View>
-
-      {/* Table Rows */}
-      {rows.map((row, idx) => (
-        <View
-          key={idx}
-          style={[
-            styles.tableRow,
-            idx % 2 === 1 ? styles.tableRowAlternate : null,
-          ]}
-        >
-          <Text style={[styles.tableCell, styles.companyCell]}>
-            {row.company}
+        {/* Table header */}
+        <View style={styles.tableHeaderRow}>
+          <Text style={[styles.tableHeader, styles.companyHeader]}>
+            Supplier
           </Text>
-          <Text style={[styles.tableCell, styles.equalCell]}>
-            {row.packaging}
-          </Text>
-          <Text style={[styles.tableCell, styles.equalCell]}>
-            {showBuyValues ? row.buyPrice : row.buyPrice ? "***" : ""}
-          </Text>
-          <Text style={[styles.tableCell, styles.equalCell]}>
-            {row.sellPrice}
-          </Text>
+          <Text style={[styles.tableHeader, styles.equalHeader]}>Pack</Text>
+          <Text style={[styles.tableHeader, styles.equalHeader]}>Buy</Text>
+          <Text style={[styles.tableHeader, styles.equalHeader]}>Sell</Text>
           <Text
             style={[
-              styles.tableCell,
-              styles.equalCell,
-              qtyRightAlign && styles.qtyCellRight,
+              styles.tableHeader,
+              styles.equalHeader,
+              qtyRightAlign && styles.qtyHeaderRight,
             ]}
           >
-            {row.quantity}
+            Qty
           </Text>
         </View>
-      ))}
 
-      {/* Activity Log Section */}
-      <BatchActivityLog
-        batches={activityBatches}
-        isExpanded={isLogExpanded}
-        onToggle={() => onToggleLog(item.id)}
-        onItemPress={onHighlightProduct}
-      />
-    </View>
+        {/* Table rows */}
+        {rows.map((row, idx) => (
+          <View
+            key={idx}
+            style={[
+              styles.tableRow,
+              idx % 2 === 1 ? styles.tableRowAlternate : null,
+            ]}
+          >
+            <Text style={[styles.tableCell, styles.companyCell]}>
+              {row.company}
+            </Text>
+            <Text style={[styles.tableCell, styles.equalCell]}>
+              {row.packaging}
+            </Text>
+            <Text style={[styles.tableCell, styles.equalCell]}>
+              {showBuyValues ? row.buyPrice : row.buyPrice ? "***" : ""}
+            </Text>
+            <Text style={[styles.tableCell, styles.equalCell]}>
+              {row.sellPrice}
+            </Text>
+            <Text
+              style={[
+                styles.tableCell,
+                styles.equalCell,
+                qtyRightAlign && styles.qtyCellRight,
+              ]}
+            >
+              {row.quantity}
+            </Text>
+          </View>
+        ))}
+
+        {/* Expandable Activity Log Section */}
+        <Animated.View
+          style={[
+            { overflow: "hidden" },
+            expandedStyle,
+            {
+              borderBottomLeftRadius: Theme.borderRadius["2xl"],
+              borderBottomRightRadius: Theme.borderRadius["2xl"],
+            },
+          ]}
+        >
+          {isLogExpanded && (
+            <BatchActivityLog
+              batches={activityBatches}
+              isExpanded={true}
+              onToggle={() => onToggleLog(item.id)}
+              onItemPress={onHighlightProduct}
+              hideHeader={true}
+            />
+          )}
+        </Animated.View>
+      </Animated.View>
+    </TouchableOpacity>
   );
 };
 

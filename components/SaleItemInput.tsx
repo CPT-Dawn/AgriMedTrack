@@ -1,60 +1,40 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import React from "react";
+import React, { useEffect } from "react";
 import {
+  LayoutAnimation,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  UIManager,
   View,
 } from "react-native";
-import { AppColors } from "../constants/Colors";
 import { Theme } from "../constants/Theme";
 import { CreatableDropdown } from "./CreatableDropdown";
 
-// Local color reference for backward compatibility
-const colors = {
-  primary: Theme.colors.primary,
-  secondary: Theme.colors.secondary,
-  accent: Theme.colors.accent,
-  bg: Theme.colors.background,
-  text: Theme.colors.text,
-  white: Theme.colors.white,
-  gray: {
-    50: Theme.colors.surfacePressed,
-    100: Theme.colors.surfacePressed,
-    200: Theme.colors.border,
-    300: Theme.colors.border,
-    400: Theme.colors.textMuted,
-    500: Theme.colors.textMuted,
-    600: Theme.colors.textMuted,
-    700: Theme.colors.text,
-    800: Theme.colors.text,
-    900: Theme.colors.text,
-  },
-};
-
-interface StockItem {
-  id: string;
-  name: string;
-  size: string;
-  price: number;
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-interface SaleItem {
-  id: string;
-  productId: string;
-  productName: string;
-  sizeLabel: string;
-  quantity: string;
-  unitPrice: string;
-  totalPrice: number;
-}
+const colors = Theme.colors;
 
-interface SaleItemInputProps {
-  item: SaleItem;
+export interface SaleItemInputProps {
+  item: {
+    id: string;
+    productId: string;
+    productName: string;
+    sizeLabel: string;
+    quantity: string;
+    unitPrice: string;
+    totalPrice: number;
+  };
   index: number;
-  stockItems: StockItem[];
-  onUpdate: (updates: Partial<SaleItem>) => void;
+  stockItems: { id: string; name: string; size: string; price: number }[];
+  onUpdate: (updates: Partial<SaleItemInputProps["item"]>) => void;
   onRemove: () => void;
   errors: {
     product?: string;
@@ -63,7 +43,7 @@ interface SaleItemInputProps {
   };
 }
 
-export const SaleItemInput: React.FC<SaleItemInputProps> = ({
+const SaleItemInput: React.FC<SaleItemInputProps> = ({
   item,
   index,
   stockItems,
@@ -71,14 +51,13 @@ export const SaleItemInput: React.FC<SaleItemInputProps> = ({
   onRemove,
   errors,
 }) => {
-  // Calculate total price when quantity or unit price changes
-  const calculateTotal = (quantity: string, unitPrice: string) => {
-    const qty = parseFloat(quantity) || 0;
-    const price = parseFloat(unitPrice) || 0;
-    return qty * price;
-  };
+  useEffect(() => {
+    LayoutAnimation.configureNext(
+      LayoutAnimation.create(200, "easeInEaseOut", "opacity")
+    );
+  }, []);
 
-  // Handle product selection
+  // Product select
   const handleProductSelect = (option: { id: string; label: string }) => {
     const selectedStockItem = stockItems.find(
       (stock) => stock.id === option.id
@@ -89,381 +68,224 @@ export const SaleItemInput: React.FC<SaleItemInputProps> = ({
         productName: option.label,
         sizeLabel: selectedStockItem.size,
         unitPrice: selectedStockItem.price.toString(),
-        totalPrice: calculateTotal(
+        totalPrice: calcTotal(
           item.quantity,
           selectedStockItem.price.toString()
         ),
       });
     }
   };
-
-  // Handle quantity change
+  const calcTotal = (quantity: string, unitPrice: string) => {
+    const qty = parseFloat(quantity) || 0;
+    const price = parseFloat(unitPrice) || 0;
+    return qty * price;
+  };
+  // Quantity
   const handleQuantityChange = (quantity: string) => {
-    const totalPrice = calculateTotal(quantity, item.unitPrice);
     onUpdate({
       quantity,
-      totalPrice,
+      totalPrice: calcTotal(quantity, item.unitPrice),
     });
   };
-
-  // Handle unit price change
+  // Price
   const handleUnitPriceChange = (unitPrice: string) => {
-    const totalPrice = calculateTotal(item.quantity, unitPrice);
     onUpdate({
       unitPrice,
-      totalPrice,
+      totalPrice: calcTotal(item.quantity, unitPrice),
     });
   };
 
   return (
-    <View style={styles.itemCard}>
-      {/* Header */}
-      <View style={styles.itemHeader}>
-        <View style={styles.itemHeaderLeft}>
-          <View style={styles.itemNumberBadge}>
-            <Text style={styles.itemNumberText}>{index + 1}</Text>
+    <View style={styles.card}>
+      <View style={styles.headerRow}>
+        <View style={styles.headerLeft}>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{index + 1}</Text>
           </View>
-          <View style={styles.itemHeaderText}>
-            <Text style={styles.itemTitle}>Product Item</Text>
-            <Text style={styles.itemSubtitle}>
-              {item.productName ? item.productName : "Select a product"}
-            </Text>
-          </View>
+          <Text style={styles.title} accessibilityRole="header">
+            Product
+          </Text>
         </View>
         <TouchableOpacity
           onPress={onRemove}
-          style={styles.removeButton}
-          activeOpacity={0.7}
+          style={styles.removeBtn}
+          accessibilityLabel={`Remove product ${index + 1}`}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <MaterialIcons
-            name="delete-outline"
-            size={20}
-            color={colors.accent}
-          />
+          <MaterialIcons name="delete" size={22} color={colors.error} />
         </TouchableOpacity>
       </View>
-
-      {/* Product Selection */}
-      <View style={styles.itemSection}>
-        <Text style={styles.sectionLabel}>
-          Product Information <Text style={styles.requiredAsterisk}>*</Text>
-        </Text>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Product Name</Text>
-          <View style={styles.dropdownContainer}>
-            <CreatableDropdown
-              options={stockItems.map((stock) => ({
-                id: stock.id,
-                label: stock.name,
-              }))}
-              value={item.productId}
-              placeholder="Select product"
-              onSelect={handleProductSelect}
-              onCreate={async (newLabel: string) => {
-                // For now, just return a mock option
-                const mockId = `new-${Date.now()}`;
-                return { id: mockId, label: newLabel };
-              }}
-            />
-          </View>
-          {errors.product && (
-            <View style={styles.errorContainer}>
-              <MaterialIcons
-                name="error-outline"
-                size={16}
-                color={AppColors.error}
-              />
-              <Text style={styles.errorText}>{errors.product}</Text>
-            </View>
-          )}
-        </View>
-
-        {item.sizeLabel && (
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Packaging Size</Text>
-            <View style={styles.sizeDisplay}>
-              <Text style={styles.sizeText}>{item.sizeLabel}</Text>
-            </View>
-          </View>
+      {/* Product Dropdown */}
+      <View style={styles.inputGroup}>
+        <CreatableDropdown
+          options={stockItems.map((s) => ({ id: s.id, label: s.name }))}
+          value={item.productId}
+          placeholder="Select product"
+          onSelect={handleProductSelect}
+          onCreate={async (label) => ({ id: `new-${Date.now()}`, label })}
+          aria-label={`Product dropdown for item ${index + 1}`}
+        />
+        {errors.product && (
+          <Text style={styles.errorText}>{errors.product}</Text>
         )}
       </View>
-
-      {/* Quantity and Pricing */}
-      <View style={styles.itemSection}>
-        <Text style={styles.sectionLabel}>Quantity & Pricing</Text>
-
-        <View style={styles.inputRow}>
-          <View style={[styles.inputGroup, styles.flex1]}>
-            <Text style={styles.inputLabel}>
-              Quantity <Text style={styles.requiredAsterisk}>*</Text>
-            </Text>
-            <View style={styles.inputContainer}>
-              <MaterialIcons
-                name="inventory"
-                size={20}
-                color={colors.gray[400]}
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={[
-                  styles.textInput,
-                  styles.inputWithIcon,
-                  errors.quantity && styles.inputError,
-                ]}
-                value={item.quantity}
-                onChangeText={handleQuantityChange}
-                placeholder="Enter quantity"
-                keyboardType="numeric"
-                placeholderTextColor={colors.gray[400]}
-              />
-            </View>
-            {errors.quantity && (
-              <View style={styles.errorContainer}>
-                <MaterialIcons
-                  name="error-outline"
-                  size={16}
-                  color={AppColors.error}
-                />
-                <Text style={styles.errorText}>{errors.quantity}</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={[styles.inputGroup, styles.flex1]}>
-            <Text style={styles.inputLabel}>
-              Unit Price (₹) <Text style={styles.requiredAsterisk}>*</Text>
-            </Text>
-            <View style={styles.inputContainer}>
-              <MaterialIcons
-                name="attach-money"
-                size={20}
-                color={colors.gray[400]}
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={[
-                  styles.textInput,
-                  styles.inputWithIcon,
-                  errors.price && styles.inputError,
-                ]}
-                value={item.unitPrice}
-                onChangeText={handleUnitPriceChange}
-                placeholder="0.00"
-                keyboardType="numeric"
-                placeholderTextColor={colors.gray[400]}
-              />
-            </View>
-            {errors.price && (
-              <View style={styles.errorContainer}>
-                <MaterialIcons
-                  name="error-outline"
-                  size={16}
-                  color={AppColors.error}
-                />
-                <Text style={styles.errorText}>{errors.price}</Text>
-              </View>
-            )}
+      {/* Size Dropdown/Display */}
+      {item.sizeLabel ? (
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Packaging Size</Text>
+          <View style={styles.sizeDisplay}>
+            <Text style={styles.sizeText}>{item.sizeLabel}</Text>
           </View>
         </View>
-
-        {/* Total Price Display */}
-        <View style={styles.totalPriceContainer}>
-          <Text style={styles.totalPriceLabel}>Total Price:</Text>
-          <Text style={styles.totalPriceAmount}>
-            ₹{item.totalPrice.toFixed(2)}
-          </Text>
+      ) : null}
+      {/* Quantity and Price */}
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1 }]}>
+          <Text style={styles.inputLabel}>Qty</Text>
+          <TextInput
+            style={[styles.input, errors.quantity && styles.inputError]}
+            value={item.quantity}
+            onChangeText={handleQuantityChange}
+            keyboardType="numeric"
+            placeholder="0"
+            accessibilityLabel={`Quantity for item ${index + 1}`}
+            returnKeyType="next"
+          />
+          {errors.quantity && (
+            <Text style={styles.errorText}>{errors.quantity}</Text>
+          )}
+        </View>
+        <View style={[styles.inputGroup, { flex: 1 }]}>
+          <Text style={styles.inputLabel}>Unit Price</Text>
+          <TextInput
+            style={[styles.input, errors.price && styles.inputError]}
+            value={item.unitPrice}
+            onChangeText={handleUnitPriceChange}
+            keyboardType="numeric"
+            placeholder="0.00"
+            accessibilityLabel={`Unit price for item ${index + 1}`}
+            returnKeyType="done"
+          />
+          {errors.price && <Text style={styles.errorText}>{errors.price}</Text>}
         </View>
       </View>
-
-      {/* Item Summary */}
-      {item.productName && item.quantity && (
-        <View style={styles.itemSummary}>
-          <MaterialIcons name="check-circle" size={16} color={colors.primary} />
-          <Text style={styles.itemSummaryText}>
-            {item.productName} • {item.quantity} units • ₹
-            {item.totalPrice.toFixed(2)}
-          </Text>
-        </View>
-      )}
+      {/* Line Total */}
+      <View style={styles.lineTotalRow}>
+        <Text style={styles.lineTotalLabel}>Line Total</Text>
+        <Text style={styles.lineTotalValue}>₹{item.totalPrice.toFixed(2)}</Text>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  itemCard: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: Theme.borderRadius["2xl"],
     padding: 16,
-    marginBottom: 16,
-    shadowColor: colors.gray[900],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 12,
+    ...Theme.shadows.sm,
   },
-  itemHeader: {
+  headerRow: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 8,
   },
-  itemHeaderLeft: {
+  headerLeft: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
   },
-  itemNumberBadge: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
+  badge: {
     width: 32,
     height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
+    marginRight: 10,
   },
-  itemNumberText: {
+  badgeText: {
     color: colors.white,
-    fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "bold",
+    fontSize: 16,
   },
-  itemHeaderText: {
-    flex: 1,
-  },
-  itemTitle: {
+  title: {
     fontSize: 16,
     fontWeight: "600",
     color: colors.text,
   },
-  itemSubtitle: {
-    fontSize: 12,
-    color: colors.gray[600],
-    marginTop: 4,
-  },
-  removeButton: {
-    padding: 8,
+  removeBtn: {
     minWidth: 44,
     minHeight: 44,
     justifyContent: "center",
     alignItems: "center",
-  },
-  itemSection: {
-    marginBottom: 20,
-  },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.gray[700],
-    marginBottom: 12,
-  },
-  requiredAsterisk: {
-    color: AppColors.error,
+    borderRadius: 22,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 10,
   },
   inputLabel: {
     fontSize: 14,
     fontWeight: "500",
-    color: colors.gray[700],
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: 4,
   },
-  dropdownContainer: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.gray[300],
-    borderRadius: 12,
+  input: {
+    borderWidth: 2,
+    borderColor: colors.secondary,
+    borderRadius: Theme.borderRadius.xl,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    fontSize: 16,
+    color: colors.text,
+    backgroundColor: colors.surface,
+    minHeight: 44,
+    marginBottom: 2,
+  },
+  inputError: {
+    borderColor: colors.error,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: 12,
+    marginTop: 2,
   },
   sizeDisplay: {
-    backgroundColor: colors.gray[50],
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: Theme.borderRadius.lg,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderWidth: 1,
-    borderColor: colors.gray[200],
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: colors.border,
   },
   sizeText: {
     fontSize: 14,
-    color: colors.gray[700],
-    fontWeight: "500",
+    color: colors.text,
   },
-  inputRow: {
+  row: {
     flexDirection: "row",
     gap: 12,
   },
-  flex1: {
-    flex: 1,
-  },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.gray[300],
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  inputWithIcon: {
-    flex: 1,
-    paddingLeft: 8,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  textInput: {
-    flex: 1,
-    fontSize: 16,
-    color: colors.text,
-  },
-  inputError: {
-    borderColor: AppColors.error,
-  },
-  errorContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 4,
-    gap: 4,
-  },
-  errorText: {
-    color: AppColors.error,
-    fontSize: 12,
-  },
-  totalPriceContainer: {
+  lineTotalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: colors.gray[50],
-    borderRadius: 8,
-    padding: 12,
     marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
   },
-  totalPriceLabel: {
+  lineTotalLabel: {
     fontSize: 14,
-    fontWeight: "600",
-    color: colors.gray[700],
+    color: colors.text,
+    fontWeight: "500",
   },
-  totalPriceAmount: {
+  lineTotalValue: {
     fontSize: 16,
-    fontWeight: "700",
     color: colors.primary,
-  },
-  itemSummary: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.gray[50],
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 16,
-  },
-  itemSummaryText: {
-    fontSize: 14,
-    color: colors.gray[600],
-    marginLeft: 8,
+    fontWeight: "bold",
   },
 });
+
+export default SaleItemInput;

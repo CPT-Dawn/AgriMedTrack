@@ -7,11 +7,9 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -64,7 +62,6 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
   getOrCreateSupplier,
   getOrCreateSize,
 }) => {
-  const [batchMode, setBatchMode] = useState(false);
   const [invoiceDate, setInvoiceDate] = useState(new Date());
   const [notes, setNotes] = useState("");
   const [form, setForm] = useState<StockEntryFormData>({
@@ -79,7 +76,20 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
     buyPrice: "",
     sellPrice: "",
   });
-  const [batchItems, setBatchItems] = useState<StockEntryFormData[]>([]);
+  const [items, setItems] = useState<StockEntryFormData[]>([
+    {
+      productId: "",
+      productName: "",
+      supplierId: "",
+      supplierName: "",
+      sizeId: "",
+      sizeLabel: "",
+      quantity: "",
+      notes: "",
+      buyPrice: "",
+      sellPrice: "",
+    },
+  ]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
@@ -158,51 +168,87 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
     setErrors({});
   };
 
-  const addItemToBatch = () => {
-    if (!validateForm()) return;
-
-    // Add current form to batch items
-    setBatchItems([...batchItems, { ...form }]);
-
-    // Reset form for next item
-    resetForm();
+  const addAnotherProduct = () => {
+    setItems([
+      ...items,
+      {
+        productId: "",
+        productName: "",
+        supplierId: "",
+        supplierName: "",
+        sizeId: "",
+        sizeLabel: "",
+        quantity: "",
+        notes: "",
+        buyPrice: "",
+        sellPrice: "",
+      },
+    ]);
   };
 
-  const removeItemFromBatch = (index: number) => {
-    const newBatchItems = [...batchItems];
-    newBatchItems.splice(index, 1);
-    setBatchItems(newBatchItems);
+  const removeProduct = (index: number) => {
+    if (items.length === 1) return;
+    setItems(items.filter((_, i) => i !== index));
+  };
+
+  const updateProduct = (
+    index: number,
+    updates: Partial<StockEntryFormData>
+  ) => {
+    setItems(
+      items.map((item, i) => (i === index ? { ...item, ...updates } : item))
+    );
   };
 
   const handleSubmit = async () => {
-    if (batchMode) {
-      if (batchItems.length === 0) {
-        if (!validateForm()) return;
-        // If no batch items yet but form is valid, add current form to batch
-        addItemToBatch();
-        return;
+    // Validate all items
+    let valid = true;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (
+        !item.productName.trim() ||
+        !item.supplierName.trim() ||
+        !item.sizeLabel.trim() ||
+        !item.quantity.trim() ||
+        isNaN(parseInt(item.quantity))
+      ) {
+        valid = false;
+        break;
       }
-
-      // Show summary modal for batch mode
-      setShowSummary(true);
+    }
+    if (!valid) {
+      Alert.alert("Error", "Please fill all required fields for each product.");
       return;
-    } else {
-      // Single item mode
-      if (!validateForm()) return;
-
-      try {
-        setSubmitting(true);
-        await onSubmit(form);
-
-        // Reset form
-        resetForm();
-        setBillImage(null);
-        Alert.alert("Success", "Stock entry added successfully");
-      } catch (error) {
-        Alert.alert("Error", "Failed to add stock entry");
-      } finally {
-        setSubmitting(false);
-      }
+    }
+    try {
+      setSubmitting(true);
+      const batchData: BatchEntryFormData = {
+        addedBy: "current-user",
+        billImage: billImage || undefined,
+        items,
+      };
+      await onSubmit(batchData);
+      setItems([
+        {
+          productId: "",
+          productName: "",
+          supplierId: "",
+          supplierName: "",
+          sizeId: "",
+          sizeLabel: "",
+          quantity: "",
+          notes: "",
+          buyPrice: "",
+          sellPrice: "",
+        },
+      ]);
+      setBillImage(null);
+      setNotes("");
+      Alert.alert("Success", "Stock entry added successfully");
+    } catch (error) {
+      Alert.alert("Error", "Failed to add stock entry");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -212,13 +258,26 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
       const batchData: BatchEntryFormData = {
         addedBy: "current-user",
         billImage: billImage || undefined,
-        items: batchItems,
+        items: items,
       };
       await onSubmit(batchData);
 
       // Reset form and batch items
       resetForm();
-      setBatchItems([]);
+      setItems([
+        {
+          productId: "",
+          productName: "",
+          supplierId: "",
+          supplierName: "",
+          sizeId: "",
+          sizeLabel: "",
+          quantity: "",
+          notes: "",
+          buyPrice: "",
+          sellPrice: "",
+        },
+      ]);
       setBillImage(null);
       setShowSummary(false);
       Alert.alert("Success", "Stock batch added successfully");
@@ -236,126 +295,8 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
     form.quantity &&
     !isNaN(parseInt(form.quantity));
 
-  const renderBatchItem = ({
-    item,
-    index,
-  }: {
-    item: StockEntryFormData;
-    index: number;
-  }) => (
-    <View style={styles.batchItemCard}>
-      <View style={styles.batchItemHeader}>
-        <Text style={styles.batchItemTitle}>Item {index + 1}</Text>
-        <TouchableOpacity
-          style={styles.removeItemButton}
-          onPress={() => removeItemFromBatch(index)}
-        >
-          <MaterialIcons name="delete" size={20} color={colors.accent} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.batchItemContent}>
-        <Text style={styles.batchItemProduct}>{item.productName}</Text>
-        <Text style={styles.batchItemDetails}>
-          {item.supplierName} • {item.sizeLabel} • Qty: {item.quantity}
-        </Text>
-        {(item.buyPrice || item.sellPrice) && (
-          <Text style={styles.batchItemPrices}>
-            {item.buyPrice ? `Buy: ₹${item.buyPrice}` : ""}
-            {item.buyPrice && item.sellPrice ? " • " : ""}
-            {item.sellPrice ? `Sell: ₹${item.sellPrice}` : ""}
-          </Text>
-        )}
-      </View>
-    </View>
-  );
-
-  const renderSummaryModal = () => (
-    <Modal
-      visible={showSummary}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={() => setShowSummary(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Review Stock Entry</Text>
-            <TouchableOpacity onPress={() => setShowSummary(false)}>
-              <MaterialIcons name="close" size={24} color={colors.gray[500]} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.modalBody}>
-            <View style={styles.summarySection}>
-              <Text style={styles.summarySectionTitle}>Batch Information</Text>
-              <Text style={styles.summaryText}>
-                Date: {invoiceDate.toLocaleDateString()}
-              </Text>
-              {notes && <Text style={styles.summaryText}>Notes: {notes}</Text>}
-            </View>
-
-            {billImage && (
-              <View style={styles.summarySection}>
-                <Text style={styles.summarySectionTitle}>Bill Image</Text>
-                <Image
-                  source={{ uri: billImage.uri }}
-                  style={styles.summaryImage}
-                />
-              </View>
-            )}
-
-            <View style={styles.summarySection}>
-              <Text style={styles.summarySectionTitle}>
-                Items ({batchItems.length})
-              </Text>
-              {batchItems.map((item, index) => (
-                <View key={index} style={styles.summaryItem}>
-                  <Text style={styles.summaryItemTitle}>
-                    {index + 1}. {item.productName}
-                  </Text>
-                  <Text style={styles.summaryItemText}>
-                    {item.supplierName} • {item.sizeLabel} • Qty:{" "}
-                    {item.quantity}
-                  </Text>
-                  {item.buyPrice && (
-                    <Text style={styles.summaryItemText}>
-                      Buy: ₹{item.buyPrice} • Sell: ₹
-                      {item.sellPrice || "Not set"}
-                    </Text>
-                  )}
-                </View>
-              ))}
-            </View>
-          </ScrollView>
-
-          <View style={styles.modalFooter}>
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => setShowSummary(false)}
-            >
-              <Text style={styles.secondaryButtonText}>Edit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={confirmBatchSubmit}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <ActivityIndicator color={colors.white} size="small" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Confirm & Save</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-
   const renderItemCard = (item: StockEntryFormData, index: number) => (
     <View key={`item-${index}`} style={styles.itemCard}>
-      {/* Enhanced Header with Status Indicator */}
       <View style={styles.itemHeader}>
         <View style={styles.itemHeaderLeft}>
           <View style={styles.itemNumberBadge}>
@@ -364,13 +305,13 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
           <View style={styles.itemHeaderText}>
             <Text style={styles.itemTitle}>Product Item</Text>
             <Text style={styles.itemSubtitle}>
-              {form.productName ? form.productName : "Add product details"}
+              {item.productName ? item.productName : "Add product details"}
             </Text>
           </View>
         </View>
-        {batchMode && batchItems.length > 0 && (
+        {items.length > 1 && (
           <TouchableOpacity
-            onPress={() => removeItemFromBatch(index)}
+            onPress={() => removeProduct(index)}
             style={styles.removeButton}
             activeOpacity={0.7}
           >
@@ -394,23 +335,21 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
           <View style={styles.dropdownContainer}>
             <CreatableDropdown
               options={products.map((p) => ({ id: p.id, label: p.name }))}
-              value={form.productId}
+              value={item.productId}
               placeholder="Select or create product"
               onSelect={(option) =>
-                setForm((prev) => ({
-                  ...prev,
+                updateProduct(index, {
                   productId: option.id,
                   productName: option.label,
-                }))
+                })
               }
               onCreate={async (newLabel: string) => {
                 try {
                   const newProduct = await getOrCreateProduct(newLabel);
-                  setForm((prev) => ({
-                    ...prev,
+                  updateProduct(index, {
                     productId: newProduct.id,
                     productName: newProduct.name,
-                  }));
+                  });
                   return { id: newProduct.id, label: newProduct.name };
                 } catch (error) {
                   Alert.alert("Error", "Failed to create new product");
@@ -419,16 +358,6 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
               }}
             />
           </View>
-          {errors.productName && (
-            <View style={styles.errorContainer}>
-              <MaterialIcons
-                name="error-outline"
-                size={16}
-                color={AppColors.error}
-              />
-              <Text style={styles.errorText}>{errors.productName}</Text>
-            </View>
-          )}
         </View>
 
         <View style={styles.inputRow}>
@@ -439,23 +368,21 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
             <View style={styles.dropdownContainer}>
               <CreatableDropdown
                 options={suppliers.map((s) => ({ id: s.id, label: s.name }))}
-                value={form.supplierId}
+                value={item.supplierId}
                 placeholder="Select supplier"
                 onSelect={(option) =>
-                  setForm((prev) => ({
-                    ...prev,
+                  updateProduct(index, {
                     supplierId: option.id,
                     supplierName: option.label,
-                  }))
+                  })
                 }
                 onCreate={async (newLabel: string) => {
                   try {
                     const newSupplier = await getOrCreateSupplier(newLabel);
-                    setForm((prev) => ({
-                      ...prev,
+                    updateProduct(index, {
                       supplierId: newSupplier.id,
                       supplierName: newSupplier.name,
-                    }));
+                    });
                     return { id: newSupplier.id, label: newSupplier.name };
                   } catch (error) {
                     Alert.alert("Error", "Failed to create new supplier");
@@ -464,16 +391,6 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
                 }}
               />
             </View>
-            {errors.supplierName && (
-              <View style={styles.errorContainer}>
-                <MaterialIcons
-                  name="error-outline"
-                  size={16}
-                  color={AppColors.error}
-                />
-                <Text style={styles.errorText}>{errors.supplierName}</Text>
-              </View>
-            )}
           </View>
 
           <View style={[styles.inputGroup, styles.flex1]}>
@@ -483,23 +400,21 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
             <View style={styles.dropdownContainer}>
               <CreatableDropdown
                 options={sizes.map((s) => ({ id: s.id, label: s.label }))}
-                value={form.sizeId}
+                value={item.sizeId}
                 placeholder="Select size"
                 onSelect={(option) =>
-                  setForm((prev) => ({
-                    ...prev,
+                  updateProduct(index, {
                     sizeId: option.id,
                     sizeLabel: option.label,
-                  }))
+                  })
                 }
                 onCreate={async (newLabel: string) => {
                   try {
                     const newSize = await getOrCreateSize(newLabel);
-                    setForm((prev) => ({
-                      ...prev,
+                    updateProduct(index, {
                       sizeId: newSize.id,
                       sizeLabel: newSize.label,
-                    }));
+                    });
                     return { id: newSize.id, label: newSize.label };
                   } catch (error) {
                     Alert.alert("Error", "Failed to create new size");
@@ -508,29 +423,12 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
                 }}
               />
             </View>
-            {errors.sizeLabel && (
-              <View style={styles.errorContainer}>
-                <MaterialIcons
-                  name="error-outline"
-                  size={16}
-                  color={AppColors.error}
-                />
-                <Text style={styles.errorText}>{errors.sizeLabel}</Text>
-              </View>
-            )}
           </View>
         </View>
-      </View>
-
-      {/* Quantity and Pricing Section */}
-      <View style={styles.itemSection}>
-        <Text style={styles.sectionLabel}>Quantity & Pricing</Text>
 
         <View style={styles.inputRow}>
           <View style={[styles.inputGroup, styles.flex1]}>
-            <Text style={styles.inputLabel}>
-              Quantity <Text style={styles.requiredAsterisk}>*</Text>
-            </Text>
+            <Text style={styles.inputLabel}>Quantity *</Text>
             <View style={styles.inputContainer}>
               <MaterialIcons
                 name="inventory"
@@ -539,30 +437,16 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
                 style={styles.inputIcon}
               />
               <TextInput
-                style={[
-                  styles.textInput,
-                  styles.inputWithIcon,
-                  errors.quantity && styles.inputError,
-                ]}
-                value={form.quantity}
+                style={[styles.textInput, styles.inputWithIcon]}
+                value={item.quantity}
                 onChangeText={(value) =>
-                  setForm((prev) => ({ ...prev, quantity: value }))
+                  updateProduct(index, { quantity: value })
                 }
                 placeholder="Enter quantity"
                 keyboardType="numeric"
                 placeholderTextColor={colors.gray[400]}
               />
             </View>
-            {errors.quantity && (
-              <View style={styles.errorContainer}>
-                <MaterialIcons
-                  name="error-outline"
-                  size={16}
-                  color={AppColors.error}
-                />
-                <Text style={styles.errorText}>{errors.quantity}</Text>
-              </View>
-            )}
           </View>
 
           <View style={[styles.inputGroup, styles.flex1]}>
@@ -576,9 +460,9 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
               />
               <TextInput
                 style={[styles.textInput, styles.inputWithIcon]}
-                value={form.buyPrice}
+                value={item.buyPrice}
                 onChangeText={(value) =>
-                  setForm((prev) => ({ ...prev, buyPrice: value }))
+                  updateProduct(index, { buyPrice: value })
                 }
                 placeholder="0.00"
                 keyboardType="numeric"
@@ -600,9 +484,9 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
               />
               <TextInput
                 style={[styles.textInput, styles.inputWithIcon]}
-                value={form.sellPrice}
+                value={item.sellPrice}
                 onChangeText={(value) =>
-                  setForm((prev) => ({ ...prev, sellPrice: value }))
+                  updateProduct(index, { sellPrice: value })
                 }
                 placeholder="0.00"
                 keyboardType="numeric"
@@ -610,209 +494,102 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
               />
             </View>
           </View>
-
-          {/* Price Difference Indicator */}
-          <View style={[styles.inputGroup, styles.flex1]}>
-            <Text style={styles.inputLabel}>Profit Margin</Text>
-            <View style={styles.profitIndicator}>
-              {form.buyPrice &&
-              form.sellPrice &&
-              !isNaN(Number(form.buyPrice)) &&
-              !isNaN(Number(form.sellPrice)) ? (
-                <Text
-                  style={[
-                    styles.profitText,
-                    Number(form.sellPrice) > Number(form.buyPrice)
-                      ? styles.profitPositive
-                      : styles.profitNegative,
-                  ]}
-                >
-                  {Number(form.sellPrice) > Number(form.buyPrice) ? "+" : ""}₹
-                  {(Number(form.sellPrice) - Number(form.buyPrice)).toFixed(2)}
-                </Text>
-              ) : (
-                <Text style={styles.profitText}>-</Text>
-              )}
-            </View>
-          </View>
         </View>
       </View>
-
-      {/* Item Summary */}
-      {form.productName && form.quantity && (
-        <View style={styles.itemSummary}>
-          <MaterialIcons name="check-circle" size={16} color={colors.primary} />
-          <Text style={styles.itemSummaryText}>
-            {form.productName} • {form.quantity} units
-            {form.buyPrice && ` • Buy: ₹${form.buyPrice}`}
-            {form.sellPrice && ` • Sell: ₹${form.sellPrice}`}
-          </Text>
-        </View>
-      )}
     </View>
   );
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+      style={{ flex: 1, backgroundColor: colors.bg }}
     >
       <ScrollView
         ref={scrollViewRef}
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Batch Mode Toggle */}
-        <View style={styles.batchToggleContainer}>
-          <Text style={styles.batchToggleLabel}>Batch Mode</Text>
-          <Switch
-            value={batchMode}
-            onValueChange={setBatchMode}
-            trackColor={{
-              false: colors.gray[300],
-              true: `${colors.primary}80`,
-            }}
-            thumbColor={batchMode ? colors.primary : colors.white}
-          />
-        </View>
-
-        {/* Batch Information Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Batch Information</Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Invoice Date & Time</Text>
-            <TouchableOpacity style={styles.datePickerButton}>
-              <Text style={styles.datePickerText}>
-                {invoiceDate.toLocaleString()}
-              </Text>
-              <MaterialIcons name="event" size={20} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Notes (Optional)</Text>
-            <TextInput
-              style={[styles.textInput, styles.textArea]}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Add any notes about this purchase..."
-              multiline
-              numberOfLines={3}
-              placeholderTextColor={colors.gray[400]}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Bill Photo</Text>
-            {billImage ? (
-              <View style={styles.imagePreviewContainer}>
-                <Image
-                  source={{ uri: billImage.uri }}
-                  style={styles.imagePreview}
-                />
-                <View style={styles.imageActions}>
-                  <TouchableOpacity
-                    style={styles.imageActionButton}
-                    onPress={handleImagePicker}
-                  >
-                    <MaterialIcons name="edit" size={16} color={colors.white} />
-                    <Text style={styles.imageActionText}>Retake</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.imageActionButton}
-                    onPress={removeBillImage}
-                  >
-                    <MaterialIcons
-                      name="delete"
-                      size={16}
-                      color={colors.white}
-                    />
-                    <Text style={styles.imageActionText}>Remove</Text>
-                  </TouchableOpacity>
-                </View>
+        <FlatList
+          data={items}
+          keyExtractor={(_, idx) => `item-${idx}`}
+          renderItem={({ item, index }) => renderItemCard(item, index)}
+          contentContainerStyle={{ paddingBottom: 8 }}
+          showsVerticalScrollIndicator={false}
+        />
+        <TouchableOpacity
+          style={styles.addProductButton}
+          onPress={addAnotherProduct}
+          accessibilityLabel="Add another product"
+        >
+          <Text style={styles.addProductText}>+ Add Another Product</Text>
+        </TouchableOpacity>
+        {/* Notes Section */}
+        <Text style={styles.sectionTitle}>Notes</Text>
+        <TextInput
+          style={styles.notesInput}
+          placeholder="Notes (optional)"
+          value={notes}
+          onChangeText={setNotes}
+          placeholderTextColor={colors.gray[400]}
+          multiline
+        />
+        {/* Bill Image Upload */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Bill Photo</Text>
+          {billImage ? (
+            <View style={styles.imagePreviewContainer}>
+              <Image
+                source={{ uri: billImage.uri }}
+                style={styles.imagePreview}
+              />
+              <View style={styles.imageActions}>
+                <TouchableOpacity
+                  style={styles.imageActionButton}
+                  onPress={handleImagePicker}
+                >
+                  <MaterialIcons name="edit" size={16} color={colors.white} />
+                  <Text style={styles.imageActionText}>Retake</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.imageActionButton}
+                  onPress={removeBillImage}
+                >
+                  <MaterialIcons name="delete" size={16} color={colors.white} />
+                  <Text style={styles.imageActionText}>Remove</Text>
+                </TouchableOpacity>
               </View>
-            ) : (
-              <TouchableOpacity
-                style={styles.imageUploadButton}
-                onPress={handleImagePicker}
-              >
-                <MaterialIcons
-                  name="add-a-photo"
-                  size={24}
-                  color={colors.primary}
-                />
-                <Text style={styles.imageUploadText}>Upload Bill Photo</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
-        {/* Batch Items List */}
-        {batchMode && batchItems.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              Items in Batch ({batchItems.length})
-            </Text>
-            <FlatList
-              data={batchItems}
-              renderItem={renderBatchItem}
-              keyExtractor={(_, index) => `batch-item-${index}`}
-              style={styles.batchItemsList}
-              scrollEnabled={false}
-            />
-          </View>
-        )}
-
-        {/* Product Entry Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Product Items</Text>
-          {renderItemCard(form, batchItems.length)}
-
-          {batchMode && (
+            </View>
+          ) : (
             <TouchableOpacity
-              style={styles.addItemButton}
-              onPress={addItemToBatch}
-              disabled={!isFormValid}
+              style={styles.imageUploadButton}
+              onPress={handleImagePicker}
             >
-              <MaterialIcons name="add" size={20} color={colors.primary} />
-              <Text style={styles.addItemText}>Add Another Item</Text>
+              <MaterialIcons
+                name="add-a-photo"
+                size={24}
+                color={colors.primary}
+              />
+              <Text style={styles.imageUploadText}>Upload Bill Photo</Text>
             </TouchableOpacity>
           )}
+        </View>
+        {/* Action Buttons */}
+        <View style={styles.actionButtonsRow}>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={handleSubmit}
+            disabled={submitting}
+            accessibilityLabel="Add stock"
+          >
+            {submitting ? (
+              <ActivityIndicator color={colors.white} size="small" />
+            ) : (
+              <Text style={styles.primaryButtonText}>Add Stock</Text>
+            )}
+          </TouchableOpacity>
         </View>
       </ScrollView>
-
-      {/* Save Button */}
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.saveButton, !isFormValid && styles.saveButtonDisabled]}
-          onPress={handleSubmit}
-          disabled={!isFormValid || submitting}
-        >
-          {submitting ? (
-            <ActivityIndicator color={colors.white} size="small" />
-          ) : (
-            <>
-              <MaterialIcons
-                name={batchMode ? "inventory" : "add-circle"}
-                size={20}
-                color={colors.white}
-              />
-              <Text style={styles.saveButtonText}>
-                {batchMode
-                  ? `Save Stock Entry${
-                      batchItems.length > 0 ? ` (${batchItems.length})` : ""
-                    }`
-                  : "Save Stock Entry"}
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Summary Modal */}
-      {renderSummaryModal()}
     </KeyboardAvoidingView>
   );
 };
@@ -1282,5 +1059,64 @@ const styles = StyleSheet.create({
     color: colors.gray[700],
     fontSize: 16,
     fontWeight: "600",
+  },
+  formCard: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: colors.gray[900],
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  notesInput: {
+    backgroundColor: colors.gray[50],
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.gray[300],
+    minHeight: 100,
+    textAlignVertical: "top",
+  },
+  batchListCard: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: colors.gray[900],
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  addProductButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16,
+  },
+  addProductText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  actionButtonsRow: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.white,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray[200],
+    flexDirection: "row",
+    gap: 12,
   },
 });

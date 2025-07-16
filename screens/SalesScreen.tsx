@@ -1,14 +1,11 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { LinearGradient } from "expo-linear-gradient";
 import React, { useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
   FlatList,
-  KeyboardAvoidingView,
-  Modal,
+  LayoutAnimation,
   Platform,
   ScrollView,
   StatusBar,
@@ -16,17 +13,17 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
+  UIManager,
   View,
 } from "react-native";
-import { SaleItemInput } from "../components/SaleItemInput";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import SaleItemInput from "../components/SaleItemInput";
 import { AppColors } from "../constants/Colors";
 import { Theme } from "../constants/Theme";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-const HEADER_VERTICAL = Math.max(
-  Theme.spacing.sm,
-  Math.round(SCREEN_HEIGHT * 0.018)
-);
 const HEADER_HORIZONTAL = Math.max(
   Theme.spacing.lg,
   Math.round(SCREEN_WIDTH * 0.045)
@@ -74,7 +71,7 @@ interface SaleEntry {
   buyer: string;
   addedBy: string;
   paymentStatus: "Paid" | "Unpaid" | "Partial";
-  saleDate: Date;
+  saleDate: string; // Changed to string for consistency
   notes: string;
   items: SaleItem[];
   totalAmount: number;
@@ -91,7 +88,7 @@ const mockStockItems = [
 ];
 
 // Mock sale entries data
-const SALE_ENTRIES = [
+const SALE_ENTRIES: SaleEntry[] = [
   {
     id: "sale_001",
     buyer: "Raj Kumar Patel",
@@ -101,20 +98,22 @@ const SALE_ENTRIES = [
     notes: "Paid ₹1000, ₹700 pending",
     items: [
       {
+        id: "item_001",
         productId: "p1",
-        name: "Urea 50kg",
-        packaging: "50kg Bag",
-        quantity: 2,
-        pricePerUnit: 600,
-        total: 1200,
+        productName: "Urea 50kg",
+        sizeLabel: "50kg Bag",
+        quantity: "2",
+        unitPrice: "600",
+        totalPrice: 1200,
       },
       {
+        id: "item_002",
         productId: "p4",
-        name: "Pendimethalin",
-        packaging: "1L Bottle",
-        quantity: 3,
-        pricePerUnit: 250,
-        total: 750,
+        productName: "Pendimethalin",
+        sizeLabel: "1L Bottle",
+        quantity: "3",
+        unitPrice: "250",
+        totalPrice: 750,
       },
     ],
     totalAmount: 1950,
@@ -128,33 +127,65 @@ const SALE_ENTRIES = [
     notes: "",
     items: [
       {
+        id: "item_003",
         productId: "p2",
-        name: "DAP 45kg",
-        packaging: "45kg Bag",
-        quantity: 1,
-        pricePerUnit: 1200,
-        total: 1200,
+        productName: "DAP 45kg",
+        sizeLabel: "45kg Bag",
+        quantity: "1",
+        unitPrice: "1200",
+        totalPrice: 1200,
       },
     ],
     totalAmount: 1200,
   },
 ];
 
+// Add this component inside SalesScreen.tsx
+// Remove SaleCardWithWiggle component
+
+// Update currentView type
+type ViewType = "sales" | "add";
+
 export default function SalesScreen() {
+  const insets = useSafeAreaInsets();
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [buyer, setBuyer] = useState("");
+  const [saleDate, setSaleDate] = useState<Date | null>(new Date());
+  const [saleTime, setSaleTime] = useState<Date | null>(new Date());
   const [paymentStatus, setPaymentStatus] = useState<
     "Paid" | "Unpaid" | "Partial"
   >("Paid");
   const [notes, setNotes] = useState("");
-  const [showSummary, setShowSummary] = useState(false);
+  const [notesExpanded, setNotesExpanded] = useState(false);
+  const [discount, setDiscount] = useState("");
+  const [tax, setTax] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
-  const [currentView, setCurrentView] = useState<"sales" | "add">("sales");
+  const [currentView, setCurrentView] = useState<ViewType>("sales");
+  // Remove: const [editMode, setEditMode] = useState(false);
+  // Remove: setEditMode, editMode from everywhere
+  // Remove: const [editingCard, setEditingCard] = useState<SaleEntry | null>(null);
+  // Remove: setEditingCard, editingCard from everywhere
+  const [saleEntries, setSaleEntries] = useState(SALE_ENTRIES);
+  const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
+  const [editSale, setEditSale] = useState<SaleEntry | null>(null);
+  const [cardScale] = useState<{ [id: string]: Animated.Value }>({});
+
+  // Enable LayoutAnimation on Android
+  React.useEffect(() => {
+    if (
+      Platform.OS === "android" &&
+      UIManager.setLayoutAnimationEnabledExperimental
+    ) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const bubbleScale = useRef(new Animated.Value(1)).current;
+  const plusScale = useRef(new Animated.Value(1)).current;
 
   // Calculate total amount
   const totalAmount = saleItems.reduce((sum, item) => sum + item.totalPrice, 0);
@@ -268,7 +299,7 @@ export default function SalesScreen() {
       return;
     }
 
-    setShowSummary(true);
+    setShowConfirm(true);
   };
 
   // Confirm and save sale
@@ -281,7 +312,7 @@ export default function SalesScreen() {
         buyer,
         addedBy: "Gopal - Sales Manager",
         paymentStatus,
-        saleDate: new Date(),
+        saleDate: new Date().toISOString(), // always a string
         notes,
         items: saleItems,
         totalAmount,
@@ -298,7 +329,7 @@ export default function SalesScreen() {
       setBuyer("");
       setPaymentStatus("Paid");
       setNotes("");
-      setShowSummary(false);
+      setShowConfirm(false);
       setCurrentView("sales");
 
       Alert.alert("Success", "Sale recorded successfully");
@@ -309,419 +340,201 @@ export default function SalesScreen() {
     }
   };
 
-  // Render sale card
-  const renderSaleCard = ({ item }: { item: any }) => {
-    const saleDate = new Date(item.saleDate);
-    const isToday = saleDate.toDateString() === new Date().toDateString();
-
-    return (
-      <View style={styles.saleCard}>
-        <View style={styles.saleCardHeader}>
-          <View style={styles.saleCardHeaderLeft}>
-            <MaterialIcons name="receipt" size={24} color={colors.primary} />
-            <View style={styles.saleCardHeaderText}>
-              <Text style={styles.saleCardTitle}>
-                {item.buyer || "Anonymous Buyer"}
-              </Text>
-              <Text style={styles.saleCardSubtitle}>
-                {isToday ? "Today" : saleDate.toLocaleDateString()} •{" "}
-                {saleDate.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </Text>
-            </View>
-          </View>
-          <View
-            style={[
-              styles.paymentStatusBadge,
-              item.paymentStatus === "Paid" && styles.paymentStatusPaid,
-              item.paymentStatus === "Partial" && styles.paymentStatusPartial,
-              item.paymentStatus === "Unpaid" && styles.paymentStatusUnpaid,
-            ]}
-          >
-            <Text style={styles.paymentStatusBadgeText}>
-              {item.paymentStatus}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.saleCardContent}>
-          <View style={styles.saleItemsList}>
-            {item.items.map((saleItem: any, index: number) => (
-              <View key={index} style={styles.saleItemRow}>
-                <View style={styles.saleItemInfo}>
-                  <Text style={styles.saleItemName}>{saleItem.name}</Text>
-                  <Text style={styles.saleItemDetails}>
-                    {saleItem.packaging} • Qty: {saleItem.quantity}
-                  </Text>
-                </View>
-                <View style={styles.saleItemPrice}>
-                  <Text style={styles.saleItemUnitPrice}>
-                    ₹{saleItem.pricePerUnit}
-                  </Text>
-                  <Text style={styles.saleItemTotal}>₹{saleItem.total}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-
-          {item.notes && (
-            <View style={styles.saleNotes}>
-              <MaterialIcons name="note" size={16} color={colors.gray[500]} />
-              <Text style={styles.saleNotesText}>{item.notes}</Text>
-            </View>
-          )}
-
-          <View style={styles.saleCardFooter}>
-            <View style={styles.saleCardFooterLeft}>
-              <Text style={styles.saleCardFooterText}>By: {item.addedBy}</Text>
-            </View>
-            <View style={styles.saleCardFooterRight}>
-              <Text style={styles.saleCardTotalLabel}>Total:</Text>
-              <Text style={styles.saleCardTotalAmount}>
-                ₹{item.totalAmount}
-              </Text>
-            </View>
-          </View>
-        </View>
-      </View>
-    );
+  // --- Edit logic ---
+  const handleEdit = (sale: SaleEntry) => {
+    setEditSale(sale);
+    setBuyer(sale.buyer);
+    setSaleDate(new Date(sale.saleDate));
+    setPaymentStatus(sale.paymentStatus);
+    setNotes(sale.notes);
+    setSaleItems(sale.items.map((item) => ({ ...item }))); // deep copy
+    setCurrentView("add");
+    setExpandedSaleId(null);
   };
 
-  // Render sale item
-  const renderSaleItem = ({
-    item,
-    index,
-  }: {
-    item: SaleItem;
-    index: number;
-  }) => (
-    <SaleItemInput
-      item={item}
-      index={index}
-      stockItems={mockStockItems}
-      onUpdate={(updates: Partial<SaleItem>) =>
-        updateSaleItem(item.id, updates)
-      }
-      onRemove={() => removeSaleItem(item.id)}
-      errors={{
-        product: errors[`item${index}Product`],
-        quantity: errors[`item${index}Quantity`],
-        price: errors[`item${index}Price`],
-      }}
-    />
-  );
+  // --- Card animation helpers ---
+  const getCardScale = (id: string) => {
+    if (!cardScale[id]) {
+      cardScale[id] = new Animated.Value(1);
+    }
+    return cardScale[id];
+  };
+  const animateCardPressIn = (id: string) => {
+    Animated.spring(getCardScale(id), {
+      toValue: 0.97,
+      useNativeDriver: true,
+      speed: 30,
+      bounciness: 8,
+    }).start();
+  };
+  const animateCardPressOut = (id: string) => {
+    Animated.spring(getCardScale(id), {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 30,
+      bounciness: 8,
+    }).start();
+  };
 
-  // Render summary modal
-  const renderSummaryModal = () => (
-    <Modal
-      visible={showSummary}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={() => setShowSummary(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Review Sale Entry</Text>
-            <TouchableOpacity onPress={() => setShowSummary(false)}>
-              <MaterialIcons name="close" size={24} color={colors.gray[500]} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.modalBody}>
-            <View style={styles.summarySection}>
-              <Text style={styles.summarySectionTitle}>Sale Information</Text>
-              {buyer && <Text style={styles.summaryText}>Buyer: {buyer}</Text>}
-              <Text style={styles.summaryText}>
-                Date: {new Date().toLocaleDateString()}
-              </Text>
-              <Text style={styles.summaryText}>
-                Payment Status: {paymentStatus}
-              </Text>
-              {notes && <Text style={styles.summaryText}>Notes: {notes}</Text>}
-            </View>
-
-            <View style={styles.summarySection}>
-              <Text style={styles.summarySectionTitle}>
-                Products ({saleItems.length})
-              </Text>
-              {saleItems.map((item, index) => (
-                <View key={item.id} style={styles.summaryItem}>
-                  <Text style={styles.summaryItemTitle}>
-                    {index + 1}. {item.productName}
+  // Render sale card
+  const renderSaleCard = ({ item }: { item: SaleEntry }) => {
+    const saleDate = new Date(item.saleDate);
+    const isToday = saleDate.toDateString() === new Date().toDateString();
+    const expanded = expandedSaleId === item.id;
+    const scale = getCardScale(item.id);
+    return (
+      <Animated.View style={{ transform: [{ scale }], marginBottom: 12 }}>
+        <TouchableOpacity
+          activeOpacity={0.95}
+          onPress={() => {
+            LayoutAnimation.configureNext(
+              LayoutAnimation.Presets.easeInEaseOut
+            );
+            setExpandedSaleId(expanded ? null : item.id);
+          }}
+          onPressIn={() => animateCardPressIn(item.id)}
+          onPressOut={() => animateCardPressOut(item.id)}
+          accessibilityLabel={expanded ? "Collapse bill" : "Expand bill"}
+        >
+          <View style={styles.saleCard}>
+            <View style={styles.saleCardHeader}>
+              <View style={styles.saleCardHeaderLeft}>
+                <MaterialIcons
+                  name="receipt"
+                  size={24}
+                  color={colors.primary}
+                />
+                <View style={styles.saleCardHeaderText}>
+                  <Text style={styles.saleCardTitle}>
+                    {item.buyer || "Anonymous Buyer"}
                   </Text>
-                  <Text style={styles.summaryItemText}>
-                    {item.sizeLabel} • Qty: {item.quantity} • ₹{item.unitPrice}
-                  </Text>
-                  <Text style={styles.summaryItemTotal}>
-                    Total: ₹{item.totalPrice}
+                  <Text style={styles.saleCardSubtitle}>
+                    {isToday ? "Today" : saleDate.toLocaleDateString()} •{" "}
+                    {saleDate.toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </Text>
                 </View>
-              ))}
-            </View>
-
-            <View style={styles.summarySection}>
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Total Amount:</Text>
-                <Text style={styles.totalAmount}>₹{totalAmount}</Text>
               </View>
-            </View>
-          </ScrollView>
-
-          <View style={styles.modalFooter}>
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => setShowSummary(false)}
-            >
-              <Text style={styles.secondaryButtonText}>Edit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={confirmSale}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <ActivityIndicator color={colors.white} size="small" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Confirm & Save</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-
-  // Render add sale form
-  const renderAddSaleForm = () => (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
-    >
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
-
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Sale Information Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Sale Information</Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Buyer Name (Optional)</Text>
-            <View style={styles.inputContainer}>
-              <MaterialIcons
-                name="person"
-                size={20}
-                color={colors.gray[400]}
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={styles.textInput}
-                value={buyer}
-                onChangeText={setBuyer}
-                placeholder="Enter buyer name"
-                placeholderTextColor={colors.gray[400]}
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Sale Date & Time</Text>
-            <TouchableOpacity style={styles.datePickerButton}>
-              <Text style={styles.datePickerText}>
-                {new Date().toLocaleString()}
-              </Text>
-              <MaterialIcons name="event" size={20} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Payment Status</Text>
-            <View style={styles.paymentStatusContainer}>
-              {(["Paid", "Unpaid", "Partial"] as const).map((status) => (
-                <TouchableOpacity
-                  key={status}
-                  style={[
-                    styles.paymentStatusButton,
-                    paymentStatus === status && styles.paymentStatusActive,
-                  ]}
-                  onPress={() => setPaymentStatus(status)}
-                >
-                  <Text
-                    style={[
-                      styles.paymentStatusText,
-                      paymentStatus === status &&
-                        styles.paymentStatusTextActive,
-                    ]}
-                  >
-                    {status}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Notes (Optional)</Text>
-            <TextInput
-              style={[styles.textInput, styles.textArea]}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Add any notes about this sale..."
-              multiline
-              numberOfLines={3}
-              placeholderTextColor={colors.gray[400]}
-            />
-          </View>
-        </View>
-
-        {/* Product Selection Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Products</Text>
-            <TouchableOpacity
-              style={styles.addProductButton}
-              onPress={addSaleItem}
-            >
-              <MaterialIcons name="add" size={20} color={colors.primary} />
-              <Text style={styles.addProductText}>Add Product</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Form Status Indicator */}
-          <View style={styles.formStatusContainer}>
-            <View style={styles.formStatusItem}>
-              <MaterialIcons
-                name={
-                  saleItems.length > 0
-                    ? "check-circle"
-                    : "radio-button-unchecked"
-                }
-                size={16}
-                color={saleItems.length > 0 ? colors.primary : colors.gray[400]}
-              />
-              <Text
+              <View
                 style={[
-                  styles.formStatusText,
-                  saleItems.length > 0 && styles.formStatusTextActive,
+                  styles.paymentStatusBadge,
+                  item.paymentStatus === "Paid" && styles.paymentStatusPaid,
+                  item.paymentStatus === "Partial" &&
+                    styles.paymentStatusPartial,
+                  item.paymentStatus === "Unpaid" && styles.paymentStatusUnpaid,
                 ]}
               >
-                {saleItems.length} product{saleItems.length !== 1 ? "s" : ""}{" "}
-                added
-              </Text>
-            </View>
-            <View style={styles.formStatusItem}>
-              <MaterialIcons
-                name={
-                  totalAmount > 0 ? "check-circle" : "radio-button-unchecked"
-                }
-                size={16}
-                color={totalAmount > 0 ? colors.primary : colors.gray[400]}
-              />
-              <Text
-                style={[
-                  styles.formStatusText,
-                  totalAmount > 0 && styles.formStatusTextActive,
-                ]}
-              >
-                Total: ₹{totalAmount}
-              </Text>
-            </View>
-          </View>
-
-          {saleItems.length === 0 ? (
-            <View style={styles.emptyState}>
-              <MaterialIcons
-                name="shopping-cart"
-                size={48}
-                color={colors.gray[300]}
-              />
-              <Text style={styles.emptyStateText}>No products added</Text>
-              <Text style={styles.emptyStateSubtext}>
-                Tap &quot;Add Product&quot; to start adding items to this sale
-              </Text>
-            </View>
-          ) : (
-            <FlatList
-              data={saleItems}
-              renderItem={renderSaleItem}
-              keyExtractor={(item) => item.id}
-              scrollEnabled={false}
-              style={{ marginBottom: 16 }}
-            />
-          )}
-
-          {/* Total Amount */}
-          {saleItems.length > 0 && (
-            <View style={styles.totalSection}>
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Total Amount:</Text>
-                <Text style={styles.totalAmount}>₹{totalAmount}</Text>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Error Display */}
-        {Object.keys(errors).length > 0 && (
-          <View style={styles.errorContainer}>
-            <MaterialIcons
-              name="error-outline"
-              size={16}
-              color={AppColors.error}
-            />
-            <View style={styles.errorContent}>
-              {errors.items && (
-                <Text style={styles.errorText}>{errors.items}</Text>
-              )}
-              {Object.keys(errors).filter((key) => key !== "items").length >
-                0 && (
-                <Text style={styles.errorText}>
-                  Please fix the errors in the product items above
+                <Text style={styles.paymentStatusBadgeText}>
+                  {item.paymentStatus}
                 </Text>
+              </View>
+            </View>
+            <View style={styles.saleCardContent}>
+              <View style={styles.saleItemsList}>
+                {item.items.map((saleItem: SaleItem, index: number) => (
+                  <View key={index} style={styles.saleItemRow}>
+                    <View style={styles.saleItemInfo}>
+                      <Text style={styles.saleItemName}>
+                        {saleItem.productName}
+                      </Text>
+                      <Text style={styles.saleItemDetails}>
+                        {saleItem.sizeLabel + " • Qty: " + saleItem.quantity}
+                      </Text>
+                    </View>
+                    <View style={styles.saleItemPrice}>
+                      <Text style={styles.saleItemUnitPrice}>
+                        ₹{saleItem.unitPrice}
+                      </Text>
+                      <Text style={styles.saleItemTotal}>
+                        ₹{saleItem.totalPrice}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+              {item.notes && (
+                <View style={styles.saleNotes}>
+                  <MaterialIcons
+                    name="note"
+                    size={16}
+                    color={colors.gray[500]}
+                  />
+                  <Text style={styles.saleNotesText}>{item.notes}</Text>
+                </View>
+              )}
+              <View style={styles.saleCardFooter}>
+                <View style={styles.saleCardFooterLeft}>
+                  <Text style={styles.saleCardFooterText}>
+                    By: {item.addedBy}
+                  </Text>
+                </View>
+                <View style={styles.saleCardFooterRight}>
+                  <Text style={styles.saleCardTotalLabel}>Total:</Text>
+                  <Text style={styles.saleCardTotalAmount}>
+                    ₹{item.totalAmount}
+                  </Text>
+                </View>
+              </View>
+              {/* Expanded actions */}
+              {expanded && (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "flex-end",
+                    gap: 12,
+                    marginTop: 18,
+                  }}
+                >
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: Theme.colors.primary,
+                      borderRadius: 8,
+                      paddingVertical: 10,
+                      paddingHorizontal: 22,
+                    }}
+                    onPress={() => handleEdit(item)}
+                    accessibilityLabel="Edit bill"
+                  >
+                    <Text
+                      style={{
+                        color: Theme.colors.white,
+                        fontWeight: "600",
+                        fontSize: 15,
+                      }}
+                    >
+                      Edit
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: AppColors.error,
+                      borderRadius: 8,
+                      paddingVertical: 10,
+                      paddingHorizontal: 22,
+                    }}
+                    onPress={() => {}}
+                    accessibilityLabel="Delete bill"
+                  >
+                    <Text
+                      style={{
+                        color: Theme.colors.white,
+                        fontWeight: "600",
+                        fontSize: 15,
+                      }}
+                    >
+                      Delete
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </View>
           </View>
-        )}
-      </ScrollView>
-
-      {/* Save Button */}
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[
-            styles.saveButton,
-            (saleItems.length === 0 || submitting) && styles.saveButtonDisabled,
-          ]}
-          onPress={handleSubmit}
-          disabled={saleItems.length === 0 || submitting}
-        >
-          {submitting ? (
-            <>
-              <ActivityIndicator color={colors.white} size="small" />
-              <Text style={styles.saveButtonText}>Saving...</Text>
-            </>
-          ) : (
-            <>
-              <MaterialIcons name="receipt" size={20} color={colors.white} />
-              <Text style={styles.saveButtonText}>
-                Save Sale Entry ({saleItems.length} items)
-              </Text>
-            </>
-          )}
         </TouchableOpacity>
-      </View>
-
-      {/* Summary Modal */}
-      {renderSummaryModal()}
-    </KeyboardAvoidingView>
-  );
+      </Animated.View>
+    );
+  };
 
   // Get the header title based on current view
   const getHeaderTitle = () => {
@@ -734,17 +547,48 @@ export default function SalesScreen() {
   };
 
   // Filtered sale entries based on search
-  const filteredSaleEntries = SALE_ENTRIES.filter(
+  const filteredSaleEntries = saleEntries.filter(
     (entry) =>
       entry.buyer.toLowerCase().includes(search.toLowerCase()) ||
       entry.addedBy.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Render content based on current view
+  // Remove the edit modal logic
+  // Instead, when a card is tapped in edit mode, set currentView to 'edit' and set editingCard to the selected item
+  // Render the edit form in place of the add form, using the same UI as add, but pre-filled with editingCard data
+  // Add a delete button at the bottom of the edit form
+  // Remove all references to renderAddSaleForm if it is not defined
+
+  // Add a new view: 'edit'
+  // In the main renderContent function:
   const renderContent = () => {
     switch (currentView) {
       case "add":
-        return renderAddSaleForm();
+        return (
+          <SaleForm
+            onSave={(data) => {
+              // Add logic
+              const newEntry: SaleEntry = {
+                id: Date.now().toString(),
+                buyer: data.buyer,
+                addedBy: "Gopal - Sales Manager",
+                paymentStatus: data.paymentStatus,
+                saleDate: new Date().toISOString(), // always a string
+                notes: data.notes,
+                items: data.items,
+                totalAmount: data.totalAmount,
+              };
+              setSaleEntries([...saleEntries, newEntry]);
+              setCurrentView("sales");
+              setBuyer("");
+              setPaymentStatus("Paid");
+              setNotes("");
+              setSaleItems([]);
+              setErrors({});
+            }}
+            onCancel={() => setCurrentView("sales")}
+          />
+        );
       default:
         return (
           <FlatList
@@ -775,111 +619,1069 @@ export default function SalesScreen() {
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={[Theme.colors.surface, Theme.colors.surfacePressed]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={{
-          ...StyleSheet.absoluteFillObject,
-          zIndex: 0,
-          height: HEADER_VERTICAL * 3,
-        }}
-        pointerEvents="none"
-      />
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor={Theme.colors.surface}
-      />
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTitleContainer}>
-          {currentView !== "sales" && (
+  // Implement renderSaleForm for both add and edit
+  function SaleForm({
+    initialItems = [],
+    initialBuyer = "",
+    initialPaymentStatus = "Paid",
+    initialNotes = "",
+    onSave,
+    onCancel,
+  }: {
+    initialItems?: SaleItem[];
+    initialBuyer?: string;
+    initialPaymentStatus?: "Paid" | "Unpaid" | "Partial";
+    initialNotes?: string;
+    onSave: (data: any) => void;
+    onCancel: () => void;
+  }) {
+    const [formSaleItems, setFormSaleItems] =
+      useState<SaleItem[]>(initialItems);
+    const [formBuyer, setFormBuyer] = useState(initialBuyer);
+    const [formPaymentStatus, setFormPaymentStatus] = useState<
+      "Paid" | "Unpaid" | "Partial"
+    >(initialPaymentStatus);
+    const [formNotes, setFormNotes] = useState(initialNotes);
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+    const [formSubmitting, setFormSubmitting] = useState(false);
+
+    // Validation
+    const validate = () => {
+      const newErrors: Record<string, string> = {};
+      if (!formBuyer.trim()) newErrors.buyer = "Buyer is required";
+      if (formSaleItems.length === 0)
+        newErrors.items = "At least one product is required";
+      formSaleItems.forEach((item, idx) => {
+        if (!item.productName)
+          newErrors[`item${idx}Product`] = "Product is required";
+        if (!item.sizeLabel) newErrors[`item${idx}Size`] = "Size is required";
+        if (
+          !item.quantity ||
+          isNaN(Number(item.quantity)) ||
+          Number(item.quantity) <= 0
+        )
+          newErrors[`item${idx}Quantity`] = "Valid quantity required";
+        if (
+          !item.unitPrice ||
+          isNaN(Number(item.unitPrice)) ||
+          Number(item.unitPrice) < 0
+        )
+          newErrors[`item${idx}Price`] = "Valid price required";
+      });
+      setFormErrors(newErrors);
+      return Object.keys(newErrors).length === 0;
+    };
+
+    // Add new sale item
+    const handleAddItem = () => {
+      setFormSaleItems([
+        ...formSaleItems,
+        {
+          id: Date.now().toString(),
+          productId: "",
+          productName: "",
+          sizeLabel: "",
+          quantity: "",
+          unitPrice: "",
+          totalPrice: 0,
+        },
+      ]);
+    };
+
+    // Remove sale item
+    const handleRemoveItem = (id: string) => {
+      setFormSaleItems(formSaleItems.filter((item) => item.id !== id));
+    };
+
+    // Update sale item
+    const handleUpdateItem = (id: string, updates: Partial<SaleItem>) => {
+      setFormSaleItems(
+        formSaleItems.map((item) =>
+          item.id === id ? { ...item, ...updates } : item
+        )
+      );
+    };
+
+    // Calculate total
+    const totalAmount = formSaleItems.reduce(
+      (sum, item) =>
+        sum + (Number(item.unitPrice) * Number(item.quantity) || 0),
+      0
+    );
+
+    // Handle save
+    const handleSave = async () => {
+      if (!validate()) return;
+      setFormSubmitting(true);
+      // Calculate totalPrice for each item
+      const itemsWithTotal = formSaleItems.map((item) => ({
+        ...item,
+        totalPrice: Number(item.unitPrice) * Number(item.quantity),
+      }));
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      onSave({
+        buyer: formBuyer,
+        paymentStatus: formPaymentStatus,
+        notes: formNotes,
+        items: itemsWithTotal,
+        totalAmount: itemsWithTotal.reduce((sum, i) => sum + i.totalPrice, 0),
+      });
+      setFormSubmitting(false);
+    };
+
+    // Handle delete with confirmation
+    // Remove all delete logic from SaleForm (no delete button, no onDelete prop)
+
+    return (
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+        <Text style={{ fontSize: 18, fontWeight: "bold", marginBottom: 12 }}>
+          Sale Details
+        </Text>
+        <TextInput
+          style={{
+            borderWidth: 1,
+            borderColor: formErrors.buyer ? "#e53935" : "#ccc",
+            borderRadius: 8,
+            padding: 10,
+            marginBottom: 8,
+          }}
+          placeholder="Buyer Name"
+          value={formBuyer}
+          onChangeText={setFormBuyer}
+          accessibilityLabel="Buyer Name"
+        />
+        {formErrors.buyer && (
+          <Text style={{ color: "#e53935", marginBottom: 8 }}>
+            {formErrors.buyer}
+          </Text>
+        )}
+        <Text style={{ fontWeight: "bold", marginTop: 8 }}>Payment Status</Text>
+        <View style={{ flexDirection: "row", marginBottom: 8 }}>
+          {["Paid", "Unpaid", "Partial"].map((status) => (
+            <TouchableOpacity
+              key={status}
+              onPress={() => setFormPaymentStatus(status as any)}
+              style={{
+                backgroundColor:
+                  formPaymentStatus === status ? "#43a047" : "#eee",
+                paddingVertical: 8,
+                paddingHorizontal: 16,
+                borderRadius: 16,
+                marginRight: 8,
+              }}
+              accessibilityLabel={`Set payment status to ${status}`}
+            >
+              <Text
+                style={{
+                  color: formPaymentStatus === status ? "#fff" : "#222",
+                }}
+              >
+                {status}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TextInput
+          style={{
+            borderWidth: 1,
+            borderColor: "#ccc",
+            borderRadius: 8,
+            padding: 10,
+            marginBottom: 8,
+          }}
+          placeholder="Notes (optional)"
+          value={formNotes}
+          onChangeText={setFormNotes}
+          accessibilityLabel="Sale Notes"
+        />
+        <Text style={{ fontWeight: "bold", marginTop: 8, marginBottom: 4 }}>
+          Sale Items
+        </Text>
+        {formErrors.items && (
+          <Text style={{ color: "#e53935", marginBottom: 8 }}>
+            {formErrors.items}
+          </Text>
+        )}
+        {formSaleItems.map((item, idx) => (
+          <View
+            key={item.id}
+            style={{
+              borderWidth: 1,
+              borderColor: "#ccc",
+              borderRadius: 8,
+              padding: 10,
+              marginBottom: 12,
+            }}
+          >
+            <Text style={{ fontWeight: "bold", marginBottom: 4 }}>
+              Product #{idx + 1}
+            </Text>
+            <TextInput
+              style={{
+                borderWidth: 1,
+                borderColor: formErrors[`item${idx}Product`]
+                  ? "#e53935"
+                  : "#ccc",
+                borderRadius: 6,
+                padding: 8,
+                marginBottom: 4,
+              }}
+              placeholder="Product Name"
+              value={item.productName}
+              onChangeText={(text) =>
+                handleUpdateItem(item.id, { productName: text })
+              }
+              accessibilityLabel={`Product Name for item ${idx + 1}`}
+            />
+            {formErrors[`item${idx}Product`] && (
+              <Text style={{ color: "#e53935" }}>
+                {formErrors[`item${idx}Product`]}
+              </Text>
+            )}
+            <TextInput
+              style={{
+                borderWidth: 1,
+                borderColor: formErrors[`item${idx}Size`] ? "#e53935" : "#ccc",
+                borderRadius: 6,
+                padding: 8,
+                marginBottom: 4,
+              }}
+              placeholder="Size/Packaging"
+              value={item.sizeLabel}
+              onChangeText={(text) =>
+                handleUpdateItem(item.id, { sizeLabel: text })
+              }
+              accessibilityLabel={`Size for item ${idx + 1}`}
+            />
+            {formErrors[`item${idx}Size`] && (
+              <Text style={{ color: "#e53935" }}>
+                {formErrors[`item${idx}Size`]}
+              </Text>
+            )}
+            <TextInput
+              style={{
+                borderWidth: 1,
+                borderColor: formErrors[`item${idx}Quantity`]
+                  ? "#e53935"
+                  : "#ccc",
+                borderRadius: 6,
+                padding: 8,
+                marginBottom: 4,
+              }}
+              placeholder="Quantity"
+              value={item.quantity}
+              onChangeText={(text) =>
+                handleUpdateItem(item.id, { quantity: text })
+              }
+              keyboardType="numeric"
+              accessibilityLabel={`Quantity for item ${idx + 1}`}
+            />
+            {formErrors[`item${idx}Quantity`] && (
+              <Text style={{ color: "#e53935" }}>
+                {formErrors[`item${idx}Quantity`]}
+              </Text>
+            )}
+            <TextInput
+              style={{
+                borderWidth: 1,
+                borderColor: formErrors[`item${idx}Price`] ? "#e53935" : "#ccc",
+                borderRadius: 6,
+                padding: 8,
+                marginBottom: 4,
+              }}
+              placeholder="Unit Price"
+              value={item.unitPrice}
+              onChangeText={(text) =>
+                handleUpdateItem(item.id, { unitPrice: text })
+              }
+              keyboardType="numeric"
+              accessibilityLabel={`Unit Price for item ${idx + 1}`}
+            />
+            {formErrors[`item${idx}Price`] && (
+              <Text style={{ color: "#e53935" }}>
+                {formErrors[`item${idx}Price`]}
+              </Text>
+            )}
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginTop: 4,
+              }}
+            >
+              <Text style={{ fontWeight: "bold" }}>
+                Total: ₹{Number(item.unitPrice) * Number(item.quantity) || 0}
+              </Text>
+              <TouchableOpacity
+                onPress={() => handleRemoveItem(item.id)}
+                style={{
+                  backgroundColor: "#e53935",
+                  padding: 6,
+                  borderRadius: 6,
+                }}
+                accessibilityLabel={`Remove item ${idx + 1}`}
+              >
+                <MaterialIcons name="delete" size={18} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))}
+        <TouchableOpacity
+          onPress={handleAddItem}
+          style={{
+            backgroundColor: "#43a047",
+            padding: 12,
+            borderRadius: 8,
+            marginBottom: 16,
+            alignItems: "center",
+          }}
+          accessibilityLabel="Add new sale item"
+        >
+          <Text style={{ color: "#fff", fontWeight: "bold" }}>+ Add Item</Text>
+        </TouchableOpacity>
+        <Text style={{ fontWeight: "bold", fontSize: 16, marginBottom: 8 }}>
+          Total Amount: ₹
+          {formSaleItems.reduce(
+            (sum, i) => sum + (Number(i.unitPrice) * Number(i.quantity) || 0),
+            0
+          )}
+        </Text>
+        <TouchableOpacity
+          onPress={handleSave}
+          style={{
+            backgroundColor: "#43a047",
+            padding: 16,
+            borderRadius: 8,
+            marginBottom: 12,
+            alignItems: "center",
+            opacity: formSubmitting ? 0.7 : 1,
+          }}
+          disabled={formSubmitting}
+          accessibilityLabel="Save sale"
+        >
+          <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 16 }}>
+            {formSubmitting ? "Saving..." : "Add Sale"}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={onCancel}
+          style={{
+            backgroundColor: "#ccc",
+            padding: 16,
+            borderRadius: 8,
+            marginBottom: 12,
+            alignItems: "center",
+          }}
+          accessibilityLabel="Cancel"
+        >
+          <Text style={{ color: "#222", fontWeight: "bold", fontSize: 16 }}>
+            Cancel
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+    );
+  }
+
+  // In renderSaleCard, when a card is pressed in editMode, set currentView to 'edit' and setEditingCard(item)
+  // (Stray onPress handler removed)
+
+  const handlePlusPressIn = () => {
+    Animated.spring(plusScale, {
+      toValue: 0.92,
+      useNativeDriver: true,
+      speed: 30,
+      bounciness: 8,
+    }).start();
+  };
+  const handlePlusPressOut = () => {
+    Animated.spring(plusScale, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 30,
+      bounciness: 8,
+    }).start();
+  };
+
+  // --- Add Sale Page ---
+  const renderAddSale = () => {
+    // --- Calculations ---
+    const grandTotal = saleItems.reduce(
+      (sum, item) =>
+        sum + (Number(item.unitPrice) * Number(item.quantity) || 0),
+      0
+    );
+    // --- Validation ---
+    const validate = () => {
+      const newErrors: Record<string, string> = {};
+      if (!buyer.trim()) newErrors.buyer = "Buyer is required";
+      if (!saleDate) newErrors.date = "Date is required";
+      if (saleItems.length === 0)
+        newErrors.items = "At least one product is required";
+      saleItems.forEach((item, idx) => {
+        if (!item.productName)
+          newErrors[`item${idx}Product`] = "Product is required";
+        if (!item.sizeLabel) newErrors[`item${idx}Size`] = "Size is required";
+        if (
+          !item.quantity ||
+          isNaN(Number(item.quantity)) ||
+          Number(item.quantity) <= 0
+        )
+          newErrors[`item${idx}Quantity`] = "Valid quantity required";
+        if (
+          !item.unitPrice ||
+          isNaN(Number(item.unitPrice)) ||
+          Number(item.unitPrice) < 0
+        )
+          newErrors[`item${idx}Price`] = "Valid price required";
+      });
+      setErrors(newErrors);
+      return Object.keys(newErrors).length === 0;
+    };
+    // --- Handlers ---
+    const handleAddItem = () => {
+      setSaleItems([
+        ...saleItems,
+        {
+          id: Date.now().toString(),
+          productId: "",
+          productName: "",
+          sizeLabel: "",
+          quantity: "",
+          unitPrice: "",
+          totalPrice: 0,
+        },
+      ]);
+    };
+    const handleRemoveItem = (id: string) => {
+      setSaleItems(saleItems.filter((item) => item.id !== id));
+    };
+    const handleUpdateItem = (id: string, updates: Partial<SaleItem>) => {
+      setSaleItems(
+        saleItems.map((item) =>
+          item.id === id ? { ...item, ...updates } : item
+        )
+      );
+    };
+    const handleSave = async () => {
+      if (!validate()) return;
+      setShowConfirm(true);
+    };
+    const handleConfirmSave = async () => {
+      setSubmitting(true);
+      const itemsWithTotal = saleItems.map((item) => ({
+        ...item,
+        totalPrice: Number(item.unitPrice) * Number(item.quantity),
+      }));
+      // Combine date and time into a single ISO string
+      let combinedDateTime = new Date();
+      if (saleDate && saleTime) {
+        combinedDateTime = new Date(saleDate);
+        combinedDateTime.setHours(saleTime.getHours());
+        combinedDateTime.setMinutes(saleTime.getMinutes());
+        combinedDateTime.setSeconds(0);
+        combinedDateTime.setMilliseconds(0);
+      }
+      const saleEntry: SaleEntry = {
+        id: Date.now().toString(),
+        buyer,
+        addedBy: "Gopal - Sales Manager",
+        paymentStatus,
+        saleDate: combinedDateTime.toISOString(),
+        notes,
+        items: itemsWithTotal,
+        totalAmount: grandTotal,
+      };
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      setSaleEntries([...saleEntries, saleEntry]);
+      setBuyer("");
+      setSaleDate(new Date());
+      setPaymentStatus("Paid");
+      setNotes("");
+      setNotesExpanded(false);
+      setSaleItems([]);
+      setDiscount("");
+      setTax("");
+      setShowConfirm(false);
+      setSubmitting(false);
+      setCurrentView("sales");
+      Alert.alert("Success", "Sale recorded successfully");
+    };
+    // --- UI ---
+    return (
+      <View style={{ flex: 1, backgroundColor: Theme.colors.background }}>
+        {/* Sticky Header */}
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: Theme.colors.surface,
+              borderBottomLeftRadius: 24,
+              borderBottomRightRadius: 24,
+              shadowColor: "#000",
+              shadowOpacity: 0.06,
+              shadowRadius: 8,
+              elevation: 4,
+              zIndex: 10,
+              paddingTop: insets.top + 8,
+              paddingBottom: 16,
+            },
+          ]}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
             <TouchableOpacity
               onPress={handleBackToSales}
-              style={styles.backButton}
               accessibilityLabel="Back to sales"
+              style={{ padding: 8, borderRadius: 12 }}
             >
-              <MaterialIcons name="arrow-back" size={24} color={colors.text} />
+              <MaterialIcons
+                name="arrow-back"
+                size={28}
+                color={Theme.colors.text}
+              />
             </TouchableOpacity>
-          )}
-          <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
+            <Text
+              style={{
+                fontSize: 22,
+                fontWeight: "700",
+                color: Theme.colors.text,
+                flex: 1,
+                textAlign: "center",
+              }}
+            >
+              New Sale
+            </Text>
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: Theme.colors.primary + "22",
+                alignItems: "center",
+                justifyContent: "center",
+                marginLeft: 8,
+              }}
+            >
+              <MaterialIcons
+                name="person"
+                size={24}
+                color={Theme.colors.primary}
+              />
+            </View>
+          </View>
         </View>
-
-        {/* Search Bar - Only show in sales view */}
-        {currentView === "sales" && (
-          <View
-            style={[
-              styles.searchBarContainer,
-              search && styles.searchBarContainerActive,
-            ]}
-          >
-            <MaterialIcons
-              name="search"
-              size={20}
-              color={search ? colors.primary : colors.text}
-              style={{ marginRight: 6 }}
-            />
-            <TextInput
-              style={[styles.searchBar, search && styles.searchBarActive]}
-              placeholder="Search sale"
-              value={search}
-              onChangeText={setSearch}
-              placeholderTextColor={colors.gray[400]}
-              autoCapitalize="none"
-              accessibilityLabel="Search sales"
-              clearButtonMode="while-editing"
-              selectionColor={colors.primary}
-            />
-            {search.length > 0 && (
+        {/* Input Row */}
+        <KeyboardAwareScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 20 }}
+          enableOnAndroid
+          extraScrollHeight={100}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Buyer Field (full width) */}
+          <View style={{ marginBottom: 14 }}>
+            <Text
+              style={{
+                fontWeight: "600",
+                marginBottom: 4,
+                color: Theme.colors.text,
+              }}
+            >
+              Buyer
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: Theme.colors.surface,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: errors.buyer
+                  ? AppColors.error
+                  : Theme.colors.border,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                shadowColor: "#000",
+                shadowOpacity: 0.04,
+                shadowRadius: 4,
+                elevation: 2,
+              }}
+            >
+              <MaterialIcons
+                name="person"
+                size={20}
+                color={Theme.colors.primary}
+                style={{ marginRight: 8 }}
+              />
+              <TextInput
+                style={{
+                  flex: 1,
+                  fontSize: 16,
+                  color: Theme.colors.text,
+                  padding: 0,
+                  backgroundColor: "transparent",
+                }}
+                placeholder="Buyer Name"
+                value={buyer}
+                onChangeText={setBuyer}
+                accessibilityLabel="Buyer Name"
+                returnKeyType="next"
+                placeholderTextColor={Theme.colors.textMuted}
+              />
+            </View>
+            {errors.buyer && (
+              <Text
+                style={{ color: AppColors.error, fontSize: 12, marginTop: 2 }}
+              >
+                {errors.buyer}
+              </Text>
+            )}
+          </View>
+          {/* Date and Time Fields (side by side) */}
+          <View style={{ flexDirection: "row", gap: 14, marginBottom: 16 }}>
+            {/* Date Field */}
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontWeight: "600",
+                  marginBottom: 4,
+                  color: Theme.colors.text,
+                }}
+              >
+                Date
+              </Text>
               <TouchableOpacity
-                onPress={() => setSearch("")}
-                style={styles.clearButton}
-                accessibilityLabel="Clear search"
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: Theme.colors.surface,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: errors.date
+                    ? AppColors.error
+                    : Theme.colors.border,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  shadowColor: "#000",
+                  shadowOpacity: 0.04,
+                  shadowRadius: 4,
+                  elevation: 2,
+                }}
+                onPress={() => {
+                  /* TODO: show date picker modal */
+                }}
+                accessibilityLabel="Select date"
+                activeOpacity={0.85}
               >
                 <MaterialIcons
-                  name="close"
+                  name="event"
                   size={20}
-                  color={colors.gray[500]}
+                  color={Theme.colors.primary}
+                  style={{ marginRight: 8 }}
                 />
+                <Text
+                  style={{ color: Theme.colors.text, fontSize: 16, flex: 1 }}
+                >
+                  {saleDate ? saleDate.toLocaleDateString() : "Select"}
+                </Text>
               </TouchableOpacity>
+              {errors.date && (
+                <Text
+                  style={{ color: AppColors.error, fontSize: 12, marginTop: 2 }}
+                >
+                  {errors.date}
+                </Text>
+              )}
+            </View>
+            {/* Time Field */}
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontWeight: "600",
+                  marginBottom: 4,
+                  color: Theme.colors.text,
+                }}
+              >
+                Time
+              </Text>
+              <TouchableOpacity
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: Theme.colors.surface,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: Theme.colors.border,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  shadowColor: "#000",
+                  shadowOpacity: 0.04,
+                  shadowRadius: 4,
+                  elevation: 2,
+                }}
+                onPress={() => {
+                  /* TODO: show time picker modal */
+                }}
+                accessibilityLabel="Select time"
+                activeOpacity={0.85}
+              >
+                <MaterialIcons
+                  name="schedule"
+                  size={20}
+                  color={Theme.colors.primary}
+                  style={{ marginRight: 8 }}
+                />
+                <Text
+                  style={{ color: Theme.colors.text, fontSize: 16, flex: 1 }}
+                >
+                  {saleTime
+                    ? saleTime.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "Select"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 12,
+            }}
+          >
+            <View
+              style={{
+                flex: 1,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <Text
+                style={{
+                  fontWeight: "600",
+                  marginBottom: 4,
+                  color: Theme.colors.text,
+                  marginRight: 8,
+                }}
+              >
+                Payment
+              </Text>
+              <View
+                style={{
+                  flexDirection: "row",
+                  backgroundColor: Theme.colors.surface,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: Theme.colors.border,
+                  overflow: "hidden",
+                  flex: 1,
+                }}
+              >
+                {["Paid", "Unpaid", "Partial"].map((status) => (
+                  <TouchableOpacity
+                    key={status}
+                    onPress={() => {
+                      setPaymentStatus(status as any);
+                      setNotesExpanded(status === "Partial");
+                    }}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 10,
+                      alignItems: "center",
+                      backgroundColor:
+                        paymentStatus === status
+                          ? Theme.colors.primary
+                          : "transparent",
+                    }}
+                    accessibilityLabel={`Set payment status to ${status}`}
+                  >
+                    <Text
+                      style={{
+                        color:
+                          paymentStatus === status
+                            ? Theme.colors.white
+                            : Theme.colors.text,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {status}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+          {paymentStatus === "Partial" && notesExpanded && (
+            <TextInput
+              style={{
+                backgroundColor: Theme.colors.surface,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: Theme.colors.border,
+                padding: 12,
+                fontSize: 16,
+                color: Theme.colors.text,
+                minHeight: 64,
+                marginBottom: 12,
+              }}
+              placeholder="Notes (optional)"
+              value={notes}
+              onChangeText={setNotes}
+              accessibilityLabel="Sale Notes"
+              multiline
+            />
+          )}
+          {/* Line Items */}
+          <Text
+            style={{
+              fontWeight: "700",
+              fontSize: 16,
+              marginBottom: 8,
+              color: Theme.colors.text,
+            }}
+          >
+            Products
+          </Text>
+          {errors.items && (
+            <Text
+              style={{ color: AppColors.error, fontSize: 12, marginBottom: 8 }}
+            >
+              {errors.items}
+            </Text>
+          )}
+          <FlatList
+            data={saleItems}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item, index }) => (
+              <SaleItemInput
+                item={item}
+                index={index}
+                stockItems={mockStockItems}
+                onUpdate={(updates) => handleUpdateItem(item.id, updates)}
+                onRemove={() => handleRemoveItem(item.id)}
+                errors={{
+                  product: errors[`item${index}Product`],
+                  quantity: errors[`item${index}Quantity`],
+                  price: errors[`item${index}Price`],
+                }}
+              />
             )}
+            ListEmptyComponent={() => (
+              <Text style={{ color: Theme.colors.textMuted, marginBottom: 12 }}>
+                No products added yet.
+              </Text>
+            )}
+            contentContainerStyle={{ paddingBottom: 8 }}
+            showsVerticalScrollIndicator={false}
+            style={{ marginBottom: 8 }}
+          />
+          <TouchableOpacity
+            onPress={handleAddItem}
+            style={{
+              backgroundColor: Theme.colors.accent,
+              borderRadius: 16,
+              paddingVertical: 14,
+              alignItems: "center",
+              marginBottom: 20,
+            }}
+            accessibilityLabel="Add another product"
+          >
+            <Text
+              style={{
+                color: Theme.colors.white,
+                fontWeight: "700",
+                fontSize: 16,
+              }}
+            >
+              + Add Another Product
+            </Text>
+          </TouchableOpacity>
+          {/* Total and Save Button in page flow */}
+          <View
+            style={{ alignItems: "center", marginBottom: insets.bottom + 64 }}
+          >
+            <Text
+              style={{
+                fontWeight: "700",
+                color: Theme.colors.primary,
+                fontSize: 22,
+                marginBottom: 12,
+              }}
+            >
+              Total: ₹{grandTotal}
+            </Text>
+            <TouchableOpacity
+              onPress={handleSave}
+              style={{
+                backgroundColor:
+                  !buyer || saleItems.length === 0 || submitting
+                    ? Theme.colors.border
+                    : Theme.colors.primary,
+                borderRadius: 16,
+                paddingVertical: 18,
+                alignItems: "center",
+                opacity:
+                  !buyer || saleItems.length === 0 || submitting ? 0.7 : 1,
+                width: "100%",
+                maxWidth: 420,
+              }}
+              disabled={!buyer || saleItems.length === 0 || submitting}
+              accessibilityLabel="Save sale"
+              accessibilityState={{
+                disabled: !buyer || saleItems.length === 0 || submitting,
+              }}
+            >
+              <Text
+                style={{
+                  color: Theme.colors.white,
+                  fontWeight: "700",
+                  fontSize: 18,
+                }}
+              >
+                {submitting ? "Saving..." : "Confirm & Save"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAwareScrollView>
+        {/* Confirmation Modal */}
+        {showConfirm && (
+          <View
+            style={styles.modalOverlay}
+            accessible
+            accessibilityLabel="Confirm sale modal"
+          >
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Confirm Sale</Text>
+                <TouchableOpacity
+                  onPress={() => setShowConfirm(false)}
+                  accessibilityLabel="Close confirmation modal"
+                >
+                  <MaterialIcons
+                    name="close"
+                    size={24}
+                    color={Theme.colors.text}
+                  />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.modalBody}>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    color: Theme.colors.text,
+                    marginBottom: 12,
+                  }}
+                >
+                  Are you sure you want to save this sale?
+                </Text>
+                <Text style={{ color: Theme.colors.text, marginBottom: 4 }}>
+                  Buyer: <Text style={{ fontWeight: "600" }}>{buyer}</Text>
+                </Text>
+                <Text style={{ color: Theme.colors.text, marginBottom: 4 }}>
+                  Total:{" "}
+                  <Text style={{ fontWeight: "600" }}>₹{grandTotal}</Text>
+                </Text>
+                <Text style={{ color: Theme.colors.text, marginBottom: 4 }}>
+                  Products:{" "}
+                  <Text style={{ fontWeight: "600" }}>{saleItems.length}</Text>
+                </Text>
+              </View>
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={() => setShowConfirm(false)}
+                  accessibilityLabel="Cancel save"
+                >
+                  <Text style={styles.secondaryButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.primaryButton}
+                  onPress={handleConfirmSave}
+                  accessibilityLabel="Confirm save"
+                >
+                  <Text style={styles.primaryButtonText}>Confirm</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         )}
       </View>
+    );
+  };
 
-      {/* Content based on current view */}
-      {renderContent()}
-
-      {/* Floating Bubble - Add Sale */}
-      <Animated.View
-        style={[
-          styles.bubbleContainer,
-          { transform: [{ scale: bubbleScale }] },
-        ]}
-      >
-        <TouchableOpacity
-          style={[
-            styles.bubble,
-            {
-              backgroundColor:
-                currentView === "add" ? colors.secondary : colors.accent,
-            },
-          ]}
-          onPress={handleBubblePress}
-          activeOpacity={0.8}
-          accessibilityLabel={
-            currentView === "add" ? "Close add sale form" : "Add new sale"
-          }
-        >
-          <MaterialIcons
-            name={currentView === "add" ? "close" : "add"}
-            size={24}
-            color="#FFFFFF"
-          />
-        </TouchableOpacity>
-      </Animated.View>
+  // --- Main Render ---
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" translucent={false} />
+      {currentView === "add" ? (
+        renderAddSale()
+      ) : (
+        <>
+          <View style={styles.header}>
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
+              <TouchableWithoutFeedback
+                onPress={handleBubblePress}
+                onPressIn={handlePlusPressIn}
+                onPressOut={handlePlusPressOut}
+                accessibilityLabel="Add new sale"
+              >
+                <Animated.View
+                  style={[
+                    styles.plusBox,
+                    { transform: [{ scale: plusScale }] },
+                  ]}
+                >
+                  <MaterialIcons name="add" size={28} color="#fff" />
+                </Animated.View>
+              </TouchableWithoutFeedback>
+            </View>
+            <View style={styles.searchBarContainer}>
+              <MaterialIcons
+                name="search"
+                size={20}
+                color={search ? Theme.colors.primary : Theme.colors.text}
+                style={{ marginRight: 6 }}
+              />
+              <TextInput
+                style={styles.searchBar}
+                placeholder="Search sale"
+                value={search}
+                onChangeText={setSearch}
+                placeholderTextColor={Theme.colors.textMuted}
+                autoCapitalize="none"
+                accessibilityLabel="Search sales"
+                clearButtonMode="while-editing"
+                selectionColor={Theme.colors.primary}
+              />
+              {search.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setSearch("")}
+                  style={styles.clearButton}
+                  accessibilityLabel="Clear search"
+                >
+                  <MaterialIcons
+                    name="close"
+                    size={20}
+                    color={Theme.colors.textMuted}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+          {renderContent()}
+        </>
+      )}
     </View>
   );
 }
@@ -890,30 +1692,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   header: {
-    paddingTop: HEADER_VERTICAL,
-    paddingHorizontal: HEADER_HORIZONTAL,
-    paddingBottom: HEADER_VERTICAL,
-    backgroundColor: Theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.shadow + "10", // subtle border for depth
-    ...Theme.shadows.md,
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight || 0 : 0,
+    paddingHorizontal: Theme.spacing.xl,
+    paddingBottom: Theme.spacing.xs,
+    backgroundColor: Theme.colors.background,
     zIndex: 10,
   },
   headerTitleContainer: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: Theme.spacing.md,
+    justifyContent: "space-between",
   },
   backButton: {
-    padding: Theme.spacing.xs,
+    padding: 4,
     marginRight: Theme.spacing.sm,
   },
   headerTitle: {
     fontSize: Theme.typography.fontSize["2xl"],
-    fontWeight: Theme.typography.fontWeight.bold,
+    fontWeight: Theme.typography.fontWeight.semibold,
     color: Theme.colors.text,
-    flex: 1,
-    textAlign: "left",
   },
   userInfo: {
     flexDirection: "row",
@@ -1399,37 +2197,23 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 6,
+    // Enhanced 3D shadow
+    shadowColor: "#2e7d32",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
   },
   // Search bar styles
   searchBarContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Theme.colors.surfacePressed,
-    borderRadius: Theme.borderRadius.xl,
-    paddingHorizontal: HEADER_HORIZONTAL,
-    paddingVertical: SEARCHBAR_VERTICAL,
-    minHeight: SEARCHBAR_MIN_HEIGHT,
-    marginTop: SEARCHBAR_VERTICAL,
-    borderWidth: 1,
-    borderColor: Theme.colors.surfacePressed,
-    // Double shadow for 3D effect
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius.lg,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.sm,
+    minHeight: 44,
     ...Theme.shadows.sm,
-    ...Platform.select({
-      ios: {
-        shadowColor: Theme.colors.shadow,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.13,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 7,
-      },
-    }),
   },
   searchBarContainerActive: {
     borderColor: Theme.colors.primary,
@@ -1440,7 +2224,6 @@ const styles = StyleSheet.create({
     fontSize: Theme.typography.fontSize.base,
     color: Theme.colors.text,
     padding: 0,
-    backgroundColor: "transparent",
   },
   searchBarActive: {
     color: Theme.colors.primary,
@@ -1454,5 +2237,32 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingTop: 12,
     paddingBottom: 100,
+  },
+  plusBox: {
+    width: 35,
+    height: 35,
+    borderRadius: 12,
+    backgroundColor: "#43a047",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#2e7d32",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  editBox: {
+    width: 35,
+    height: 35,
+    borderRadius: 12,
+    backgroundColor: "#43a047",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#2e7d32",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 6,
+    marginLeft: 8,
   },
 });

@@ -183,18 +183,16 @@ export default function StockScreen() {
   // Render all activity logs
   const renderAllLogs = () => {
     return (
-      <View style={styles.allLogsContainer}>
-        <BatchActivityLog
-          batches={paginatedBatchLogs}
-          isExpanded={true}
-          onToggle={() => setIsLogsExpanded(!isLogsExpanded)}
-          onItemPress={handleHighlightProduct}
-          loading={loadingMoreLogs}
-          onLoadMore={handleLoadMoreLogs}
-          hideCount={true}
-          hideHeader={true}
-        />
-      </View>
+      <BatchActivityLog
+        batches={paginatedBatchLogs}
+        isExpanded={true}
+        onToggle={() => setIsLogsExpanded(!isLogsExpanded)}
+        onItemPress={handleHighlightProduct}
+        loading={loadingMoreLogs}
+        onLoadMore={handleLoadMoreLogs}
+        hideCount={true}
+        hideHeader={true}
+      />
     );
   };
 
@@ -299,21 +297,63 @@ export default function StockScreen() {
           )}
           <View style={styles.headerTitleRow}>
             <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
-            {currentView === "stock" && (
+            <View style={styles.headerBoxButtonsContainer}>
+              {currentView === "stock" && (
+                <TouchableOpacity
+                  onPress={() => setShowBuyValues(!showBuyValues)}
+                  style={styles.eyeToggle}
+                  accessibilityLabel={
+                    showBuyValues ? "Hide buy values" : "Show buy values"
+                  }
+                >
+                  <MaterialIcons
+                    name={showBuyValues ? "visibility" : "visibility-off"}
+                    size={24}
+                    color={Theme.colors.primary}
+                  />
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
-                onPress={() => setShowBuyValues(!showBuyValues)}
-                style={styles.eyeToggle}
+                style={[
+                  styles.headerBoxButton,
+                  styles.logButton,
+                  currentView === "logs" && styles.headerBoxButtonActive,
+                ]}
+                onPress={handleLogBubblePress}
                 accessibilityLabel={
-                  showBuyValues ? "Hide buy values" : "Show buy values"
+                  currentView === "logs"
+                    ? "Close activity logs"
+                    : "View activity logs"
                 }
               >
                 <MaterialIcons
-                  name={showBuyValues ? "visibility" : "visibility-off"}
-                  size={24}
-                  color={Theme.colors.primary}
+                  name={currentView === "logs" ? "close" : "history"}
+                  size={Theme.typography.fontSize.xl}
+                  color={"#fff"}
+                  style={{ fontWeight: "bold" }}
                 />
               </TouchableOpacity>
-            )}
+              <TouchableOpacity
+                style={[
+                  styles.headerBoxButton,
+                  styles.addButton,
+                  currentView === "add" && styles.headerBoxButtonActive,
+                ]}
+                onPress={handleAddBubblePress}
+                accessibilityLabel={
+                  currentView === "add"
+                    ? "Close add stock form"
+                    : "Add new stock"
+                }
+              >
+                <MaterialIcons
+                  name={currentView === "add" ? "close" : "add"}
+                  size={Theme.typography.fontSize.xl + 4}
+                  color={"#fff"}
+                  style={{ fontWeight: "bold" }}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -353,68 +393,9 @@ export default function StockScreen() {
 
       {/* Floating Bubbles */}
       {/* Left Bubble - Activity Log */}
-      <Animated.View
-        style={[
-          styles.leftBubbleContainer,
-          { transform: [{ scale: leftBubbleScale }] },
-        ]}
-      >
-        <TouchableOpacity
-          style={[
-            styles.bubble,
-            {
-              backgroundColor:
-                currentView === "logs"
-                  ? Theme.colors.secondary
-                  : Theme.colors.primary,
-            },
-          ]}
-          onPress={handleLogBubblePress}
-          activeOpacity={0.8}
-          accessibilityLabel={
-            currentView === "logs"
-              ? "Close activity logs"
-              : "View activity logs"
-          }
-        >
-          <MaterialIcons
-            name={currentView === "logs" ? "close" : "history"}
-            size={24}
-            color="#FFFFFF"
-          />
-        </TouchableOpacity>
-      </Animated.View>
-
+      {/* Removed floating bubbles */}
       {/* Right Bubble - Add Stock */}
-      <Animated.View
-        style={[
-          styles.rightBubbleContainer,
-          { transform: [{ scale: rightBubbleScale }] },
-        ]}
-      >
-        <TouchableOpacity
-          style={[
-            styles.bubble,
-            {
-              backgroundColor:
-                currentView === "add"
-                  ? Theme.colors.secondary
-                  : Theme.colors.accent,
-            },
-          ]}
-          onPress={handleAddBubblePress}
-          activeOpacity={0.8}
-          accessibilityLabel={
-            currentView === "add" ? "Close add stock form" : "Add new stock"
-          }
-        >
-          <MaterialIcons
-            name={currentView === "add" ? "close" : "add"}
-            size={24}
-            color="#FFFFFF"
-          />
-        </TouchableOpacity>
-      </Animated.View>
+      {/* Removed floating bubbles */}
     </View>
   );
 }
@@ -464,7 +445,8 @@ const styles = StyleSheet.create({
   },
   eyeToggle: {
     padding: Theme.spacing.sm,
-    marginLeft: Theme.spacing.md,
+    marginLeft: 0,
+    marginRight: 0,
   },
   searchBarContainer: {
     flexDirection: "row",
@@ -515,29 +497,53 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 4,
   },
-  leftBubbleContainer: {
-    position: "absolute",
-    left: Theme.spacing.xl,
-    bottom: Platform.OS === "android" ? 80 : 100,
-    zIndex: 100,
+  // New styles for header box buttons
+  headerBoxButtonsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
   },
-  rightBubbleContainer: {
-    position: "absolute",
-    right: Theme.spacing.xl,
-    bottom: Platform.OS === "android" ? 80 : 100,
-    zIndex: 100,
-  },
-  bubble: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  headerBoxButton: {
+    borderRadius: Theme.borderRadius.md,
+    width: 36,
+    height: 36,
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
     justifyContent: "center",
     alignItems: "center",
-    ...Theme.shadows.lg,
+    // 3D effect
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  headerBoxButtonActive: {
+    borderColor: Theme.colors.error,
+    backgroundColor: Theme.colors.error,
+  },
+  addButton: {
+    backgroundColor: "#43A047",
+    borderColor: "#388E3C",
+  },
+  logButton: {
+    backgroundColor: Theme.colors.secondary,
+    borderColor: Theme.colors.secondary,
+  },
+  leftBubbleContainer: {
+    // Removed
+  },
+  rightBubbleContainer: {
+    // Removed
+  },
+  bubble: {
+    // Removed
   },
   allLogsContainer: {
     flex: 1,
-    backgroundColor: Theme.colors.surface,
-    padding: Theme.spacing.lg,
+    backgroundColor: Theme.colors.background,
+    paddingHorizontal: Theme.spacing.md,
+    paddingTop: Theme.spacing.md,
+    paddingBottom: 0,
   },
 });

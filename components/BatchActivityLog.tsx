@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { AppColors } from "../constants/Colors";
+import { Theme } from "../constants/Theme";
 import { StockBatch } from "../types/stock";
 
 // Enable layout animations on Android
@@ -303,6 +304,8 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
 const styles = StyleSheet.create({
   container: {
     marginTop: 0,
+    backgroundColor: Theme.colors.background,
+    flex: 1,
   },
   header: {
     flexDirection: "row",
@@ -342,7 +345,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   content: {
-    backgroundColor: "rgba(2, 136, 209, 0.03)",
+    backgroundColor: "transparent",
     paddingVertical: 8,
     paddingHorizontal: 6,
     borderRadius: 8,
@@ -353,14 +356,11 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   batchCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius["2xl"],
+    marginHorizontal: Theme.spacing.lg,
+    marginBottom: Theme.spacing["2xl"],
+    ...Theme.shadows.sm,
     overflow: "hidden",
   },
   batchHeader: {
