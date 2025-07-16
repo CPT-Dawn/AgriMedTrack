@@ -18,26 +18,27 @@ import {
 } from "react-native";
 import { SaleItemInput } from "../components/SaleItemInput";
 import { AppColors } from "../constants/Colors";
+import { Theme } from "../constants/Theme";
 
-// Theme colors matching the design system
+// Local color reference for backward compatibility
 const colors = {
-  primary: "#0288D1",
-  secondary: "#F9A825",
-  accent: "#FF7043",
-  bg: "#F5F5F5",
-  text: "#263238",
-  white: "#FFFFFF",
+  primary: Theme.colors.primary,
+  secondary: Theme.colors.secondary,
+  accent: Theme.colors.accent,
+  bg: Theme.colors.background,
+  text: Theme.colors.text,
+  white: Theme.colors.white,
   gray: {
-    50: "#F9FAFB",
-    100: "#F3F4F6",
-    200: "#E5E7EB",
-    300: "#D1D5DB",
-    400: "#9CA3AF",
-    500: "#6B7280",
-    600: "#4B5563",
-    700: "#374151",
-    800: "#1F2937",
-    900: "#111827",
+    50: Theme.colors.surfacePressed,
+    100: Theme.colors.surfacePressed,
+    200: Theme.colors.border,
+    300: Theme.colors.border,
+    400: Theme.colors.textMuted,
+    500: Theme.colors.textMuted,
+    600: Theme.colors.textMuted,
+    700: Theme.colors.text,
+    800: Theme.colors.text,
+    900: Theme.colors.text,
   },
 };
 

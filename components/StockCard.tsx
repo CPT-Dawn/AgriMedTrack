@@ -1,6 +1,6 @@
 import React, { memo, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { AppColors } from "../constants/Colors";
+import { Theme } from "../constants/Theme";
 import { StockActivity, StockBatch, StockItem } from "../types/stock";
 import { BatchActivityLog } from "./BatchActivityLog";
 
@@ -67,9 +67,9 @@ const StockCardComponent: React.FC<StockCardProps> = ({
 
   // Determine stock health status
   const getStockHealthColor = () => {
-    if (totalQuantity <= 5) return AppColors.error;
-    if (totalQuantity <= 15) return AppColors.warning;
-    return AppColors.success;
+    if (totalQuantity <= 5) return Theme.colors.error;
+    if (totalQuantity <= 15) return Theme.colors.warning;
+    return Theme.colors.success;
   };
 
   // Group activities by batch
@@ -206,29 +206,25 @@ StockCard.displayName = "StockCard";
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
-    marginHorizontal: 16,
-    marginBottom: 24,
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: Theme.colors.surface,
+    marginHorizontal: Theme.spacing.lg,
+    marginBottom: Theme.spacing["2xl"],
+    borderRadius: Theme.borderRadius["2xl"],
+    padding: Theme.spacing.lg,
+    ...Theme.shadows.sm,
   },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 12,
+    marginBottom: Theme.spacing.md,
   },
   productName: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#263238",
+    fontSize: Theme.typography.fontSize.lg,
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.text,
     flex: 1,
-    marginRight: 8,
+    marginRight: Theme.spacing.sm,
   },
   quantityContainer: {
     flexDirection: "row",
@@ -241,22 +237,22 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   totalQty: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#0288D1",
+    fontSize: Theme.typography.fontSize.lg,
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.primary,
   },
   tableHeaderRow: {
     flexDirection: "row",
-    paddingBottom: 10,
+    paddingBottom: Theme.spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
-    columnGap: 10,
+    borderBottomColor: Theme.colors.border,
+    columnGap: Theme.spacing.sm,
   },
   tableHeader: {
     flex: 1,
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#F9A825",
+    fontSize: Theme.typography.fontSize.xs,
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.secondary,
     textTransform: "uppercase",
     letterSpacing: 0.5,
     paddingHorizontal: 2,
@@ -272,19 +268,19 @@ const styles = StyleSheet.create({
   },
   tableRow: {
     flexDirection: "row",
-    paddingVertical: 14,
+    paddingVertical: Theme.spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: "#F0F0F0",
+    borderBottomColor: Theme.colors.divider,
     alignItems: "center",
-    columnGap: 10,
+    columnGap: Theme.spacing.sm,
   },
   tableRowAlternate: {
-    backgroundColor: "rgba(255, 112, 67, 0.05)",
+    backgroundColor: Theme.colors.secondary + "05",
   },
   tableCell: {
     flex: 1,
-    fontSize: 15,
-    color: "#263238",
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.text,
     paddingHorizontal: 2,
   },
   companyCell: {

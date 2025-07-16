@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   placeholderText: {
-    color: "#999",
+    color: AppColors.textMuted,
   },
   modalOverlay: {
     flex: 1,
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: "#FFF8E1",
+    backgroundColor: AppColors.background,
     borderTopWidth: 1,
     borderTopColor: AppColors.border,
   },

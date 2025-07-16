@@ -9,7 +9,22 @@ import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { Theme } from "@/constants/Theme";
 import { useColorScheme } from "@/hooks/useColorScheme";
+
+// Create a custom light theme based on our design system
+const LovelyWhiteTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: Theme.colors.primary,
+    background: Theme.colors.background,
+    card: Theme.colors.surface,
+    text: Theme.colors.text,
+    border: Theme.colors.border,
+    notification: Theme.colors.accent,
+  },
+};
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -23,14 +38,16 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+    <SafeAreaProvider style={{ backgroundColor: Theme.colors.background }}>
+      <ThemeProvider
+        value={colorScheme === "dark" ? DarkTheme : LovelyWhiteTheme}
+      >
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="log" options={{ headerShown: false }} />
           <Stack.Screen name="+not-found" />
         </Stack>
-        <StatusBar style="auto" />
+        <StatusBar style="dark" translucent={false} />
       </ThemeProvider>
     </SafeAreaProvider>
   );

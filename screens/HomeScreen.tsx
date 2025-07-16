@@ -1,3 +1,4 @@
+import { Theme } from "@/constants/Theme";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useState } from "react";
 import {
@@ -10,28 +11,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
-// Theme colors matching the design system
-const colors = {
-  primary: "#0288D1",
-  secondary: "#F9A825",
-  accent: "#FF7043",
-  bg: "#F5F5F5",
-  text: "#263238",
-  white: "#FFFFFF",
-  gray: {
-    50: "#F9FAFB",
-    100: "#F3F4F6",
-    200: "#E5E7EB",
-    300: "#D1D5DB",
-    400: "#9CA3AF",
-    500: "#6B7280",
-    600: "#4B5563",
-    700: "#374151",
-    800: "#1F2937",
-    900: "#111827",
-  },
-};
 
 interface Profile {
   id: string;
@@ -70,14 +49,14 @@ const SUMMARY_DATA: SummaryCard[] = [
     title: "Total Items in Stock",
     value: "1,247",
     icon: "inventory",
-    color: colors.primary,
+    color: Theme.colors.primary,
   },
   {
     id: "2",
     title: "Months's Sales",
     value: "₹15,420",
     icon: "trending-up",
-    color: colors.secondary,
+    color: Theme.colors.secondary,
     trend: "+12%",
   },
   {
@@ -85,7 +64,7 @@ const SUMMARY_DATA: SummaryCard[] = [
     title: "Pending Payments",
     value: "₹8,750",
     icon: "payment",
-    color: colors.accent,
+    color: Theme.colors.accent,
   },
   {
     id: "4",
@@ -223,13 +202,13 @@ export default function HomeScreen() {
   const getActivityColor = (type: string) => {
     switch (type) {
       case "stock":
-        return colors.primary;
+        return Theme.colors.primary;
       case "sale":
-        return colors.secondary;
+        return Theme.colors.secondary;
       case "payment":
-        return colors.accent;
+        return Theme.colors.accent;
       default:
-        return colors.gray[500];
+        return Theme.colors.textMuted;
     }
   };
 
@@ -284,7 +263,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" translucent={false} />
 
       {/* Header with Profile */}
       <View style={styles.header}>
@@ -307,7 +286,7 @@ export default function HomeScreen() {
                   : "keyboard-arrow-down"
               }
               size={20}
-              color={colors.gray[600]}
+              color={Theme.colors.textMuted}
             />
           </TouchableOpacity>
         </View>
@@ -341,7 +320,7 @@ export default function HomeScreen() {
                   <MaterialIcons
                     name="check"
                     size={20}
-                    color={colors.primary}
+                    color={Theme.colors.primary}
                   />
                 )}
               </TouchableOpacity>
@@ -375,7 +354,7 @@ export default function HomeScreen() {
                 <MaterialIcons
                   name="add-shopping-cart"
                   size={24}
-                  color={colors.white}
+                  color={Theme.colors.white}
                 />
               </View>
               <Text style={styles.quickActionText}>New Sale</Text>
@@ -383,14 +362,22 @@ export default function HomeScreen() {
 
             <TouchableOpacity style={styles.quickActionButton}>
               <View style={styles.quickActionIcon}>
-                <MaterialIcons name="add-box" size={24} color={colors.white} />
+                <MaterialIcons
+                  name="add-box"
+                  size={24}
+                  color={Theme.colors.white}
+                />
               </View>
               <Text style={styles.quickActionText}>Add Stock</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.quickActionButton}>
               <View style={styles.quickActionIcon}>
-                <MaterialIcons name="history" size={24} color={colors.white} />
+                <MaterialIcons
+                  name="history"
+                  size={24}
+                  color={Theme.colors.white}
+                />
               </View>
               <Text style={styles.quickActionText}>View Logs</Text>
             </TouchableOpacity>
@@ -406,7 +393,7 @@ export default function HomeScreen() {
               <MaterialIcons
                 name="arrow-forward"
                 size={16}
-                color={colors.primary}
+                color={Theme.colors.primary}
               />
             </TouchableOpacity>
           </View>
@@ -425,15 +412,15 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
   },
   header: {
-    backgroundColor: colors.white,
+    backgroundColor: Theme.colors.surface,
     paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0 + 20,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingHorizontal: Theme.spacing.xl,
+    paddingBottom: Theme.spacing.xl,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderBottomColor: Theme.colors.border,
   },
   headerContent: {
     flexDirection: "row",
@@ -444,164 +431,152 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   greeting: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: colors.text,
+    fontSize: Theme.typography.fontSize["2xl"],
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.text,
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 14,
-    color: colors.gray[600],
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.textMuted,
   },
   profileButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.gray[50],
-    borderRadius: 24,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 8,
+    backgroundColor: Theme.colors.surfacePressed,
+    borderRadius: Theme.borderRadius["2xl"],
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
+    gap: Theme.spacing.sm,
   },
   profileAvatar: {
-    fontSize: 24,
+    fontSize: Theme.typography.fontSize["2xl"],
   },
   profileDropdown: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    marginTop: 12,
-    padding: 8,
-    shadowColor: colors.gray[900],
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius.xl,
+    marginTop: Theme.spacing.md,
+    padding: Theme.spacing.sm,
+    ...Theme.shadows.lg,
   },
   profileOption: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    gap: 12,
+    paddingVertical: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.md,
+    borderRadius: Theme.spacing.sm,
+    gap: Theme.spacing.md,
   },
   profileOptionActive: {
-    backgroundColor: colors.primary + "10",
+    backgroundColor: Theme.colors.primary + "10",
   },
   profileOptionAvatar: {
-    fontSize: 20,
+    fontSize: Theme.typography.fontSize.xl,
   },
   profileOptionInfo: {
     flex: 1,
   },
   profileOptionName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: colors.text,
+    fontSize: Theme.typography.fontSize.base,
+    fontWeight: Theme.typography.fontWeight.semibold,
+    color: Theme.colors.text,
   },
   profileOptionRole: {
-    fontSize: 12,
-    color: colors.gray[600],
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.textMuted,
   },
   scrollView: {
     flex: 1,
   },
   section: {
-    padding: 20,
+    padding: Theme.spacing.xl,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: colors.text,
-    marginBottom: 16,
+    fontSize: Theme.typography.fontSize.lg,
+    fontWeight: Theme.typography.fontWeight.semibold,
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.lg,
   },
   summaryGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
+    gap: Theme.spacing.md,
   },
   summaryCardWrapper: {
     width: "48%",
   },
   summaryCard: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: colors.gray[900],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius["2xl"],
+    padding: Theme.spacing.lg,
+    ...Theme.shadows.sm,
   },
   summaryCardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: Theme.spacing.md,
   },
   summaryIcon: {
     width: 48,
     height: 48,
-    borderRadius: 12,
+    borderRadius: Theme.borderRadius.xl,
     justifyContent: "center",
     alignItems: "center",
   },
   trendBadge: {
-    backgroundColor: colors.secondary + "20",
-    borderRadius: 12,
-    paddingHorizontal: 8,
+    backgroundColor: Theme.colors.secondary + "20",
+    borderRadius: Theme.borderRadius.xl,
+    paddingHorizontal: Theme.spacing.sm,
     paddingVertical: 4,
   },
   trendText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.secondary,
+    fontSize: Theme.typography.fontSize.xs,
+    fontWeight: Theme.typography.fontWeight.semibold,
+    color: Theme.colors.secondary,
   },
   summaryValue: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: colors.text,
+    fontSize: Theme.typography.fontSize["2xl"],
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.text,
     marginBottom: 4,
   },
   summaryTitle: {
-    fontSize: 12,
-    color: colors.gray[600],
-    fontWeight: "500",
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.textMuted,
+    fontWeight: Theme.typography.fontWeight.medium,
   },
   quickActions: {
     flexDirection: "row",
-    gap: 12,
+    gap: Theme.spacing.md,
   },
   quickActionButton: {
     flex: 1,
-    backgroundColor: colors.accent,
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: Theme.colors.accent,
+    borderRadius: Theme.borderRadius.xl,
+    paddingVertical: Theme.spacing.lg,
     alignItems: "center",
-    gap: 8,
-    shadowColor: colors.gray[900],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    gap: Theme.spacing.sm,
+    ...Theme.shadows.sm,
   },
   quickActionIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.white + "20",
+    backgroundColor: Theme.colors.white + "20",
     justifyContent: "center",
     alignItems: "center",
   },
   quickActionText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.white,
+    fontSize: Theme.typography.fontSize.sm,
+    fontWeight: Theme.typography.fontWeight.semibold,
+    color: Theme.colors.white,
   },
   activityHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: Theme.spacing.lg,
   },
   viewAllButton: {
     flexDirection: "row",
@@ -609,54 +584,50 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   viewAllText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: colors.primary,
+    fontSize: Theme.typography.fontSize.sm,
+    fontWeight: Theme.typography.fontWeight.medium,
+    color: Theme.colors.primary,
   },
   activityList: {
-    gap: 12,
+    gap: Theme.spacing.md,
   },
   activityItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 16,
-    gap: 12,
-    shadowColor: colors.gray[900],
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius.xl,
+    padding: Theme.spacing.lg,
+    gap: Theme.spacing.md,
+    ...Theme.shadows.sm,
   },
   activityAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.gray[100],
+    backgroundColor: Theme.colors.surfacePressed,
     justifyContent: "center",
     alignItems: "center",
   },
   avatarText: {
-    fontSize: 16,
+    fontSize: Theme.typography.fontSize.base,
   },
   activityContent: {
     flex: 1,
   },
   activityText: {
-    fontSize: 14,
-    color: colors.text,
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.text,
     lineHeight: 20,
   },
   activityUser: {
-    fontWeight: "600",
+    fontWeight: Theme.typography.fontWeight.semibold,
   },
   activityDetails: {
-    fontWeight: "500",
+    fontWeight: Theme.typography.fontWeight.medium,
   },
   activityTime: {
-    fontSize: 12,
-    color: colors.gray[500],
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.textMuted,
     marginTop: 2,
   },
   activityIcon: {

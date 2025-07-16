@@ -16,7 +16,7 @@ import {
 import { AddStockForm } from "../components/AddStockForm";
 import { BatchActivityLog } from "../components/BatchActivityLog";
 import { StockCard } from "../components/StockCard";
-import { AppColors } from "../constants/Colors";
+import { Theme } from "../constants/Theme";
 import { useStock } from "../hooks/useStock";
 import {
   BatchEntryFormData,
@@ -217,7 +217,7 @@ export default function StockScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={AppColors.primary} />
+        <ActivityIndicator size="large" color={Theme.colors.primary} />
         <Text style={styles.loadingText}>Loading stock data...</Text>
       </View>
     );
@@ -261,7 +261,11 @@ export default function StockScreen() {
             removeClippedSubviews={Platform.OS === "android"}
             ListEmptyComponent={() => (
               <View style={styles.emptyState}>
-                <MaterialIcons name="archive" size={48} color="#CCC" />
+                <MaterialIcons
+                  name="archive"
+                  size={48}
+                  color={Theme.colors.textMuted}
+                />
                 <Text style={styles.emptyStateText}>No stock items found</Text>
                 <Text style={styles.emptyStateSubtext}>
                   Try a different search or tap the + button to add stock
@@ -275,10 +279,7 @@ export default function StockScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor={AppColors.background}
-      />
+      <StatusBar barStyle="dark-content" translucent={false} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -292,7 +293,7 @@ export default function StockScreen() {
               <MaterialIcons
                 name="arrow-back"
                 size={24}
-                color={AppColors.text}
+                color={Theme.colors.text}
               />
             </TouchableOpacity>
           )}
@@ -309,7 +310,7 @@ export default function StockScreen() {
                 <MaterialIcons
                   name={showBuyValues ? "visibility" : "visibility-off"}
                   size={24}
-                  color={AppColors.primary}
+                  color={Theme.colors.primary}
                 />
               </TouchableOpacity>
             )}
@@ -322,7 +323,7 @@ export default function StockScreen() {
             <MaterialIcons
               name="search"
               size={20}
-              color={AppColors.text}
+              color={Theme.colors.text}
               style={{ marginRight: 6 }}
             />
             <TextInput
@@ -331,7 +332,7 @@ export default function StockScreen() {
               placeholder="Search products..."
               value={search}
               onChangeText={setSearch}
-              placeholderTextColor="#999"
+              placeholderTextColor={Theme.colors.textMuted}
               autoCapitalize="none"
               accessibilityLabel="Search products"
             />
@@ -364,8 +365,8 @@ export default function StockScreen() {
             {
               backgroundColor:
                 currentView === "logs"
-                  ? AppColors.secondary
-                  : AppColors.primary,
+                  ? Theme.colors.secondary
+                  : Theme.colors.primary,
             },
           ]}
           onPress={handleLogBubblePress}
@@ -396,7 +397,9 @@ export default function StockScreen() {
             styles.bubble,
             {
               backgroundColor:
-                currentView === "add" ? AppColors.secondary : AppColors.accent,
+                currentView === "add"
+                  ? Theme.colors.secondary
+                  : Theme.colors.accent,
             },
           ]}
           onPress={handleAddBubblePress}
@@ -419,39 +422,39 @@ export default function StockScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: AppColors.background,
+    backgroundColor: Theme.colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: AppColors.background,
+    backgroundColor: Theme.colors.background,
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: AppColors.text,
+    marginTop: Theme.spacing.lg,
+    fontSize: Theme.typography.fontSize.base,
+    color: Theme.colors.text,
   },
   header: {
     paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0 + 20,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    backgroundColor: "#F5F5F5",
+    paddingHorizontal: Theme.spacing.xl,
+    paddingBottom: Theme.spacing.lg,
+    backgroundColor: Theme.colors.background,
     zIndex: 10,
   },
   headerTitleContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: Theme.spacing.md,
   },
   backButton: {
     padding: 4,
-    marginRight: 8,
+    marginRight: Theme.spacing.sm,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: "600",
-    color: "#263238",
+    fontSize: Theme.typography.fontSize["2xl"],
+    fontWeight: Theme.typography.fontWeight.semibold,
+    color: Theme.colors.text,
   },
   headerTitleRow: {
     flex: 1,
@@ -460,66 +463,67 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   eyeToggle: {
-    padding: 8,
-    marginLeft: 12,
+    padding: Theme.spacing.sm,
+    marginLeft: Theme.spacing.md,
   },
   searchBarContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius.lg,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.sm,
     minHeight: 44,
+    ...Theme.shadows.sm,
   },
   searchBar: {
     flex: 1,
-    fontSize: 16,
-    color: "#263238",
+    fontSize: Theme.typography.fontSize.base,
+    color: Theme.colors.text,
     padding: 0,
   },
   listContainer: {
-    paddingTop: 12,
+    paddingTop: Theme.spacing.md,
     paddingBottom: 100,
   },
   errorContainer: {
-    margin: 16,
-    padding: 12,
+    margin: Theme.spacing.lg,
+    padding: Theme.spacing.md,
     backgroundColor: "#FFF3F3",
-    borderRadius: 8,
+    borderRadius: Theme.borderRadius.sm,
     borderLeftWidth: 4,
-    borderLeftColor: AppColors.error,
+    borderLeftColor: Theme.colors.error,
   },
   errorText: {
-    color: AppColors.error,
-    fontSize: 14,
+    color: Theme.colors.error,
+    fontSize: Theme.typography.fontSize.sm,
   },
   emptyState: {
     alignItems: "center",
-    paddingVertical: 40,
-    paddingHorizontal: 20,
+    paddingVertical: Theme.spacing["4xl"],
+    paddingHorizontal: Theme.spacing.xl,
   },
   emptyStateText: {
-    fontSize: 18,
-    fontWeight: "500",
-    color: "#999",
-    marginTop: 12,
+    fontSize: Theme.typography.fontSize.lg,
+    fontWeight: Theme.typography.fontWeight.medium,
+    color: Theme.colors.textMuted,
+    marginTop: Theme.spacing.md,
   },
   emptyStateSubtext: {
-    fontSize: 14,
-    color: "#999",
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.textMuted,
     textAlign: "center",
     marginTop: 4,
   },
   leftBubbleContainer: {
     position: "absolute",
-    left: 20,
+    left: Theme.spacing.xl,
     bottom: Platform.OS === "android" ? 80 : 100,
     zIndex: 100,
   },
   rightBubbleContainer: {
     position: "absolute",
-    right: 20,
+    right: Theme.spacing.xl,
     bottom: Platform.OS === "android" ? 80 : 100,
     zIndex: 100,
   },
@@ -529,15 +533,11 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 6,
+    ...Theme.shadows.lg,
   },
   allLogsContainer: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
-    padding: 16,
+    backgroundColor: Theme.colors.surface,
+    padding: Theme.spacing.lg,
   },
 });
