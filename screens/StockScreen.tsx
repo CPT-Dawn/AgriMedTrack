@@ -1,5 +1,4 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -44,7 +43,7 @@ export default function StockScreen() {
   } = useStock();
 
   const [search, setSearch] = useState("");
-  const router = useRouter();
+  // const router = useRouter();
   const [expandedLogs, setExpandedLogs] = useState<Record<string, boolean>>({});
   const searchInputRef = useRef<TextInput>(null);
   const leftBubbleScale = useRef(new Animated.Value(1)).current;
@@ -162,8 +161,8 @@ export default function StockScreen() {
       );
 
       const isLogExpanded = expandedLogs[item.id] || false;
-      const isHighlighted = highlightedProductId === item.product.id;
 
+      // Pass a prop to StockCard to indicate right-aligned QTY
       return (
         <StockCard
           item={item}
@@ -172,16 +171,11 @@ export default function StockScreen() {
           isLogExpanded={isLogExpanded}
           onToggleLog={toggleLogExpansion}
           onHighlightProduct={handleHighlightProduct}
+          qtyRightAlign // new prop for right-aligning QTY
         />
       );
     },
-    [
-      activities,
-      expandedLogs,
-      stockEntries,
-      toggleLogExpansion,
-      highlightedProductId,
-    ]
+    [activities, expandedLogs, stockEntries, toggleLogExpansion]
   );
 
   // Render all activity logs
@@ -322,23 +316,7 @@ export default function StockScreen() {
               autoCapitalize="none"
               accessibilityLabel="Search products"
             />
-            <TouchableOpacity
-              onPress={() => {
-                // Voice search would be implemented here
-                Alert.alert(
-                  "Voice Search",
-                  "Voice search feature coming soon!"
-                );
-              }}
-              accessibilityLabel="Voice search"
-            >
-              <MaterialIcons
-                name="mic"
-                size={20}
-                color={AppColors.primary}
-                style={{ marginLeft: 6 }}
-              />
-            </TouchableOpacity>
+            {/* Mic icon removed */}
           </View>
         )}
       </View>

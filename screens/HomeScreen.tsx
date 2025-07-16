@@ -37,7 +37,6 @@ interface Profile {
   id: string;
   name: string;
   avatar: string;
-  role: string;
 }
 
 interface SummaryCard {
@@ -60,9 +59,9 @@ interface ActivityItem {
 
 // Mock data
 const PROFILES: Profile[] = [
-  { id: "1", name: "Gopal", avatar: "👨‍💼", role: "Sales Manager" },
-  { id: "2", name: "Anil", avatar: "👨‍🌾", role: "Field Agent" },
-  { id: "3", name: "Papa", avatar: "👩‍💼", role: "Account Manager" },
+  { id: "1", name: "Gopal", avatar: "👨‍💼" },
+  { id: "2", name: "Anil", avatar: "👨‍🌾" },
+  { id: "3", name: "Papa", avatar: "👩‍💼" },
 ];
 
 const SUMMARY_DATA: SummaryCard[] = [
@@ -75,7 +74,7 @@ const SUMMARY_DATA: SummaryCard[] = [
   },
   {
     id: "2",
-    title: "Today's Sales",
+    title: "Months's Sales",
     value: "₹15,420",
     icon: "trending-up",
     color: colors.secondary,
@@ -146,8 +145,8 @@ export default function HomeScreen() {
   const [greeting, setGreeting] = useState("");
 
   // Animated values
-  const dropdownOpacity = new Animated.Value(0);
-  const dropdownScale = new Animated.Value(0.8);
+  const dropdownOpacity = React.useMemo(() => new Animated.Value(0), []);
+  const dropdownScale = React.useMemo(() => new Animated.Value(0.8), []);
 
   // Update greeting based on time
   useEffect(() => {
@@ -337,7 +336,6 @@ export default function HomeScreen() {
                 <Text style={styles.profileOptionAvatar}>{profile.avatar}</Text>
                 <View style={styles.profileOptionInfo}>
                   <Text style={styles.profileOptionName}>{profile.name}</Text>
-                  <Text style={styles.profileOptionRole}>{profile.role}</Text>
                 </View>
                 {currentProfile.id === profile.id && (
                   <MaterialIcons

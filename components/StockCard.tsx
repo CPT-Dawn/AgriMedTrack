@@ -11,6 +11,7 @@ interface StockCardProps {
   isLogExpanded: boolean;
   onToggleLog: (productId: string) => void;
   onHighlightProduct?: (productId: string) => void;
+  qtyRightAlign?: boolean;
 }
 
 export const StockCard: React.FC<StockCardProps> = memo(
@@ -21,6 +22,7 @@ export const StockCard: React.FC<StockCardProps> = memo(
     isLogExpanded,
     onToggleLog,
     onHighlightProduct,
+    qtyRightAlign = false,
   }) => {
     // Gather all supplier/packaging/price/quantity rows for this product
     const rows: any[] = [];
@@ -139,11 +141,21 @@ export const StockCard: React.FC<StockCardProps> = memo(
 
         {/* Table Header */}
         <View style={styles.tableHeaderRow}>
-          <Text style={styles.tableHeader}>Company</Text>
-          <Text style={styles.tableHeader}>Size</Text>
-          <Text style={styles.tableHeader}>Buy ₹</Text>
-          <Text style={styles.tableHeader}>Sell ₹</Text>
-          <Text style={styles.tableHeader}>Qty</Text>
+          <Text style={[styles.tableHeader, styles.companyHeader]}>
+            Company
+          </Text>
+          <Text style={[styles.tableHeader, styles.equalHeader]}>Size</Text>
+          <Text style={[styles.tableHeader, styles.equalHeader]}>Buy ₹</Text>
+          <Text style={[styles.tableHeader, styles.equalHeader]}>Sell ₹</Text>
+          <Text
+            style={[
+              styles.tableHeader,
+              styles.equalHeader,
+              qtyRightAlign && styles.qtyHeaderRight,
+            ]}
+          >
+            Qty
+          </Text>
         </View>
 
         {/* Table Rows */}
@@ -155,11 +167,27 @@ export const StockCard: React.FC<StockCardProps> = memo(
               idx % 2 === 1 ? styles.tableRowAlternate : null,
             ]}
           >
-            <Text style={styles.tableCell}>{row.company}</Text>
-            <Text style={styles.tableCell}>{row.packaging}</Text>
-            <Text style={styles.tableCell}>{row.buyPrice}</Text>
-            <Text style={styles.tableCell}>{row.sellPrice}</Text>
-            <Text style={styles.tableCell}>{row.quantity}</Text>
+            <Text style={[styles.tableCell, styles.companyCell]}>
+              {row.company}
+            </Text>
+            <Text style={[styles.tableCell, styles.equalCell]}>
+              {row.packaging}
+            </Text>
+            <Text style={[styles.tableCell, styles.equalCell]}>
+              {row.buyPrice}
+            </Text>
+            <Text style={[styles.tableCell, styles.equalCell]}>
+              {row.sellPrice}
+            </Text>
+            <Text
+              style={[
+                styles.tableCell,
+                styles.equalCell,
+                qtyRightAlign && styles.qtyCellRight,
+              ]}
+            >
+              {row.quantity}
+            </Text>
           </View>
         ))}
 
@@ -218,30 +246,56 @@ const styles = StyleSheet.create({
   },
   tableHeaderRow: {
     flexDirection: "row",
-    paddingBottom: 8,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: "#E0E0E0",
+    columnGap: 10,
   },
   tableHeader: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "700",
     color: "#F9A825",
     textTransform: "uppercase",
     letterSpacing: 0.5,
+    paddingHorizontal: 2,
+  },
+  companyHeader: {
+    flex: 2.2,
+  },
+  equalHeader: {
+    flex: 1,
+  },
+  qtyHeaderRight: {
+    textAlign: "center",
   },
   tableRow: {
     flexDirection: "row",
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: "#F0F0F0",
+    alignItems: "center",
+    columnGap: 10,
   },
   tableRowAlternate: {
     backgroundColor: "rgba(255, 112, 67, 0.05)",
   },
   tableCell: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 15,
     color: "#263238",
+    paddingHorizontal: 2,
+  },
+  companyCell: {
+    flex: 2.2,
+  },
+  equalCell: {
+    flex: 1,
+  },
+  qtyCellRight: {
+    textAlign: "center",
+    justifyContent: "center",
+    alignItems: "center",
+    display: "flex",
   },
 });

@@ -76,7 +76,7 @@ const mockStockItems = [
 const SALE_ENTRIES = [
   {
     id: "sale_001",
-    buyer: "Gopal Verma",
+    buyer: "Raj Kumar Patel",
     addedBy: "Gopal",
     saleDate: "2025-07-16T10:15:00",
     paymentStatus: "Partial",
@@ -103,7 +103,7 @@ const SALE_ENTRIES = [
   },
   {
     id: "sale_002",
-    buyer: "Anil Traders",
+    buyer: "Mamta Patel",
     addedBy: "Anil",
     saleDate: "2025-07-16T13:40:00",
     paymentStatus: "Paid",
@@ -136,7 +136,6 @@ export default function SalesScreen() {
   const [currentView, setCurrentView] = useState<"sales" | "add">("sales");
 
   const scrollViewRef = useRef<ScrollView>(null);
-  const slideAnim = useRef(new Animated.Value(0)).current;
   const bubbleScale = useRef(new Animated.Value(1)).current;
 
   // Calculate total amount
@@ -285,7 +284,7 @@ export default function SalesScreen() {
       setCurrentView("sales");
 
       Alert.alert("Success", "Sale recorded successfully");
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to record sale");
     } finally {
       setSubmitting(false);
@@ -779,22 +778,42 @@ export default function SalesScreen() {
 
         {/* Search Bar - Only show in sales view */}
         {currentView === "sales" && (
-          <View style={styles.searchBarContainer}>
+          <View
+            style={[
+              styles.searchBarContainer,
+              search && styles.searchBarContainerActive,
+            ]}
+          >
             <MaterialIcons
               name="search"
               size={20}
-              color={colors.text}
+              color={search ? colors.primary : colors.text}
               style={{ marginRight: 6 }}
             />
             <TextInput
-              style={styles.searchBar}
-              placeholder="Search sales..."
+              style={[styles.searchBar, search && styles.searchBarActive]}
+              placeholder="Search sale"
               value={search}
               onChangeText={setSearch}
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.gray[400]}
               autoCapitalize="none"
               accessibilityLabel="Search sales"
+              clearButtonMode="while-editing"
+              selectionColor={colors.primary}
             />
+            {search.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setSearch("")}
+                style={styles.clearButton}
+                accessibilityLabel="Clear search"
+              >
+                <MaterialIcons
+                  name="close"
+                  size={20}
+                  color={colors.gray[500]}
+                />
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </View>
@@ -1358,17 +1377,42 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.white,
-    borderRadius: 10,
-    paddingHorizontal: 14,
+    borderRadius: 16,
+    paddingHorizontal: 16,
     paddingVertical: 10,
-    minHeight: 44,
+    minHeight: 48,
     marginTop: 12,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    shadowColor: colors.gray[900],
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  searchBarContainerActive: {
+    borderColor: colors.primary,
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
   },
   searchBar: {
     flex: 1,
     fontSize: 16,
     color: colors.text,
     padding: 0,
+    backgroundColor: "transparent",
+  },
+  searchBarActive: {
+    color: colors.primary,
+  },
+  clearButton: {
+    marginLeft: 6,
+    padding: 4,
+    borderRadius: 12,
+    backgroundColor: colors.gray[100],
+    justifyContent: "center",
+    alignItems: "center",
   },
   listContainer: {
     paddingTop: 12,
