@@ -65,6 +65,8 @@ export interface StockActivity {
   supplierName: string;
   sizeName: string;
   quantity: number;
+  buyPrice?: number; // Add buyPrice for log display
+  sellPrice?: number; // Add sellPrice for completeness
   batchId?: string; // Reference to the batch this activity belongs to
   updatedBy: string;
   updatedByName?: string;

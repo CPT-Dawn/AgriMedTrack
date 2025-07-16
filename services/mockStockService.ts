@@ -427,6 +427,177 @@ let mockActivities: StockActivity[] = [
   },
 ];
 
+// New mock data for batch activity logs
+const mockBatchActivityData = [
+  {
+    date: "2025-07-01",
+    totalBuyPrice: 12100,
+    items: [
+      {
+        productName: "Urea",
+        company: "IFFCO",
+        packagingSize: "45 kg bag",
+        buyPrice: 240,
+        quantity: 20,
+        itemTotal: 4800,
+      },
+      {
+        productName: "Coragen",
+        company: "FMC",
+        packagingSize: "50 ml",
+        buyPrice: 580,
+        quantity: 10,
+        itemTotal: 5800,
+      },
+      {
+        productName: "Planofix",
+        company: "PI Industries",
+        packagingSize: "100 ml",
+        buyPrice: 100,
+        quantity: 15,
+        itemTotal: 1500,
+      },
+    ],
+  },
+  {
+    date: "2025-06-25",
+    totalBuyPrice: 22200,
+    items: [
+      {
+        productName: "DAP",
+        company: "Tata Chemicals",
+        packagingSize: "50 kg bag",
+        buyPrice: 1200,
+        quantity: 10,
+        itemTotal: 12000,
+      },
+      {
+        productName: "Biozyme",
+        company: "Biostadt India",
+        packagingSize: "250 ml",
+        buyPrice: 200,
+        quantity: 25,
+        itemTotal: 5000,
+      },
+      {
+        productName: "Sudozol",
+        company: "Rallis India",
+        packagingSize: "250 gm",
+        buyPrice: 130,
+        quantity: 40,
+        itemTotal: 5200,
+      },
+    ],
+  },
+  {
+    date: "2025-06-18",
+    totalBuyPrice: 9215,
+    items: [
+      {
+        productName: "Urea",
+        company: "Nagarjuna Fert.",
+        packagingSize: "50 kg bag",
+        buyPrice: 265,
+        quantity: 15,
+        itemTotal: 3975,
+      },
+      {
+        productName: "Rogor",
+        company: "Rallis India",
+        packagingSize: "250 ml",
+        buyPrice: 150,
+        quantity: 20,
+        itemTotal: 3000,
+      },
+      {
+        productName: "Compost",
+        company: "GreenManure Pvt.",
+        packagingSize: "50 kg bag",
+        buyPrice: 280,
+        quantity: 8,
+        itemTotal: 2240,
+      },
+    ],
+  },
+  {
+    date: "2025-06-10",
+    totalBuyPrice: 18280,
+    items: [
+      {
+        productName: "NPK 20:20:0",
+        company: "GSFC",
+        packagingSize: "25 kg bag",
+        buyPrice: 540,
+        quantity: 12,
+        itemTotal: 6480,
+      },
+      {
+        productName: "Confidor",
+        company: "Bayer",
+        packagingSize: "100 ml",
+        buyPrice: 260,
+        quantity: 30,
+        itemTotal: 7800,
+      },
+      {
+        productName: "Agromin",
+        company: "Indofil",
+        packagingSize: "1 L",
+        buyPrice: 400,
+        quantity: 10,
+        itemTotal: 4000,
+      },
+    ],
+  },
+];
+
+// User names for the batch logs
+const mockUserNames = [
+  "Raj Kumar",
+  "Anita Singh",
+  "Vikram Patel",
+  "Meera Sharma",
+  "Sunil Verma",
+  "Priya Gupta",
+];
+
+// Convert mock batch data to StockBatch format
+const generateMockBatchLogs = (): StockBatch[] => {
+  return mockBatchActivityData.map((batchData, index) => {
+    const userName = mockUserNames[index % mockUserNames.length];
+    const userId = `user-${index + 1}`;
+    const batchId = `batch-${Date.now()}-${index}`;
+    const batchDate = new Date(batchData.date);
+
+    const batchItems = batchData.items.map((item, itemIndex) => {
+      return {
+        id: `activity-${index}-${itemIndex}`,
+        action: "added" as const,
+        stockEntryId: `entry-${index}-${itemIndex}`,
+        productName: item.productName,
+        supplierName: item.company,
+        sizeName: item.packagingSize,
+        quantity: item.quantity,
+        buyPrice: item.buyPrice,
+        sellPrice: item.buyPrice * 1.1, // Example: 10% markup
+        batchId: batchId,
+        updatedBy: userId,
+        updatedByName: userName,
+        timestamp: batchDate,
+      };
+    });
+
+    return {
+      id: batchId,
+      addedBy: userId,
+      addedByName: userName,
+      addedAt: batchDate,
+      billUrl: index % 2 === 0 ? `mock://bill-${index}.jpg` : undefined,
+      items: batchItems,
+    };
+  });
+};
+
 // Utility functions
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const generateId = () =>
@@ -632,6 +803,14 @@ export const activityService = {
     return () => {
       console.log("Unsubscribed from activities");
     };
+  },
+};
+
+// Add a new service for batch activity logs
+export const batchActivityService = {
+  async getBatchLogs(): Promise<StockBatch[]> {
+    await delay(150);
+    return generateMockBatchLogs();
   },
 };
 

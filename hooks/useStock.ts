@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   activityService,
+  batchActivityService,
   productService,
   sizeService,
   stockService,
@@ -11,6 +12,7 @@ import {
   PackagingSize,
   Product,
   StockActivity,
+  StockBatch,
   StockEntry,
   StockEntryFormData,
   StockItem,
@@ -23,6 +25,7 @@ export function useStock() {
   const [sizes, setSizes] = useState<PackagingSize[]>([]);
   const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
   const [activities, setActivities] = useState<StockActivity[]>([]);
+  const [batchLogs, setBatchLogs] = useState<StockBatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -103,12 +106,14 @@ export function useStock() {
         sizesData,
         stockData,
         activitiesData,
+        batchLogsData,
       ] = await Promise.all([
         productService.getAll(),
         supplierService.getAll(),
         sizeService.getAll(),
         stockService.getAll(),
         activityService.getRecent(20),
+        batchActivityService.getBatchLogs(),
       ]);
 
       setProducts(productsData);
@@ -116,6 +121,7 @@ export function useStock() {
       setSizes(sizesData);
       setStockEntries(stockData);
       setActivities(activitiesData);
+      setBatchLogs(batchLogsData);
     } catch (err) {
       console.error("Error loading stock data:", err);
       setError("Failed to load stock data");
@@ -349,6 +355,7 @@ export function useStock() {
     stockEntries,
     stockItems,
     activities,
+    batchLogs,
 
     // State
     loading,

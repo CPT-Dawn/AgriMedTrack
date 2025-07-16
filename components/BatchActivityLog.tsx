@@ -32,6 +32,7 @@ interface BatchActivityLogProps {
   loading?: boolean;
   onLoadMore?: () => void;
   hideCount?: boolean; // Add this new prop to control whether to show the count
+  hideHeader?: boolean; // Add this new prop to control whether to show the header
 }
 
 export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
@@ -42,6 +43,7 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
   loading = false,
   onLoadMore,
   hideCount = false, // Add this new prop to control whether to show the count
+  hideHeader = false, // Add this new prop to control whether to show the header
 }) => {
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -98,112 +100,151 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
       <View style={styles.batchCard}>
         <View style={styles.batchHeader}>
           <View style={styles.batchHeaderContent}>
-            <MaterialIcons
-              name="inventory"
-              size={18}
-              color={AppColors.primary}
-              style={styles.batchIcon}
-            />
+            {/* User avatar instead of inventory icon */}
+            <View style={styles.userAvatar}>
+              <Text style={styles.userInitial}>
+                {(batch.addedByName || "User").charAt(0).toUpperCase()}
+              </Text>
+            </View>
             <View style={styles.batchHeaderText}>
-              <Text style={styles.batchTitle}>Stock Added</Text>
-              <Text style={styles.batchSubtitle}>
-                Added by {batch.addedByName || "User"} -{" "}
-                {formatDate(batch.addedAt)}
+              <Text style={styles.batchTitle}>
+                {batch.addedByName || "User"}
               </Text>
             </View>
           </View>
 
-          {batch.billUrl && (
-            <TouchableOpacity
-              style={styles.billPreview}
-              onPress={() => setImagePreview(batch.billUrl)}
-              accessibilityLabel="View bill image"
-            >
-              {batch.billThumbnail ? (
-                <Image
-                  source={{ uri: batch.billThumbnail }}
-                  style={styles.billThumbnail}
-                />
-              ) : (
-                <MaterialIcons
-                  name="receipt"
-                  size={24}
-                  color={AppColors.primary}
-                />
-              )}
-            </TouchableOpacity>
-          )}
+          {/* Date and time in top right */}
+          <Text style={styles.batchDate}>{formatDate(batch.addedAt)}</Text>
         </View>
 
-        <View style={styles.batchItems}>
+        {/* Table-like layout for entries */}
+        <View style={styles.entriesTable}>
+          {/* Table header */}
+          <View style={styles.tableHeader}>
+            <Text style={[styles.tableHeaderCell, styles.productCell]}>
+              Product
+            </Text>
+            <Text style={[styles.tableHeaderCell, styles.supplierCell]}>
+              Supplier
+            </Text>
+            <Text style={[styles.tableHeaderCell, styles.sizeCell]}>Size</Text>
+            <Text style={[styles.tableHeaderCell, styles.priceCell]}>
+              Price
+            </Text>
+            <Text style={[styles.tableHeaderCell, styles.qtyCell]}>Qty</Text>
+            <Text style={[styles.tableHeaderCell, styles.totalCell]}>
+              Total
+            </Text>
+          </View>
+
+          {/* Table rows */}
           {batch.items.map((item, index) => (
             <TouchableOpacity
               key={item.id || index}
               style={[
-                styles.batchItem,
-                index < batch.items.length - 1 && styles.batchItemDivider,
+                styles.tableRow,
+                index < batch.items.length - 1 && styles.tableRowDivider,
               ]}
               onPress={() => onItemPress && onItemPress(item.stockEntryId)}
               activeOpacity={onItemPress ? 0.7 : 1}
             >
-              <View style={styles.batchItemContent}>
-                <Text style={styles.productName}>{item.productName}</Text>
-                <Text style={styles.itemDetails}>
-                  {item.supplierName} • {item.sizeName} • {item.quantity} units
-                </Text>
-              </View>
-              {onItemPress && (
-                <MaterialIcons
-                  name="chevron-right"
-                  size={20}
-                  color="#999"
-                  style={styles.itemArrow}
-                />
-              )}
+              <Text
+                style={[styles.tableCell, styles.productCell]}
+                numberOfLines={1}
+              >
+                {item.productName}
+              </Text>
+              <Text
+                style={[styles.tableCell, styles.supplierCell]}
+                numberOfLines={1}
+              >
+                {item.supplierName}
+              </Text>
+              <Text
+                style={[styles.tableCell, styles.sizeCell]}
+                numberOfLines={1}
+              >
+                {item.sizeName}
+              </Text>
+              <Text style={[styles.tableCell, styles.priceCell]}>
+                ₹{item.buyPrice || 0}
+              </Text>
+              <Text style={[styles.tableCell, styles.qtyCell]}>
+                {item.quantity}
+              </Text>
+              <Text style={[styles.tableCell, styles.totalCell]}>
+                ₹{(item.buyPrice || 0) * item.quantity}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* Batch total */}
+        <View style={styles.batchTotal}>
+          <Text style={styles.batchTotalLabel}>Batch Total:</Text>
+          <Text style={styles.batchTotalValue}>
+            ₹
+            {batch.items.reduce(
+              (total, item) => total + (item.buyPrice || 0) * item.quantity,
+              0
+            )}
+          </Text>
+        </View>
+
+        {/* Bill image thumbnail if available */}
+        {batch.billUrl && (
+          <TouchableOpacity
+            style={styles.billPreviewFooter}
+            onPress={() => batch.billUrl && setImagePreview(batch.billUrl)}
+            accessibilityLabel="View bill image"
+          >
+            <MaterialIcons name="receipt" size={16} color={AppColors.primary} />
+            <Text style={styles.billText}>View Bill</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        style={[styles.header, isExpanded ? styles.headerExpanded : null]}
-        onPress={handleToggle}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityLabel={
-          isExpanded ? "Collapse activity log" : "Expand activity log"
-        }
-      >
-        <View style={styles.headerContent}>
-          <MaterialIcons
-            name="history"
-            size={18}
-            color={isExpanded ? AppColors.primary : "#666"}
-            style={styles.headerIcon}
-          />
-          <Text
-            style={[styles.title, isExpanded ? styles.titleExpanded : null]}
-          >
-            Activity Log{" "}
-            {!hideCount && batches.length > 0 ? `(${batches.length})` : ""}
-          </Text>
-        </View>
-        <View style={styles.toggleButtonContainer}>
-          <Animated.View
-            style={[styles.toggleButton, { transform: [{ rotate }] }]}
-          >
+      {!hideHeader && (
+        <TouchableOpacity
+          style={[styles.header, isExpanded ? styles.headerExpanded : null]}
+          onPress={handleToggle}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={
+            isExpanded ? "Collapse activity log" : "Expand activity log"
+          }
+        >
+          <View style={styles.headerContent}>
             <MaterialIcons
-              name="keyboard-arrow-down"
-              size={20}
+              name="history"
+              size={18}
               color={isExpanded ? AppColors.primary : "#666"}
+              style={styles.headerIcon}
             />
-          </Animated.View>
-        </View>
-      </TouchableOpacity>
+            <Text
+              style={[styles.title, isExpanded ? styles.titleExpanded : null]}
+            >
+              Activity Log{" "}
+              {!hideCount && batches.length > 0 ? `(${batches.length})` : ""}
+            </Text>
+          </View>
+          <View style={styles.toggleButtonContainer}>
+            <Animated.View
+              style={[styles.toggleButton, { transform: [{ rotate }] }]}
+            >
+              <MaterialIcons
+                name="keyboard-arrow-down"
+                size={20}
+                color={isExpanded ? AppColors.primary : "#666"}
+              />
+            </Animated.View>
+          </View>
+        </TouchableOpacity>
+      )}
 
       {isExpanded && (
         <View style={styles.content}>
@@ -313,86 +354,147 @@ const styles = StyleSheet.create({
   },
   batchCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 16, // 2xl radius
+    borderRadius: 16,
     marginBottom: 12,
-    overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
     elevation: 2,
+    overflow: "hidden",
   },
   batchHeader: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    padding: 12,
-    backgroundColor: "rgba(2, 136, 209, 0.08)",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
   },
   batchHeaderContent: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
   },
-  batchIcon: {
-    marginRight: 8,
+  userAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: AppColors.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  userInitial: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
   },
   batchHeaderText: {
-    flex: 1,
+    justifyContent: "center",
   },
   batchTitle: {
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#333",
+  },
+  batchDate: {
+    fontSize: 12,
+    color: "#777",
+  },
+  entriesTable: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  tableHeader: {
+    flexDirection: "row",
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEEEEE",
+  },
+  tableHeaderCell: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#666",
+  },
+  tableRow: {
+    flexDirection: "row",
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    alignItems: "center",
+  },
+  tableRowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#F5F5F5",
+  },
+  tableCell: {
+    fontSize: 13,
+    color: "#333",
+  },
+  productCell: {
+    flex: 2,
+    paddingRight: 4,
+  },
+  supplierCell: {
+    flex: 1.8,
+    paddingRight: 4,
+  },
+  sizeCell: {
+    flex: 1.2,
+    paddingRight: 4,
+  },
+  priceCell: {
+    flex: 0.8,
+    textAlign: "right",
+    paddingRight: 4,
+  },
+  qtyCell: {
+    flex: 0.6,
+    textAlign: "right",
+    paddingRight: 4,
+  },
+  totalCell: {
+    flex: 1,
+    textAlign: "right",
     fontWeight: "600",
     color: AppColors.primary,
   },
-  batchSubtitle: {
-    fontSize: 12,
-    color: "#757575",
-    marginTop: 2,
-  },
-  billPreview: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: "#F5F5F5",
-    justifyContent: "center",
+  batchTotal: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
     alignItems: "center",
-    marginLeft: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#EEEEEE",
+    backgroundColor: "rgba(2, 136, 209, 0.05)",
   },
-  billThumbnail: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+  batchTotalLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#555",
+    marginRight: 8,
   },
-  batchItems: {
-    padding: 8,
+  batchTotalValue: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: AppColors.primary,
   },
-  batchItem: {
+  billPreviewFooter: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    minHeight: 44, // Minimum 44x44 touch target
+    justifyContent: "center",
+    paddingVertical: 8,
+    backgroundColor: "#F9F9F9",
+    borderTopWidth: 1,
+    borderTopColor: "#EEEEEE",
   },
-  batchItemDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
-  },
-  batchItemContent: {
-    flex: 1,
-  },
-  productName: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: AppColors.text,
-  },
-  itemDetails: {
-    fontSize: 13,
-    color: "#757575",
-    marginTop: 2,
-  },
-  itemArrow: {
-    marginLeft: 8,
+  billText: {
+    fontSize: 12,
+    color: AppColors.primary,
+    marginLeft: 4,
+    fontWeight: "500",
   },
   emptyText: {
     fontSize: 13,

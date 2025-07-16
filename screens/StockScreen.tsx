@@ -21,8 +21,6 @@ import { AppColors } from "../constants/Colors";
 import { useStock } from "../hooks/useStock";
 import {
   BatchEntryFormData,
-  StockActivity,
-  StockBatch,
   StockEntryFormData,
   StockItem,
 } from "../types/stock";
@@ -42,6 +40,7 @@ export default function StockScreen() {
     getOrCreateSize,
     clearError,
     stockEntries,
+    batchLogs,
   } = useStock();
 
   const [search, setSearch] = useState("");
@@ -63,60 +62,10 @@ export default function StockScreen() {
     "stock"
   );
 
-  // Group activities by batch for the global log view
-  const activityBatches = useMemo(() => {
-    // First, group activities by batchId
-    const batchMap = new Map<string, StockActivity[]>();
-
-    // Handle activities without batchId (legacy data)
-    const unbatchedActivities: StockActivity[] = [];
-
-    activities.forEach((activity) => {
-      if (activity.batchId) {
-        if (!batchMap.has(activity.batchId)) {
-          batchMap.set(activity.batchId, []);
-        }
-        batchMap.get(activity.batchId)?.push(activity);
-      } else {
-        unbatchedActivities.push(activity);
-      }
-    });
-
-    // Convert to StockBatch objects
-    const batches: StockBatch[] = [];
-
-    // Add batched activities
-    batchMap.forEach((activities, batchId) => {
-      if (activities.length > 0) {
-        batches.push({
-          id: batchId,
-          addedBy: activities[0].updatedBy,
-          addedByName: activities[0].updatedByName,
-          addedAt: activities[0].timestamp,
-          items: activities,
-        });
-      }
-    });
-
-    // Add individual unbatched activities as single-item batches
-    unbatchedActivities.forEach((activity) => {
-      batches.push({
-        id: activity.id,
-        addedBy: activity.updatedBy,
-        addedByName: activity.updatedByName,
-        addedAt: activity.timestamp,
-        items: [activity],
-      });
-    });
-
-    // Sort batches by date (newest first)
-    return batches.sort((a, b) => b.addedAt.getTime() - a.addedAt.getTime());
-  }, [activities]);
-
-  // Paginated batches
-  const paginatedBatches = useMemo(() => {
-    return activityBatches.slice(0, logPage * LOGS_PER_PAGE);
-  }, [activityBatches, logPage]);
+  // Use the new batch logs directly instead of deriving them from activities
+  const paginatedBatchLogs = useMemo(() => {
+    return batchLogs.slice(0, logPage * LOGS_PER_PAGE);
+  }, [batchLogs, logPage]);
 
   // Handle left bubble press (Activity Log)
   const handleLogBubblePress = () => {
@@ -194,7 +143,7 @@ export default function StockScreen() {
 
   // Load more logs
   const handleLoadMoreLogs = () => {
-    if (paginatedBatches.length < activityBatches.length) {
+    if (paginatedBatchLogs.length < batchLogs.length) {
       setLoadingMoreLogs(true);
       // Simulate loading delay
       setTimeout(() => {
@@ -240,13 +189,14 @@ export default function StockScreen() {
     return (
       <View style={styles.allLogsContainer}>
         <BatchActivityLog
-          batches={paginatedBatches}
+          batches={paginatedBatchLogs}
           isExpanded={true}
           onToggle={() => setIsLogsExpanded(!isLogsExpanded)}
           onItemPress={handleHighlightProduct}
           loading={loadingMoreLogs}
           onLoadMore={handleLoadMoreLogs}
           hideCount={true}
+          hideHeader={true}
         />
       </View>
     );
