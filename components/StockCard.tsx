@@ -12,6 +12,7 @@ interface StockCardProps {
   onToggleLog: (productId: string) => void;
   onHighlightProduct?: (productId: string) => void;
   qtyRightAlign?: boolean;
+  showBuyValues?: boolean;
 }
 
 export const StockCard: React.FC<StockCardProps> = memo(
@@ -23,6 +24,7 @@ export const StockCard: React.FC<StockCardProps> = memo(
     onToggleLog,
     onHighlightProduct,
     qtyRightAlign = false,
+    showBuyValues = true,
   }) => {
     // Gather all supplier/packaging/price/quantity rows for this product
     const rows: any[] = [];
@@ -174,7 +176,7 @@ export const StockCard: React.FC<StockCardProps> = memo(
               {row.packaging}
             </Text>
             <Text style={[styles.tableCell, styles.equalCell]}>
-              {row.buyPrice}
+              {showBuyValues ? row.buyPrice : row.buyPrice ? "***" : ""}
             </Text>
             <Text style={[styles.tableCell, styles.equalCell]}>
               {row.sellPrice}
