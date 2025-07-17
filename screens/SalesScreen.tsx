@@ -78,69 +78,6 @@ interface SaleEntry {
   totalAmount: number;
 }
 
-// Mock stock data for product selection
-const mockStockItems = [
-  { id: "1", name: "Urea 50kg", size: "50kg Bag", price: 600 },
-  { id: "2", name: "NPK 20-20-20", size: "25kg Bag", price: 450 },
-  { id: "3", name: "DAP Fertilizer", size: "50kg Bag", price: 800 },
-  { id: "4", name: "Organic Manure", size: "40kg Bag", price: 300 },
-  { id: "5", name: "Micronutrients", size: "1kg Bottle", price: 150 },
-  { id: "6", name: "Pesticide", size: "500ml Bottle", price: 200 },
-];
-
-// Mock sale entries data
-const SALE_ENTRIES: SaleEntry[] = [
-  {
-    id: "sale_001",
-    buyer: "Raj Kumar Patel",
-    addedBy: "Gopal",
-    saleDate: "2025-07-16T10:15:00",
-    paymentStatus: "Partial",
-    notes: "Paid ₹1000, ₹700 pending",
-    items: [
-      {
-        id: "item_001",
-        productId: "p1",
-        productName: "Urea 50kg",
-        sizeLabel: "50kg Bag",
-        quantity: "2",
-        unitPrice: "600",
-        totalPrice: 1200,
-      },
-      {
-        id: "item_002",
-        productId: "p4",
-        productName: "Pendimethalin",
-        sizeLabel: "1L Bottle",
-        quantity: "3",
-        unitPrice: "250",
-        totalPrice: 750,
-      },
-    ],
-    totalAmount: 1950,
-  },
-  {
-    id: "sale_002",
-    buyer: "Mamta Patel",
-    addedBy: "Anil",
-    saleDate: "2025-07-16T13:40:00",
-    paymentStatus: "Paid",
-    notes: "",
-    items: [
-      {
-        id: "item_003",
-        productId: "p2",
-        productName: "DAP 45kg",
-        sizeLabel: "45kg Bag",
-        quantity: "1",
-        unitPrice: "1200",
-        totalPrice: 1200,
-      },
-    ],
-    totalAmount: 1200,
-  },
-];
-
 // Add this component inside SalesScreen.tsx
 // Remove SaleCardWithWiggle component
 
@@ -169,7 +106,7 @@ export default function SalesScreen() {
   // Remove: setEditMode, editMode from everywhere
   // Remove: const [editingCard, setEditingCard] = useState<SaleEntry | null>(null);
   // Remove: setEditingCard, editingCard from everywhere
-  const [saleEntries, setSaleEntries] = useState(SALE_ENTRIES);
+  const [saleEntries, setSaleEntries] = useState<SaleEntry[]>([]);
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
   const [editSale, setEditSale] = useState<SaleEntry | null>(null);
   const [cardScale] = useState<{ [id: string]: Animated.Value }>({});
@@ -1454,7 +1391,7 @@ export default function SalesScreen() {
               <SaleItemInput
                 item={item}
                 index={index}
-                stockItems={mockStockItems}
+                stockItems={[]} // No mock stock items
                 onUpdate={(updates) => handleUpdateItem(item.id, updates)}
                 onRemove={() => handleRemoveItem(item.id)}
                 errors={{

@@ -33,82 +33,6 @@ interface ActivityItem {
   type: "stock" | "sale" | "payment";
 }
 
-// Mock data
-const SUMMARY_DATA: SummaryCard[] = [
-  {
-    id: "1",
-    title: "Total Items in Stock",
-    value: "1,247",
-    icon: "inventory",
-    color: Theme.colors.primary,
-  },
-  {
-    id: "2",
-    title: "Month's Sales",
-    value: "₹15,420",
-    icon: "trending-up",
-    color: Theme.colors.secondary,
-    trend: "+12%",
-  },
-  {
-    id: "3",
-    title: "Pending Payments",
-    value: "₹8,750",
-    icon: "payment",
-    color: Theme.colors.accent,
-  },
-  {
-    id: "4",
-    title: "Low Stock Alerts",
-    value: "5",
-    icon: "warning",
-    color: "#EF4444",
-  },
-];
-
-const RECENT_ACTIVITIES: ActivityItem[] = [
-  {
-    id: "1",
-    user: { name: "Anil", avatar: "👨‍🌾" },
-    action: "added",
-    details: "3× Urea 50kg",
-    timestamp: "10:42 AM",
-    type: "stock",
-  },
-  {
-    id: "2",
-    user: { name: "Gopal", avatar: "👨‍💼" },
-    action: "sold",
-    details: "2× Glyphosate",
-    timestamp: "12:13 PM",
-    type: "sale",
-  },
-  {
-    id: "3",
-    user: { name: "Papa", avatar: "👩‍💼" },
-    action: "received payment",
-    details: "₹2,400 from Gopal",
-    timestamp: "09:15 AM",
-    type: "payment",
-  },
-  {
-    id: "4",
-    user: { name: "Anil", avatar: "👨‍🌾" },
-    action: "added",
-    details: "5× NPK Fertilizer",
-    timestamp: "Yesterday",
-    type: "stock",
-  },
-  {
-    id: "5",
-    user: { name: "Gopal", avatar: "👨‍💼" },
-    action: "sold",
-    details: "1× Pesticide",
-    timestamp: "Yesterday",
-    type: "sale",
-  },
-];
-
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { currentUser, logout } = useUser();
@@ -264,11 +188,7 @@ export default function HomeScreen() {
         <View style={styles.summarySection}>
           <Text style={styles.sectionTitle}>Overview</Text>
           <View style={styles.summaryGrid}>
-            {SUMMARY_DATA.map((item) => (
-              <View key={item.id} style={styles.summaryCardWrapper}>
-                {renderSummaryCard({ item })}
-              </View>
-            ))}
+            {/* Summary cards will be rendered here using Firebase data */}
           </View>
         </View>
 
@@ -276,11 +196,7 @@ export default function HomeScreen() {
         <View style={styles.activitiesSection}>
           <Text style={styles.sectionTitle}>Recent Activities</Text>
           <View style={styles.activitiesList}>
-            {RECENT_ACTIVITIES.map((item) => (
-              <View key={item.id} style={styles.activityItemWrapper}>
-                {renderActivityItem({ item })}
-              </View>
-            ))}
+            {/* Recent activities will be rendered here using Firebase data */}
           </View>
         </View>
 
