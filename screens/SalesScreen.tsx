@@ -1,4 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -14,7 +15,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   UIManager,
   View,
 } from "react-native";
@@ -23,6 +23,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SaleItemInput from "../components/SaleItemInput";
 import { AppColors } from "../constants/Colors";
 import { Theme } from "../constants/Theme";
+import { useStock } from "../hooks/useStock";
+import { useUser } from "../hooks/useUser";
+import { addSale, getSales } from "../services/stockService";
+import { Sale, SaleItem } from "../types/stock";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const HEADER_HORIZONTAL = Math.max(
@@ -57,26 +61,19 @@ const colors = {
   },
 };
 
-interface SaleItem {
-  id: string;
-  productId: string;
-  productName: string;
-  sizeLabel: string;
-  quantity: string;
-  unitPrice: string;
-  totalPrice: number;
-}
+// Use the SaleItem interface from types/stock.ts instead of redefining it here
+// interface SaleItem {
+//   id: string;
+//   productId: string;
+//   productName: string;
+//   sizeLabel: string;
+//   quantity: string;
+//   unitPrice: string;
+//   totalPrice: number;
+// }
 
-interface SaleEntry {
-  id: string;
-  buyer: string;
-  addedBy: string;
-  paymentStatus: "Paid" | "Unpaid" | "Partial";
-  saleDate: string; // Changed to string for consistency
-  notes: string;
-  items: SaleItem[];
-  totalAmount: number;
-}
+// Use the Sale interface and rename it to SaleEntry for consistency
+type SaleEntry = Sale;
 
 // Add this component inside SalesScreen.tsx
 // Remove SaleCardWithWiggle component
@@ -86,6 +83,8 @@ type ViewType = "sales" | "add";
 
 export default function SalesScreen() {
   const insets = useSafeAreaInsets();
+  const { currentUser } = useUser();
+  const { stockItems, loading: stockLoading } = useStock();
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [buyer, setBuyer] = useState("");
   const [saleDate, setSaleDate] = useState<Date | null>(new Date());
@@ -102,14 +101,13 @@ export default function SalesScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const [currentView, setCurrentView] = useState<ViewType>("sales");
-  // Remove: const [editMode, setEditMode] = useState(false);
-  // Remove: setEditMode, editMode from everywhere
-  // Remove: const [editingCard, setEditingCard] = useState<SaleEntry | null>(null);
-  // Remove: setEditingCard, editingCard from everywhere
   const [saleEntries, setSaleEntries] = useState<SaleEntry[]>([]);
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
   const [editSale, setEditSale] = useState<SaleEntry | null>(null);
   const [cardScale] = useState<{ [id: string]: Animated.Value }>({});
+  const [loadingSales, setLoadingSales] = useState(true);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   // Enable LayoutAnimation on Android
   React.useEffect(() => {
@@ -120,6 +118,32 @@ export default function SalesScreen() {
       UIManager.setLayoutAnimationEnabledExperimental(true);
     }
   }, []);
+
+  // Load sales data from Firebase
+  useEffect(() => {
+    loadSalesData();
+  }, []);
+
+  const loadSalesData = async () => {
+    try {
+      setLoadingSales(true);
+      const salesData = await getSales();
+      // Convert Date objects to strings for saleDate
+      const formattedSalesData = salesData.map((sale: any) => ({
+        ...sale,
+        saleDate:
+          typeof sale.saleDate === "object"
+            ? sale.saleDate.toISOString()
+            : sale.saleDate,
+      }));
+      setSaleEntries(formattedSalesData);
+    } catch (error) {
+      console.error("Error loading sales:", error);
+      Alert.alert("Error", "Failed to load sales data");
+    } finally {
+      setLoadingSales(false);
+    }
+  };
 
   // Handle Android back button
   useEffect(() => {
@@ -138,6 +162,24 @@ export default function SalesScreen() {
 
     return () => backHandler.remove();
   }, [currentView]);
+
+  // Ensure we have at least one item when entering add view
+  useEffect(() => {
+    if (currentView === "add" && saleItems.length === 0) {
+      // Add first item automatically
+      setSaleItems([
+        {
+          id: Date.now().toString(),
+          productId: "",
+          productName: "",
+          sizeLabel: "",
+          quantity: "",
+          unitPrice: "",
+          totalPrice: 0,
+        },
+      ]);
+    }
+  }, [currentView, saleItems.length]);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const bubbleScale = useRef(new Animated.Value(1)).current;
@@ -217,6 +259,10 @@ export default function SalesScreen() {
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
+    if (!buyer.trim()) {
+      newErrors.buyer = "Buyer name is required";
+    }
+
     if (saleItems.length === 0) {
       newErrors.items = "At least one product is required";
     }
@@ -263,22 +309,37 @@ export default function SalesScreen() {
     try {
       setSubmitting(true);
 
-      const saleEntry: SaleEntry = {
-        id: Date.now().toString(),
+      // Combine date and time into a single ISO string
+      let combinedDateTime = new Date();
+      if (saleDate && saleTime) {
+        combinedDateTime = new Date(saleDate);
+        combinedDateTime.setHours(saleTime.getHours());
+        combinedDateTime.setMinutes(saleTime.getMinutes());
+        combinedDateTime.setSeconds(0);
+        combinedDateTime.setMilliseconds(0);
+      }
+
+      // Prepare sale data
+      const saleData = {
         buyer,
-        addedBy: "Gopal - Sales Manager",
+        addedBy: currentUser?.id || "unknown-user",
         paymentStatus,
-        saleDate: new Date().toISOString(), // always a string
+        saleDate: combinedDateTime.toISOString(),
         notes,
-        items: saleItems,
-        totalAmount,
+        items: saleItems.map((item) => ({
+          ...item,
+          totalPrice: Number(item.quantity) * Number(item.unitPrice),
+        })),
+        totalAmount: saleItems.reduce(
+          (sum, item) => sum + Number(item.quantity) * Number(item.unitPrice),
+          0
+        ),
+        discount: discount ? parseFloat(discount) : 0,
+        tax: tax ? parseFloat(tax) : 0,
       };
 
-      // Here you would typically save to backend/Firebase
-      console.log("Sale Entry:", saleEntry);
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Save to Firebase
+      await addSale(saleData, currentUser?.id || "unknown-user");
 
       // Reset form and go back to sales view
       setSaleItems([]);
@@ -288,8 +349,12 @@ export default function SalesScreen() {
       setShowConfirm(false);
       setCurrentView("sales");
 
+      // Refresh sales data
+      loadSalesData();
+
       Alert.alert("Success", "Sale recorded successfully");
-    } catch {
+    } catch (error) {
+      console.error("Error recording sale:", error);
       Alert.alert("Error", "Failed to record sale");
     } finally {
       setSubmitting(false);
@@ -299,11 +364,26 @@ export default function SalesScreen() {
   // --- Edit logic ---
   const handleEdit = (sale: SaleEntry) => {
     setEditSale(sale);
-    setBuyer(sale.buyer);
-    setSaleDate(new Date(sale.saleDate));
+    setBuyer(sale.buyer || "");
+    // Handle both string and Date types for saleDate
+    setSaleDate(
+      typeof sale.saleDate === "string"
+        ? new Date(sale.saleDate)
+        : (sale.saleDate as Date)
+    );
     setPaymentStatus(sale.paymentStatus);
-    setNotes(sale.notes);
-    setSaleItems(sale.items.map((item) => ({ ...item }))); // deep copy
+    setNotes(sale.notes || "");
+    // Set discount and tax fields
+    setDiscount(sale.discount ? String(sale.discount) : "");
+    setTax(sale.tax ? String(sale.tax) : "");
+    // Ensure we have proper string values for quantity and unitPrice
+    setSaleItems(
+      sale.items.map((item) => ({
+        ...item,
+        quantity: String(item.quantity || "0"),
+        unitPrice: String(item.unitPrice || "0"),
+      }))
+    );
     setCurrentView("add");
     setExpandedSaleId(null);
   };
@@ -337,7 +417,7 @@ export default function SalesScreen() {
     const saleDate = new Date(item.saleDate);
     const isToday = saleDate.toDateString() === new Date().toDateString();
     const expanded = expandedSaleId === item.id;
-    const scale = getCardScale(item.id);
+    const scale = getCardScale(item.id || "");
     return (
       <Animated.View style={{ transform: [{ scale }], marginBottom: 12 }}>
         <TouchableOpacity
@@ -346,10 +426,10 @@ export default function SalesScreen() {
             LayoutAnimation.configureNext(
               LayoutAnimation.Presets.easeInEaseOut
             );
-            setExpandedSaleId(expanded ? null : item.id);
+            setExpandedSaleId(expanded ? null : item.id || null);
           }}
-          onPressIn={() => animateCardPressIn(item.id)}
-          onPressOut={() => animateCardPressOut(item.id)}
+          onPressIn={() => animateCardPressIn(item.id || "")}
+          onPressOut={() => animateCardPressOut(item.id || "")}
           accessibilityLabel={expanded ? "Collapse bill" : "Expand bill"}
         >
           <View style={styles.saleCard}>
@@ -530,7 +610,7 @@ export default function SalesScreen() {
                 addedBy: "Gopal - Sales Manager",
                 paymentStatus: data.paymentStatus,
                 saleDate: new Date().toISOString(), // always a string
-                notes: data.notes,
+                notes: data.notes || "",
                 items: data.items,
                 totalAmount: data.totalAmount,
               };
@@ -550,7 +630,7 @@ export default function SalesScreen() {
           <FlatList
             data={filteredSaleEntries}
             renderItem={renderSaleCard}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.id || Date.now().toString()}
             contentContainerStyle={styles.listContainer}
             showsVerticalScrollIndicator={false}
             initialNumToRender={6}
@@ -916,8 +996,8 @@ export default function SalesScreen() {
           disabled={formSubmitting}
           accessibilityLabel="Save sale"
         >
-          <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 16 }}>
-            {formSubmitting ? "Saving..." : "Add Sale"}
+          <Text style={{ color: "#fff", fontWeight: "600", fontSize: 16 }}>
+            {formSubmitting ? "Saving..." : "Save Sale"}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -967,6 +1047,43 @@ export default function SalesScreen() {
         sum + (Number(item.unitPrice) * Number(item.quantity) || 0),
       0
     );
+
+    // Handle date change
+    const handleDateChange = (event: any, selectedDate?: Date) => {
+      setShowDatePicker(Platform.OS === "ios");
+      if (selectedDate) {
+        setSaleDate(selectedDate);
+      }
+    };
+
+    // Handle time change
+    const handleTimeChange = (event: any, selectedTime?: Date) => {
+      setShowTimePicker(Platform.OS === "ios");
+      if (selectedTime) {
+        setSaleTime(selectedTime);
+      }
+    };
+
+    // Convert stock items to format needed by SaleItemInput
+    const availableStockItems = stockItems.map((item) => {
+      // Find the first size for this product (simplified approach)
+      const firstSupplier = item.suppliers[0];
+      const firstSize = firstSupplier?.sizes[0];
+
+      return {
+        id: item.id,
+        name: item.product.name,
+        size: firstSize ? firstSize.size.label : "",
+        price: 0, // Default price - will be set by user
+        inStock: item.totalQuantity > 0, // Only show items with stock
+        availableQuantity: item.totalQuantity, // Add available quantity
+        suppliers: item.suppliers.map((s) => ({
+          id: s.supplier.id,
+          name: s.supplier.name,
+        })),
+      };
+    });
+
     // --- Validation ---
     const validate = () => {
       const newErrors: Record<string, string> = {};
@@ -974,7 +1091,10 @@ export default function SalesScreen() {
       if (!saleDate) newErrors.date = "Date is required";
       if (saleItems.length === 0)
         newErrors.items = "At least one product is required";
+
+      // Check each sale item
       saleItems.forEach((item, idx) => {
+        // Basic validation
         if (!item.productName)
           newErrors[`item${idx}Product`] = "Product is required";
         if (!item.sizeLabel) newErrors[`item${idx}Size`] = "Size is required";
@@ -990,10 +1110,27 @@ export default function SalesScreen() {
           Number(item.unitPrice) < 0
         )
           newErrors[`item${idx}Price`] = "Valid price required";
+
+        // Stock validation - check if quantity exceeds available stock
+        if (item.productId) {
+          const stockItem = availableStockItems.find(
+            (stock) => stock.id === item.productId
+          );
+          if (
+            stockItem &&
+            parseFloat(item.quantity) > stockItem.availableQuantity
+          ) {
+            newErrors[
+              `item${idx}Quantity`
+            ] = `Exceeds available stock (${stockItem.availableQuantity})`;
+          }
+        }
       });
+
       setErrors(newErrors);
       return Object.keys(newErrors).length === 0;
     };
+
     // --- Handlers ---
     const handleAddItem = () => {
       setSaleItems([
@@ -1009,9 +1146,11 @@ export default function SalesScreen() {
         },
       ]);
     };
+
     const handleRemoveItem = (id: string) => {
       setSaleItems(saleItems.filter((item) => item.id !== id));
     };
+
     const handleUpdateItem = (id: string, updates: Partial<SaleItem>) => {
       setSaleItems(
         saleItems.map((item) =>
@@ -1019,50 +1158,94 @@ export default function SalesScreen() {
         )
       );
     };
+
     const handleSave = async () => {
       if (!validate()) return;
       setShowConfirm(true);
     };
+
     const handleConfirmSave = async () => {
-      setSubmitting(true);
-      const itemsWithTotal = saleItems.map((item) => ({
-        ...item,
-        totalPrice: Number(item.unitPrice) * Number(item.quantity),
-      }));
-      // Combine date and time into a single ISO string
-      let combinedDateTime = new Date();
-      if (saleDate && saleTime) {
-        combinedDateTime = new Date(saleDate);
-        combinedDateTime.setHours(saleTime.getHours());
-        combinedDateTime.setMinutes(saleTime.getMinutes());
-        combinedDateTime.setSeconds(0);
-        combinedDateTime.setMilliseconds(0);
+      try {
+        setSubmitting(true);
+
+        // Combine date and time into a single ISO string
+        let combinedDateTime = new Date();
+        if (saleDate && saleTime) {
+          combinedDateTime = new Date(saleDate);
+          combinedDateTime.setHours(saleTime.getHours());
+          combinedDateTime.setMinutes(saleTime.getMinutes());
+          combinedDateTime.setSeconds(0);
+          combinedDateTime.setMilliseconds(0);
+        }
+
+        // Prepare items with calculated total
+        const itemsWithTotal = saleItems.map((item) => ({
+          ...item,
+          totalPrice: Number(item.unitPrice) * Number(item.quantity),
+        }));
+
+        // Prepare sale data
+        const saleData: Sale = {
+          buyer,
+          addedBy: currentUser?.id || "unknown-user",
+          paymentStatus,
+          saleDate: combinedDateTime,
+          notes,
+          items: itemsWithTotal,
+          totalAmount: itemsWithTotal.reduce(
+            (sum, item) => sum + item.totalPrice,
+            0
+          ),
+          discount: discount ? parseFloat(discount) : 0,
+          tax: tax ? parseFloat(tax) : 0,
+        };
+
+        // Save to Firebase
+        if (editSale) {
+          // Update existing sale (not implemented in this example)
+          // await updateSale(editSale.id, saleData);
+          Alert.alert(
+            "Not Implemented",
+            "Updating sales is not implemented yet"
+          );
+        } else {
+          // Add new sale
+          await addSale(saleData, currentUser?.id || "unknown-user");
+        }
+
+        // Reset form and refresh data
+        setBuyer("");
+        setSaleDate(new Date());
+        setPaymentStatus("Paid");
+        setNotes("");
+        setNotesExpanded(false);
+        setSaleItems([]);
+        setDiscount("");
+        setTax("");
+        setShowConfirm(false);
+        setSubmitting(false);
+        setCurrentView("sales");
+        setEditSale(null);
+
+        // Refresh sales data
+        loadSalesData();
+
+        Alert.alert(
+          "Success",
+          `Sale ${editSale ? "updated" : "recorded"} successfully`
+        );
+      } catch (error) {
+        console.error("Error saving sale:", error);
+        Alert.alert(
+          "Error",
+          `Failed to ${editSale ? "update" : "record"} sale`
+        );
+      } finally {
+        setSubmitting(false);
+        setShowConfirm(false);
       }
-      const saleEntry: SaleEntry = {
-        id: Date.now().toString(),
-        buyer,
-        addedBy: "Gopal - Sales Manager",
-        paymentStatus,
-        saleDate: combinedDateTime.toISOString(),
-        notes,
-        items: itemsWithTotal,
-        totalAmount: grandTotal,
-      };
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      setSaleEntries([...saleEntries, saleEntry]);
-      setBuyer("");
-      setSaleDate(new Date());
-      setPaymentStatus("Paid");
-      setNotes("");
-      setNotesExpanded(false);
-      setSaleItems([]);
-      setDiscount("");
-      setTax("");
-      setShowConfirm(false);
-      setSubmitting(false);
-      setCurrentView("sales");
-      Alert.alert("Success", "Sale recorded successfully");
     };
+
     // --- UI ---
     return (
       <View style={{ flex: 1, backgroundColor: Theme.colors.background }}>
@@ -1099,17 +1282,19 @@ export default function SalesScreen() {
                 New Sale
               </Text>
             </View>
+            {/* Green + box removed when in new sale page */}
           </View>
         </View>
-        {/* Input Row */}
+
+        {/* Form Content */}
         <KeyboardAwareScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ padding: 12 }}
+          contentContainerStyle={{ padding: 12, paddingBottom: 120 }} // Added extra padding at bottom
           enableOnAndroid
           extraScrollHeight={100}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Buyer Field (full width) */}
+          {/* Buyer Field */}
           <View style={{ marginBottom: 14 }}>
             <Text
               style={{
@@ -1168,6 +1353,7 @@ export default function SalesScreen() {
               </Text>
             )}
           </View>
+
           {/* Date and Time Fields (side by side) */}
           <View style={{ flexDirection: "row", gap: 14, marginBottom: 16 }}>
             {/* Date Field */}
@@ -1199,10 +1385,9 @@ export default function SalesScreen() {
                   elevation: 2,
                 }}
                 onPress={() => {
-                  /* TODO: show date picker modal */
+                  setShowDatePicker(true);
                 }}
                 accessibilityLabel="Select date"
-                activeOpacity={0.85}
               >
                 <MaterialIcons
                   name="event"
@@ -1213,7 +1398,7 @@ export default function SalesScreen() {
                 <Text
                   style={{ color: Theme.colors.text, fontSize: 16, flex: 1 }}
                 >
-                  {saleDate ? saleDate.toLocaleDateString() : "Select"}
+                  {saleDate ? saleDate.toLocaleDateString() : "Select Date"}
                 </Text>
               </TouchableOpacity>
               {errors.date && (
@@ -1223,7 +1408,16 @@ export default function SalesScreen() {
                   {errors.date}
                 </Text>
               )}
+              {showDatePicker && (
+                <DateTimePicker
+                  value={saleDate || new Date()}
+                  mode="date"
+                  display={Platform.OS === "ios" ? "spinner" : "default"}
+                  onChange={handleDateChange}
+                />
+              )}
             </View>
+
             {/* Time Field */}
             <View style={{ flex: 1 }}>
               <Text
@@ -1242,7 +1436,9 @@ export default function SalesScreen() {
                   backgroundColor: Theme.colors.surface,
                   borderRadius: 16,
                   borderWidth: 1,
-                  borderColor: Theme.colors.border,
+                  borderColor: errors.time
+                    ? AppColors.error
+                    : Theme.colors.border,
                   paddingHorizontal: 12,
                   paddingVertical: 10,
                   shadowColor: "#000",
@@ -1251,10 +1447,9 @@ export default function SalesScreen() {
                   elevation: 2,
                 }}
                 onPress={() => {
-                  /* TODO: show time picker modal */
+                  setShowTimePicker(true);
                 }}
                 accessibilityLabel="Select time"
-                activeOpacity={0.85}
               >
                 <MaterialIcons
                   name="schedule"
@@ -1270,271 +1465,293 @@ export default function SalesScreen() {
                         hour: "2-digit",
                         minute: "2-digit",
                       })
-                    : "Select"}
+                    : "Select Time"}
                 </Text>
               </TouchableOpacity>
+              {errors.time && (
+                <Text
+                  style={{ color: AppColors.error, fontSize: 12, marginTop: 2 }}
+                >
+                  {errors.time}
+                </Text>
+              )}
+              {showTimePicker && (
+                <DateTimePicker
+                  value={saleTime || new Date()}
+                  mode="time"
+                  display={Platform.OS === "ios" ? "spinner" : "default"}
+                  onChange={handleTimeChange}
+                />
+              )}
             </View>
           </View>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-              marginBottom: 12,
-            }}
-          >
-            <View
+
+          {/* Payment Status */}
+          <View style={{ marginBottom: 16 }}>
+            <Text
               style={{
-                flex: 1,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 8,
+                fontWeight: "600",
+                marginBottom: 4,
+                color: Theme.colors.text,
               }}
             >
+              Payment Status
+            </Text>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {["Paid", "Unpaid", "Partial"].map((status) => (
+                <TouchableOpacity
+                  key={status}
+                  style={{
+                    backgroundColor:
+                      paymentStatus === status
+                        ? Theme.colors.primary
+                        : Theme.colors.surface,
+                    paddingVertical: 8,
+                    paddingHorizontal: 16,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor:
+                      paymentStatus === status
+                        ? Theme.colors.primary
+                        : Theme.colors.border,
+                    ...Theme.shadows.sm,
+                  }}
+                  onPress={() => setPaymentStatus(status as any)}
+                >
+                  <Text
+                    style={{
+                      color:
+                        paymentStatus === status
+                          ? Theme.colors.white
+                          : Theme.colors.text,
+                      fontWeight: "600",
+                    }}
+                  >
+                    {status}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Notes Field - Only show for Partial payment */}
+          {paymentStatus === "Partial" && (
+            <View style={{ marginBottom: 16 }}>
               <Text
                 style={{
                   fontWeight: "600",
                   marginBottom: 4,
                   color: Theme.colors.text,
-                  marginRight: 8,
                 }}
               >
-                Payment
+                Notes (Required for partial payment)
               </Text>
-              <View
+              <TextInput
                 style={{
-                  flexDirection: "row",
                   backgroundColor: Theme.colors.surface,
                   borderRadius: 16,
                   borderWidth: 1,
                   borderColor: Theme.colors.border,
-                  overflow: "hidden",
-                  flex: 1,
+                  padding: 12,
+                  fontSize: 16,
+                  color: Theme.colors.text,
+                  minHeight: 80,
+                  textAlignVertical: "top",
+                  ...Theme.shadows.sm,
+                }}
+                placeholder="Add payment details"
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                placeholderTextColor={Theme.colors.textMuted}
+              />
+            </View>
+          )}
+
+          {/* Sale Items */}
+          <View style={{ marginBottom: 16 }}>
+            <Text
+              style={{
+                fontWeight: "600",
+                marginBottom: 8,
+                color: Theme.colors.text,
+              }}
+            >
+              Sale Items
+            </Text>
+            {saleItems.length === 0 ? (
+              <View
+                style={{
+                  backgroundColor: Theme.colors.surfaceSecondary,
+                  borderRadius: 16,
+                  padding: 16,
+                  alignItems: "center",
                 }}
               >
-                {["Paid", "Unpaid", "Partial"].map((status) => (
-                  <TouchableOpacity
-                    key={status}
-                    onPress={() => {
-                      setPaymentStatus(status as any);
-                      setNotesExpanded(status === "Partial");
-                    }}
-                    style={{
-                      flex: 1,
-                      paddingVertical: 10,
-                      alignItems: "center",
-                      backgroundColor:
-                        paymentStatus === status
-                          ? Theme.colors.primary
-                          : "transparent",
-                    }}
-                    accessibilityLabel={`Set payment status to ${status}`}
-                  >
-                    <Text
-                      style={{
-                        color:
-                          paymentStatus === status
-                            ? Theme.colors.white
-                            : Theme.colors.text,
-                        fontWeight: "600",
-                      }}
-                    >
-                      {status}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                <Text
+                  style={{
+                    color: Theme.colors.textSecondary,
+                    marginBottom: 8,
+                  }}
+                >
+                  No items added yet
+                </Text>
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: Theme.colors.primary,
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 8,
+                  }}
+                  onPress={handleAddItem}
+                >
+                  <Text style={{ color: Theme.colors.white }}>
+                    Add First Item
+                  </Text>
+                </TouchableOpacity>
               </View>
-            </View>
+            ) : (
+              <>
+                {saleItems.map((item, index) => (
+                  <SaleItemInput
+                    key={item.id}
+                    item={item}
+                    index={index}
+                    stockItems={availableStockItems}
+                    onUpdate={(updates) => handleUpdateItem(item.id, updates)}
+                    onRemove={() => handleRemoveItem(item.id)}
+                    errors={{
+                      product: errors[`item${index}Product`],
+                      quantity: errors[`item${index}Quantity`],
+                      price: errors[`item${index}Price`],
+                      supplier: errors[`item${index}Supplier`],
+                    }}
+                    initiallyExpanded={index === 0} // First item is always expanded
+                  />
+                ))}
+                <TouchableOpacity
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: Theme.colors.surface,
+                    borderWidth: 1,
+                    borderStyle: "dashed",
+                    borderColor: Theme.colors.primary,
+                    borderRadius: 16,
+                    paddingVertical: 12,
+                    marginTop: 8,
+                  }}
+                  onPress={handleAddItem}
+                  accessibilityLabel="Add another item"
+                >
+                  <MaterialIcons
+                    name="add-circle-outline"
+                    size={20}
+                    color={Theme.colors.primary}
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text
+                    style={{
+                      color: Theme.colors.primary,
+                      fontWeight: "600",
+                    }}
+                  >
+                    Add Another Item
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
-          {paymentStatus === "Partial" && notesExpanded && (
-            <TextInput
+        </KeyboardAwareScrollView>
+
+        {/* Save Button - Fixed at bottom above nav bar */}
+        <View style={styles.saveButtonContainer}>
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={handleSave}
+            disabled={submitting}
+            accessibilityLabel="Save sale"
+          >
+            {submitting ? (
+              <Text style={styles.saveButtonText}>Saving...</Text>
+            ) : (
+              <Text style={styles.saveButtonText}>Save Sale</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Confirmation Modal */}
+        {showConfirm && (
+          <View
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0,0,0,0.5)",
+              justifyContent: "center",
+              alignItems: "center",
+              padding: 16,
+            }}
+          >
+            <View
               style={{
                 backgroundColor: Theme.colors.surface,
                 borderRadius: 16,
-                borderWidth: 1,
-                borderColor: Theme.colors.border,
-                padding: 12,
-                fontSize: 16,
-                color: Theme.colors.text,
-                minHeight: 64,
-                marginBottom: 12,
-              }}
-              placeholder="Notes (optional)"
-              value={notes}
-              onChangeText={setNotes}
-              accessibilityLabel="Sale Notes"
-              multiline
-            />
-          )}
-          {/* Line Items */}
-          <Text
-            style={{
-              fontWeight: "700",
-              fontSize: 16,
-              marginBottom: 8,
-              color: Theme.colors.text,
-            }}
-          >
-            Products
-          </Text>
-          {errors.items && (
-            <Text
-              style={{ color: AppColors.error, fontSize: 12, marginBottom: 8 }}
-            >
-              {errors.items}
-            </Text>
-          )}
-          <FlatList
-            data={saleItems}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item, index }) => (
-              <SaleItemInput
-                item={item}
-                index={index}
-                stockItems={[]} // No mock stock items
-                onUpdate={(updates) => handleUpdateItem(item.id, updates)}
-                onRemove={() => handleRemoveItem(item.id)}
-                errors={{
-                  product: errors[`item${index}Product`],
-                  quantity: errors[`item${index}Quantity`],
-                  price: errors[`item${index}Price`],
-                }}
-              />
-            )}
-            ListEmptyComponent={() => (
-              <Text style={{ color: Theme.colors.textMuted, marginBottom: 12 }}>
-                No products added yet.
-              </Text>
-            )}
-            contentContainerStyle={{ paddingBottom: 8 }}
-            showsVerticalScrollIndicator={false}
-            style={{ marginBottom: 8 }}
-          />
-          <TouchableOpacity
-            onPress={handleAddItem}
-            style={{
-              backgroundColor: Theme.colors.accent,
-              borderRadius: 16,
-              paddingVertical: 14,
-              alignItems: "center",
-              marginBottom: 20,
-            }}
-            accessibilityLabel="Add another product"
-          >
-            <Text
-              style={{
-                color: Theme.colors.white,
-                fontWeight: "700",
-                fontSize: 16,
-              }}
-            >
-              + Add Another Product
-            </Text>
-          </TouchableOpacity>
-          {/* Total and Save Button in page flow */}
-          <View
-            style={{ alignItems: "center", marginBottom: insets.bottom + 64 }}
-          >
-            <Text
-              style={{
-                fontWeight: "700",
-                color: Theme.colors.primary,
-                fontSize: 22,
-                marginBottom: 12,
-              }}
-            >
-              Total: ₹{grandTotal}
-            </Text>
-            <TouchableOpacity
-              onPress={handleSave}
-              style={{
-                backgroundColor:
-                  !buyer || saleItems.length === 0 || submitting
-                    ? Theme.colors.border
-                    : Theme.colors.primary,
-                borderRadius: 16,
-                paddingVertical: 18,
-                alignItems: "center",
-                opacity:
-                  !buyer || saleItems.length === 0 || submitting ? 0.7 : 1,
-                width: "100%",
-                maxWidth: 420,
-              }}
-              disabled={!buyer || saleItems.length === 0 || submitting}
-              accessibilityLabel="Save sale"
-              accessibilityState={{
-                disabled: !buyer || saleItems.length === 0 || submitting,
+                padding: 16,
+                width: "90%",
+                maxWidth: 400,
               }}
             >
               <Text
                 style={{
-                  color: Theme.colors.white,
-                  fontWeight: "700",
                   fontSize: 18,
+                  fontWeight: "600",
+                  marginBottom: 16,
+                  textAlign: "center",
                 }}
               >
-                {submitting ? "Saving..." : "Confirm & Save"}
+                Confirm Sale
               </Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAwareScrollView>
-        {/* Confirmation Modal */}
-        {showConfirm && (
-          <View
-            style={styles.modalOverlay}
-            accessible
-            accessibilityLabel="Confirm sale modal"
-          >
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Confirm Sale</Text>
+              <Text style={{ marginBottom: 16, textAlign: "center" }}>
+                Are you sure you want to record this sale?
+              </Text>
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  gap: 16,
+                }}
+              >
                 <TouchableOpacity
-                  onPress={() => setShowConfirm(false)}
-                  accessibilityLabel="Close confirmation modal"
-                >
-                  <MaterialIcons
-                    name="close"
-                    size={24}
-                    color={Theme.colors.text}
-                  />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.modalBody}>
-                <Text
                   style={{
-                    fontSize: 16,
-                    color: Theme.colors.text,
-                    marginBottom: 12,
+                    flex: 1,
+                    backgroundColor: Theme.colors.surfacePressed,
+                    borderRadius: 8,
+                    paddingVertical: 12,
+                    alignItems: "center",
                   }}
-                >
-                  Are you sure you want to save this sale?
-                </Text>
-                <Text style={{ color: Theme.colors.text, marginBottom: 4 }}>
-                  Buyer: <Text style={{ fontWeight: "600" }}>{buyer}</Text>
-                </Text>
-                <Text style={{ color: Theme.colors.text, marginBottom: 4 }}>
-                  Total:{" "}
-                  <Text style={{ fontWeight: "600" }}>₹{grandTotal}</Text>
-                </Text>
-                <Text style={{ color: Theme.colors.text, marginBottom: 4 }}>
-                  Products:{" "}
-                  <Text style={{ fontWeight: "600" }}>{saleItems.length}</Text>
-                </Text>
-              </View>
-              <View style={styles.modalFooter}>
-                <TouchableOpacity
-                  style={styles.secondaryButton}
                   onPress={() => setShowConfirm(false)}
-                  accessibilityLabel="Cancel save"
+                  disabled={submitting}
                 >
-                  <Text style={styles.secondaryButtonText}>Cancel</Text>
+                  <Text>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.primaryButton}
+                  style={{
+                    flex: 1,
+                    backgroundColor: Theme.colors.primary,
+                    borderRadius: 8,
+                    paddingVertical: 12,
+                    alignItems: "center",
+                  }}
                   onPress={handleConfirmSave}
-                  accessibilityLabel="Confirm save"
+                  disabled={submitting}
                 >
-                  <Text style={styles.primaryButtonText}>Confirm</Text>
+                  <Text style={{ color: Theme.colors.white }}>
+                    {submitting ? "Saving..." : "Confirm"}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1547,65 +1764,65 @@ export default function SalesScreen() {
   // --- Main Render ---
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" translucent={false} />
       {currentView === "add" ? (
         renderAddSale()
       ) : (
-        <>
-          <View style={styles.header}>
+        <View style={styles.container}>
+          {/* Header */}
+          <View
+            style={[
+              styles.header,
+              {
+                paddingTop:
+                  Platform.OS === "ios"
+                    ? Math.max(insets.top, 16)
+                    : (StatusBar.currentHeight || 0) + 4,
+              },
+            ]}
+          >
             <View style={styles.headerTitleContainer}>
-              <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
-              <TouchableWithoutFeedback
+              <Text style={styles.headerTitle}>Sales</Text>
+              <TouchableOpacity
+                style={styles.addButtonHeader}
                 onPress={handleBubblePress}
-                onPressIn={handlePlusPressIn}
-                onPressOut={handlePlusPressOut}
-                accessibilityLabel="Add new sale"
+                activeOpacity={0.8}
               >
-                <Animated.View
-                  style={[
-                    styles.plusBox,
-                    { transform: [{ scale: plusScale }] },
-                  ]}
-                >
-                  <MaterialIcons name="add" size={28} color="#fff" />
-                </Animated.View>
-              </TouchableWithoutFeedback>
+                <MaterialIcons
+                  name="add"
+                  size={24}
+                  color={Theme.colors.white}
+                />
+              </TouchableOpacity>
             </View>
-            <View style={styles.searchBarContainer}>
+            <View style={styles.searchContainer}>
               <MaterialIcons
                 name="search"
                 size={20}
-                color={search ? Theme.colors.primary : Theme.colors.text}
-                style={{ marginRight: 6 }}
+                color={Theme.colors.textMuted}
+                style={styles.searchIcon}
               />
               <TextInput
-                style={styles.searchBar}
-                placeholder="Search sale"
+                style={styles.searchInput}
+                placeholder="Search sales..."
                 value={search}
                 onChangeText={setSearch}
                 placeholderTextColor={Theme.colors.textMuted}
-                autoCapitalize="none"
                 accessibilityLabel="Search sales"
-                clearButtonMode="while-editing"
-                selectionColor={Theme.colors.primary}
               />
-              {search.length > 0 && (
-                <TouchableOpacity
-                  onPress={() => setSearch("")}
-                  style={styles.clearButton}
-                  accessibilityLabel="Clear search"
-                >
-                  <MaterialIcons
-                    name="close"
-                    size={20}
-                    color={Theme.colors.textMuted}
-                  />
-                </TouchableOpacity>
-              )}
             </View>
           </View>
-          {renderContent()}
-        </>
+
+          {/* Main Content */}
+          <View style={styles.content}>
+            {loadingSales ? (
+              <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>Loading sales...</Text>
+              </View>
+            ) : (
+              renderContent()
+            )}
+          </View>
+        </View>
       )}
     </View>
   );
@@ -1625,9 +1842,10 @@ const styles = StyleSheet.create({
   },
   headerTitleContainer: {
     flexDirection: "row",
-    alignItems: "center",
-    marginBottom: Theme.spacing.md,
     justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: HEADER_HORIZONTAL,
+    marginBottom: 12,
   },
   backButton: {
     padding: 4,
@@ -1856,22 +2074,23 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   saveButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
+    backgroundColor: Theme.colors.primary,
+    borderRadius: 16,
     paddingVertical: 16,
-    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    minHeight: 56,
-    gap: 8,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
   saveButtonDisabled: {
     backgroundColor: colors.gray[300],
   },
   saveButtonText: {
-    color: colors.white,
-    fontSize: 16,
+    color: Theme.colors.white,
     fontWeight: "600",
+    fontSize: 16,
   },
   modalOverlay: {
     flex: 1,
@@ -2167,7 +2386,7 @@ const styles = StyleSheet.create({
     width: 35,
     height: 35,
     borderRadius: 12,
-    backgroundColor: "#43a047",
+    backgroundColor: "#4CAF50",
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#2e7d32",
@@ -2180,7 +2399,7 @@ const styles = StyleSheet.create({
     width: 35,
     height: 35,
     borderRadius: 12,
-    backgroundColor: "#43a047",
+    backgroundColor: "#4CAF50",
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#2e7d32",
@@ -2189,5 +2408,74 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
     marginLeft: 8,
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius.lg,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.sm,
+    minHeight: 44,
+    ...Theme.shadows.sm,
+  },
+  searchIcon: {
+    marginRight: Theme.spacing.xs,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: Theme.typography.fontSize.base,
+    color: Theme.colors.text,
+    padding: 0,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Theme.colors.textMuted,
+  },
+  content: {
+    flex: 1,
+    padding: Theme.spacing.lg,
+  },
+  addButton: {
+    position: "absolute",
+    right: Theme.spacing.lg,
+    bottom: Theme.spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Theme.colors.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#2e7d32",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  // Add new style for the header button
+  addButtonHeader: {
+    backgroundColor: "#4CAF50",
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    ...Theme.shadows.md,
+  },
+  // Add fixed save button styles
+  saveButtonContainer: {
+    position: "absolute",
+    bottom: Platform.OS === "ios" ? 30 : 20, // Position above tab bar
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    backgroundColor: "transparent",
+    zIndex: 100,
   },
 });

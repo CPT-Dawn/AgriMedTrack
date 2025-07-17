@@ -505,6 +505,21 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
 
   const renderItemCard = (item: StockEntryFormData, index: number) => (
     <View key={`item-${index}`} style={styles.itemCard}>
+      {items.length > 1 && (
+        <TouchableOpacity
+          onPress={() => removeProduct(index)}
+          style={styles.deleteButtonPosition}
+          activeOpacity={0.7}
+        >
+          <View style={styles.deleteIconWrapper}>
+            <MaterialIcons
+              name="delete-outline"
+              size={20}
+              color={Theme.colors.white}
+            />
+          </View>
+        </TouchableOpacity>
+      )}
       <View style={styles.itemHeader}>
         <View style={styles.itemHeaderLeft}>
           <View style={styles.itemNumberBadge}>
@@ -517,19 +532,6 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
             </Text>
           </View>
         </View>
-        {items.length > 1 && (
-          <TouchableOpacity
-            onPress={() => removeProduct(index)}
-            style={styles.removeButton}
-            activeOpacity={0.7}
-          >
-            <MaterialIcons
-              name="delete-outline"
-              size={20}
-              color={colors.accent}
-            />
-          </TouchableOpacity>
-        )}
       </View>
 
       {/* Product Information Section */}
@@ -539,31 +541,39 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
           <Text style={styles.inputLabel}>
             Product Name <Text style={styles.requiredAsterisk}>*</Text>
           </Text>
-          <View style={styles.dropdownContainer}>
-            <CreatableDropdown
-              options={products.map((p) => ({ id: p.id, label: p.name }))}
-              value={item.productId}
-              placeholder="Select or create product"
-              onSelect={(option) =>
-                updateProduct(index, {
-                  productId: option.id,
-                  productName: option.label,
-                })
-              }
-              onCreate={async (newLabel: string) => {
-                try {
-                  const newProduct = await getOrCreateProduct(newLabel);
-                  updateProduct(index, {
-                    productId: newProduct.id,
-                    productName: newProduct.name,
-                  });
-                  return { id: newProduct.id, label: newProduct.name };
-                } catch (error) {
-                  Alert.alert("Error", "Failed to create new product");
-                  throw error;
-                }
-              }}
+          <View style={styles.inputWrapper}>
+            <MaterialIcons
+              name="inventory-2"
+              size={20}
+              color={Theme.colors.textSecondary}
+              style={styles.inputIcon}
             />
+            <View style={styles.dropdownWrapper}>
+              <CreatableDropdown
+                options={products.map((p) => ({ id: p.id, label: p.name }))}
+                value={item.productId}
+                placeholder="Select or create product"
+                onSelect={(option) =>
+                  updateProduct(index, {
+                    productId: option.id,
+                    productName: option.label,
+                  })
+                }
+                onCreate={async (newLabel: string) => {
+                  try {
+                    const newProduct = await getOrCreateProduct(newLabel);
+                    updateProduct(index, {
+                      productId: newProduct.id,
+                      productName: newProduct.name,
+                    });
+                    return { id: newProduct.id, label: newProduct.name };
+                  } catch (error) {
+                    Alert.alert("Error", "Failed to create new product");
+                    throw error;
+                  }
+                }}
+              />
+            </View>
           </View>
         </View>
 
@@ -572,31 +582,39 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
           <Text style={styles.inputLabel}>
             Supplier <Text style={styles.requiredAsterisk}>*</Text>
           </Text>
-          <View style={styles.dropdownContainer}>
-            <CreatableDropdown
-              options={suppliers.map((s) => ({ id: s.id, label: s.name }))}
-              value={item.supplierId}
-              placeholder="Select supplier"
-              onSelect={(option) =>
-                updateProduct(index, {
-                  supplierId: option.id,
-                  supplierName: option.label,
-                })
-              }
-              onCreate={async (newLabel: string) => {
-                try {
-                  const newSupplier = await getOrCreateSupplier(newLabel);
-                  updateProduct(index, {
-                    supplierId: newSupplier.id,
-                    supplierName: newSupplier.name,
-                  });
-                  return { id: newSupplier.id, label: newSupplier.name };
-                } catch (error) {
-                  Alert.alert("Error", "Failed to create new supplier");
-                  throw error;
-                }
-              }}
+          <View style={styles.inputWrapper}>
+            <MaterialIcons
+              name="store"
+              size={20}
+              color={Theme.colors.textSecondary}
+              style={styles.inputIcon}
             />
+            <View style={styles.dropdownWrapper}>
+              <CreatableDropdown
+                options={suppliers.map((s) => ({ id: s.id, label: s.name }))}
+                value={item.supplierId}
+                placeholder="Select supplier"
+                onSelect={(option) =>
+                  updateProduct(index, {
+                    supplierId: option.id,
+                    supplierName: option.label,
+                  })
+                }
+                onCreate={async (newLabel: string) => {
+                  try {
+                    const newSupplier = await getOrCreateSupplier(newLabel);
+                    updateProduct(index, {
+                      supplierId: newSupplier.id,
+                      supplierName: newSupplier.name,
+                    });
+                    return { id: newSupplier.id, label: newSupplier.name };
+                  } catch (error) {
+                    Alert.alert("Error", "Failed to create new supplier");
+                    throw error;
+                  }
+                }}
+              />
+            </View>
           </View>
         </View>
 
@@ -606,40 +624,63 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
             <Text style={styles.inputLabel}>
               Size <Text style={styles.requiredAsterisk}>*</Text>
             </Text>
-            <CreatableDropdown
-              options={sizeValues}
-              value={item.sizeValue}
-              placeholder="Select or create size"
-              onSelect={(option) => handleSizeValueSelect(index, option)}
-              onCreate={async (newValue) => {
-                if (isNaN(parseFloat(newValue))) {
-                  Alert.alert("Invalid Size", "Size value must be a number");
-                  throw new Error("Invalid size value");
-                }
-                updateProduct(index, { sizeValue: newValue });
-                updateCombinedSizeLabel(index, newValue, item.unit);
-                return { id: newValue, label: newValue };
-              }}
-              createLabel="Create size"
-            />
+            <View style={styles.inputWrapper}>
+              <MaterialIcons
+                name="straighten"
+                size={20}
+                color={Theme.colors.textSecondary}
+                style={styles.inputIcon}
+              />
+              <View style={styles.dropdownWrapper}>
+                <CreatableDropdown
+                  options={sizeValues}
+                  value={item.sizeValue}
+                  placeholder="Select or create size"
+                  onSelect={(option) => handleSizeValueSelect(index, option)}
+                  onCreate={async (newValue) => {
+                    if (isNaN(parseFloat(newValue))) {
+                      Alert.alert(
+                        "Invalid Size",
+                        "Size value must be a number"
+                      );
+                      throw new Error("Invalid size value");
+                    }
+                    updateProduct(index, { sizeValue: newValue });
+                    updateCombinedSizeLabel(index, newValue, item.unit);
+                    return { id: newValue, label: newValue };
+                  }}
+                  createLabel="Create size"
+                />
+              </View>
+            </View>
           </View>
 
           <View style={[styles.inputGroup, styles.flex1]}>
             <Text style={styles.inputLabel}>
               Unit <Text style={styles.requiredAsterisk}>*</Text>
             </Text>
-            <CreatableDropdown
-              options={unitValues}
-              value={item.unit}
-              placeholder="Select or create unit"
-              onSelect={(option) => handleUnitSelect(index, option)}
-              onCreate={async (newUnit) => {
-                updateProduct(index, { unit: newUnit });
-                updateCombinedSizeLabel(index, item.sizeValue, newUnit);
-                return { id: newUnit, label: newUnit };
-              }}
-              createLabel="Create unit"
-            />
+            <View style={styles.inputWrapper}>
+              <MaterialIcons
+                name="category"
+                size={20}
+                color={Theme.colors.textSecondary}
+                style={styles.inputIcon}
+              />
+              <View style={styles.dropdownWrapper}>
+                <CreatableDropdown
+                  options={unitValues}
+                  value={item.unit}
+                  placeholder="Select or create unit"
+                  onSelect={(option) => handleUnitSelect(index, option)}
+                  onCreate={async (newUnit) => {
+                    updateProduct(index, { unit: newUnit });
+                    updateCombinedSizeLabel(index, item.sizeValue, newUnit);
+                    return { id: newUnit, label: newUnit };
+                  }}
+                  createLabel="Create unit"
+                />
+              </View>
+            </View>
           </View>
         </View>
 
@@ -648,31 +689,39 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
           <Text style={styles.inputLabel}>
             Packaging Size <Text style={styles.requiredAsterisk}>*</Text>
           </Text>
-          <View style={styles.dropdownContainer}>
-            <CreatableDropdown
-              options={sizes.map((s) => ({ id: s.id, label: s.label }))}
-              value={item.sizeId}
-              placeholder="Select size"
-              onSelect={(option) =>
-                updateProduct(index, {
-                  sizeId: option.id,
-                  sizeLabel: option.label,
-                })
-              }
-              onCreate={async (newLabel: string) => {
-                try {
-                  const newSize = await getOrCreateSize(newLabel);
-                  updateProduct(index, {
-                    sizeId: newSize.id,
-                    sizeLabel: newSize.label,
-                  });
-                  return { id: newSize.id, label: newSize.label };
-                } catch (error) {
-                  Alert.alert("Error", "Failed to create new size");
-                  throw error;
-                }
-              }}
+          <View style={styles.inputWrapper}>
+            <MaterialIcons
+              name="category"
+              size={20}
+              color={Theme.colors.textSecondary}
+              style={styles.inputIcon}
             />
+            <View style={styles.dropdownWrapper}>
+              <CreatableDropdown
+                options={sizes.map((s) => ({ id: s.id, label: s.label }))}
+                value={item.sizeId}
+                placeholder="Select size"
+                onSelect={(option) =>
+                  updateProduct(index, {
+                    sizeId: option.id,
+                    sizeLabel: option.label,
+                  })
+                }
+                onCreate={async (newLabel: string) => {
+                  try {
+                    const newSize = await getOrCreateSize(newLabel);
+                    updateProduct(index, {
+                      sizeId: newSize.id,
+                      sizeLabel: newSize.label,
+                    });
+                    return { id: newSize.id, label: newSize.label };
+                  } catch (error) {
+                    Alert.alert("Error", "Failed to create new size");
+                    throw error;
+                  }
+                }}
+              />
+            </View>
           </View>
         </View>
 
@@ -685,7 +734,7 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
             <MaterialIcons
               name="inventory"
               size={20}
-              color={colors.gray[400]}
+              color={Theme.colors.textSecondary}
               style={styles.inputIcon}
             />
             <TextInput
@@ -696,7 +745,7 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
               }
               placeholder="Enter quantity"
               keyboardType="numeric"
-              placeholderTextColor={colors.gray[400]}
+              placeholderTextColor={Theme.colors.textMuted}
             />
           </View>
         </View>
@@ -708,7 +757,7 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
             <MaterialIcons
               name="sell"
               size={20}
-              color={colors.gray[400]}
+              color={Theme.colors.textSecondary}
               style={styles.inputIcon}
             />
             <TextInput
@@ -719,7 +768,7 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
               }
               placeholder="0.00"
               keyboardType="numeric"
-              placeholderTextColor={colors.gray[400]}
+              placeholderTextColor={Theme.colors.textMuted}
             />
           </View>
         </View>
@@ -742,17 +791,8 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
         }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Form Header */}
-        <View style={styles.formHeader}>
-          <Text style={styles.formTitle}>Add New Stock</Text>
-          <Text style={styles.formSubtitle}>
-            Enter details for new stock items
-          </Text>
-        </View>
-
         {/* Date & Time Section */}
         <View style={styles.dateTimeSection}>
-          <Text style={styles.sectionLabel}>Stock Entry Date & Time</Text>
           <View style={styles.dateTimeRow}>
             {/* Date Field */}
             <View style={styles.dateTimeField}>
@@ -827,13 +867,6 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
             is24Hour={true}
           />
         )}
-        {/* Product Section Header */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionLabel}>Product Information</Text>
-          <Text style={styles.sectionSubtitle}>
-            Add details for each product item
-          </Text>
-        </View>
 
         {/* Product Section (FlatList) */}
         <FlatList
@@ -858,9 +891,6 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
         {/* Bill Image Upload */}
         <View style={styles.billSection}>
           <Text style={styles.sectionLabel}>Bill Image</Text>
-          <Text style={styles.sectionSubtitle}>
-            Upload an image of the purchase bill (optional)
-          </Text>
 
           {billImage ? (
             <View style={styles.imagePreviewContainer}>
@@ -1024,24 +1054,36 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.border,
     borderRadius: Theme.borderRadius.lg,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    ...Theme.shadows.sm,
+    paddingVertical: 2,
+    ...Theme.shadows.md,
   },
-  datePickerButton: {
-    backgroundColor: Theme.colors.surface,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    borderRadius: Theme.borderRadius.lg,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    ...Theme.shadows.sm,
+    backgroundColor: Theme.colors.surface,
+    borderWidth: 1.5,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.borderRadius.lg,
+    paddingLeft: 14,
+    ...Theme.shadows.md,
   },
-  datePickerText: {
-    fontSize: 16,
-    color: Theme.colors.text,
+  dropdownWrapper: {
+    flex: 1,
+    borderLeftWidth: 0,
+  },
+  inputWithIcon: {
+    flex: 1,
+    paddingLeft: 8,
+    paddingVertical: 12,
+    borderWidth: 0,
+  },
+  inputIcon: {
+    marginRight: 6,
+  },
+  errorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
   },
   imageUploadButton: {
     backgroundColor: Theme.colors.surface,
@@ -1091,100 +1133,6 @@ const styles = StyleSheet.create({
     color: Theme.colors.white,
     fontSize: 14,
     fontWeight: "500",
-  },
-  batchItemsList: {
-    maxHeight: 300,
-  },
-  batchItemCard: {
-    backgroundColor: Theme.colors.surface,
-    borderRadius: Theme.borderRadius.lg,
-    padding: 12,
-    marginBottom: 8,
-    ...Theme.shadows.sm,
-  },
-  itemCard: {
-    backgroundColor: Theme.colors.surface,
-    borderRadius: Theme.borderRadius["2xl"],
-    padding: 16,
-    marginBottom: 16,
-    ...Theme.shadows.sm,
-  },
-  itemHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
-  itemHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  itemNumberBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Theme.colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  itemNumberText: {
-    color: Theme.colors.white,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  itemHeaderText: {
-    flex: 1,
-  },
-  itemTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: Theme.colors.text,
-  },
-  itemSubtitle: {
-    fontSize: 12,
-    color: Theme.colors.textSecondary,
-    marginTop: 4,
-    fontWeight: "500",
-  },
-  removeButton: {
-    padding: 8,
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  itemSection: {
-    marginBottom: 20,
-  },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Theme.colors.textSecondary,
-    marginBottom: 12,
-  },
-  requiredAsterisk: {
-    color: Theme.colors.error,
-  },
-  dropdownContainer: {
-    backgroundColor: Theme.colors.surface,
-    borderWidth: 1.5,
-    borderColor: Theme.colors.border,
-    borderRadius: Theme.borderRadius.lg,
-    ...Theme.shadows.sm,
-    overflow: "hidden",
-  },
-  inputWithIcon: {
-    flex: 1,
-    paddingLeft: 8,
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  errorContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 4,
   },
   addProductButton: {
     backgroundColor: Theme.colors.surface,
@@ -1285,5 +1233,98 @@ const styles = StyleSheet.create({
   sectionHeader: {
     marginTop: Theme.spacing.xl,
     marginBottom: Theme.spacing.md,
+  },
+  itemCard: {
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius["2xl"],
+    padding: 16,
+    marginBottom: 16,
+    ...Theme.shadows.lg,
+    position: "relative",
+  },
+  itemHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+  },
+  itemHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  itemNumberBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Theme.colors.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+    ...Theme.shadows.sm,
+  },
+  itemNumberText: {
+    color: Theme.colors.white,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  itemHeaderText: {
+    flex: 1,
+  },
+  itemTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Theme.colors.text,
+  },
+  itemSubtitle: {
+    fontSize: 13,
+    color: Theme.colors.textSecondary,
+    marginTop: 4,
+    fontWeight: "500",
+  },
+  removeButton: {
+    padding: 8,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: Theme.borderRadius.full,
+  },
+  deleteButtonPosition: {
+    position: "absolute",
+    top: 18,
+    right: 18,
+    zIndex: 10,
+  },
+  deleteIconWrapper: {
+    backgroundColor: Theme.colors.error,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    ...Theme.shadows.md,
+  },
+  itemSection: {
+    marginBottom: 8,
+  },
+  dropdownContainer: {
+    backgroundColor: Theme.colors.surface,
+    borderWidth: 1.5,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.borderRadius.lg,
+    ...Theme.shadows.sm,
+    overflow: "hidden",
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Theme.colors.textSecondary,
+    marginBottom: 12,
+  },
+  requiredAsterisk: {
+    color: Theme.colors.error,
   },
 });

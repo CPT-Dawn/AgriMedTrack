@@ -1,3 +1,4 @@
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useState } from "react";
 import {
   FlatList,
@@ -8,8 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { AppColors } from "../constants/Colors";
-import { IconSymbol } from "./ui/IconSymbol";
+import { Theme } from "../constants/Theme";
 
 interface DropdownOption {
   id: string;
@@ -73,15 +73,28 @@ export function CreatableDropdown({
   };
 
   const renderOption = ({ item }: { item: DropdownOption }) => (
-    <Pressable style={styles.optionItem} onPress={() => handleSelect(item)}>
+    <Pressable
+      style={({ pressed }) => [
+        styles.optionItem,
+        pressed && styles.optionItemPressed,
+      ]}
+      onPress={() => handleSelect(item)}
+    >
       <Text style={styles.optionText}>{item.label}</Text>
+      {selectedOption?.id === item.id && (
+        <MaterialIcons name="check" size={18} color={Theme.colors.primary} />
+      )}
     </Pressable>
   );
 
   return (
     <>
       <Pressable
-        style={[styles.dropdown, style]}
+        style={({ pressed }) => [
+          styles.dropdown,
+          pressed && styles.dropdownPressed,
+          style,
+        ]}
         onPress={() => setIsOpen(true)}
       >
         <Text
@@ -89,10 +102,15 @@ export function CreatableDropdown({
             styles.dropdownText,
             !selectedOption && styles.placeholderText,
           ]}
+          numberOfLines={1}
         >
           {selectedOption?.label || placeholder}
         </Text>
-        <IconSymbol name="chevron.down" size={16} color={AppColors.text} />
+        <MaterialIcons
+          name="arrow-drop-down"
+          size={24}
+          color={Theme.colors.textSecondary}
+        />
       </Pressable>
 
       <Modal
@@ -103,13 +121,22 @@ export function CreatableDropdown({
       >
         <Pressable style={styles.modalOverlay} onPress={() => setIsOpen(false)}>
           <View style={styles.modalContent}>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search or type to create..."
-              value={searchText}
-              onChangeText={setSearchText}
-              autoFocus
-            />
+            <View style={styles.searchContainer}>
+              <MaterialIcons
+                name="search"
+                size={20}
+                color={Theme.colors.textMuted}
+                style={styles.searchIcon}
+              />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search or type to create..."
+                placeholderTextColor={Theme.colors.textMuted}
+                value={searchText}
+                onChangeText={setSearchText}
+                autoFocus
+              />
+            </View>
 
             <FlatList
               data={filteredOptions}
@@ -117,18 +144,26 @@ export function CreatableDropdown({
               renderItem={renderOption}
               style={styles.optionsList}
               keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>No options found</Text>
+                </View>
+              }
             />
 
             {showCreateOption && (
               <Pressable
-                style={styles.createOption}
+                style={({ pressed }) => [
+                  styles.createOption,
+                  pressed && styles.createOptionPressed,
+                ]}
                 onPress={handleCreate}
                 disabled={isCreating}
               >
-                <IconSymbol
-                  name="plus.circle"
-                  size={16}
-                  color={AppColors.accent}
+                <MaterialIcons
+                  name="add-circle"
+                  size={20}
+                  color={Theme.colors.primary}
                   style={styles.createIcon}
                 />
                 <Text style={styles.createText}>
@@ -150,75 +185,104 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: AppColors.border,
-    borderRadius: 8,
-    backgroundColor: AppColors.white,
-    minHeight: 48,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.md,
+    borderWidth: 1.5,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.borderRadius.lg,
+    backgroundColor: Theme.colors.surface,
+    minHeight: 50,
+    ...Theme.shadows.sm,
+  },
+  dropdownPressed: {
+    backgroundColor: Theme.colors.surfacePressed,
+    borderColor: Theme.colors.primary,
   },
   dropdownText: {
-    fontSize: 16,
-    color: AppColors.text,
+    fontSize: Theme.typography.fontSize.base,
+    color: Theme.colors.text,
     flex: 1,
+    marginRight: Theme.spacing.sm,
   },
   placeholderText: {
-    color: AppColors.textMuted,
+    color: Theme.colors.textMuted,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: AppColors.overlay,
+    backgroundColor: Theme.colors.overlay,
     justifyContent: "center",
     alignItems: "center",
   },
   modalContent: {
-    backgroundColor: AppColors.white,
-    borderRadius: 12,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius.xl,
     width: "90%",
     maxHeight: "70%",
-    elevation: 8,
-    shadowColor: AppColors.shadow,
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 4 },
+    ...Theme.shadows.lg,
+    overflow: "hidden",
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+    paddingHorizontal: Theme.spacing.md,
+    backgroundColor: Theme.colors.surfaceSecondary,
+  },
+  searchIcon: {
+    marginRight: Theme.spacing.sm,
   },
   searchInput: {
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: AppColors.text,
+    paddingVertical: Theme.spacing.lg,
+    fontSize: Theme.typography.fontSize.base,
+    color: Theme.colors.text,
+    flex: 1,
   },
   optionsList: {
-    maxHeight: 200,
+    maxHeight: 250,
   },
   optionItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Theme.spacing.lg,
+    paddingVertical: Theme.spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: AppColors.border,
+    borderBottomColor: Theme.colors.border,
+  },
+  optionItemPressed: {
+    backgroundColor: Theme.colors.surfacePressed,
   },
   optionText: {
-    fontSize: 16,
-    color: AppColors.text,
+    fontSize: Theme.typography.fontSize.base,
+    color: Theme.colors.text,
   },
   createOption: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: AppColors.background,
+    paddingHorizontal: Theme.spacing.lg,
+    paddingVertical: Theme.spacing.md,
+    backgroundColor: Theme.colors.surfaceSecondary,
     borderTopWidth: 1,
-    borderTopColor: AppColors.border,
+    borderTopColor: Theme.colors.border,
+  },
+  createOptionPressed: {
+    backgroundColor: Theme.colors.surfacePressed,
   },
   createIcon: {
-    marginRight: 8,
+    marginRight: Theme.spacing.sm,
   },
   createText: {
-    fontSize: 16,
-    color: AppColors.accent,
-    fontWeight: "500",
+    fontSize: Theme.typography.fontSize.base,
+    color: Theme.colors.primary,
+    fontWeight: Theme.typography.fontWeight.medium,
+  },
+  emptyContainer: {
+    padding: Theme.spacing.xl,
+    alignItems: "center",
+  },
+  emptyText: {
+    color: Theme.colors.textMuted,
+    fontSize: Theme.typography.fontSize.base,
   },
 });

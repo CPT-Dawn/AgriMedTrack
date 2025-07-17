@@ -1,5 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   LayoutAnimation,
   Platform,
@@ -31,16 +31,28 @@ export interface SaleItemInputProps {
     quantity: string;
     unitPrice: string;
     totalPrice: number;
+    supplierId?: string;
+    supplierName?: string;
   };
   index: number;
-  stockItems: { id: string; name: string; size: string; price: number }[];
+  stockItems: {
+    id: string;
+    name: string;
+    size: string;
+    price: number;
+    inStock: boolean;
+    suppliers?: { id: string; name: string }[];
+    availableQuantity?: number; // Add available quantity
+  }[];
   onUpdate: (updates: Partial<SaleItemInputProps["item"]>) => void;
   onRemove: () => void;
   errors: {
     product?: string;
     quantity?: string;
     price?: string;
+    supplier?: string;
   };
+  initiallyExpanded?: boolean;
 }
 
 const SaleItemInput: React.FC<SaleItemInputProps> = ({
@@ -50,12 +62,33 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
   onUpdate,
   onRemove,
   errors,
+  initiallyExpanded = false,
 }) => {
+  const [searchText, setSearchText] = useState("");
+  const [noStockMessage, setNoStockMessage] = useState("");
+  const [expanded, setExpanded] = useState(initiallyExpanded);
+  const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>(
+    []
+  );
+  const [availableSizes, setAvailableSizes] = useState<
+    { id: string; label: string }[]
+  >([]);
+  const [availableQuantity, setAvailableQuantity] = useState<number>(0);
+  const [exceedsStock, setExceedsStock] = useState<boolean>(false);
+
   useEffect(() => {
     LayoutAnimation.configureNext(
       LayoutAnimation.create(200, "easeInEaseOut", "opacity")
     );
-  }, []);
+  }, [expanded]);
+
+  // Set expanded state based on initiallyExpanded prop
+  useEffect(() => {
+    setExpanded(initiallyExpanded);
+  }, [initiallyExpanded]);
+
+  // Filter stock items to only show those in stock
+  const inStockItems = stockItems.filter((item) => item.inStock);
 
   // Product select
   const handleProductSelect = (option: { id: string; label: string }) => {
@@ -63,6 +96,14 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
       (stock) => stock.id === option.id
     );
     if (selectedStockItem) {
+      // Extract suppliers for this product
+      const productSuppliers = selectedStockItem.suppliers || [];
+      setSuppliers(productSuppliers);
+
+      // Set available quantity
+      const quantity = selectedStockItem.availableQuantity || 0;
+      setAvailableQuantity(quantity);
+
       onUpdate({
         productId: option.id,
         productName: option.label,
@@ -73,20 +114,76 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
           selectedStockItem.price.toString()
         ),
       });
+      setNoStockMessage("");
+
+      // Check if current quantity exceeds stock
+      checkQuantityExceedsStock(item.quantity, quantity);
     }
   };
+
+  // Supplier select
+  const handleSupplierSelect = (option: { id: string; label: string }) => {
+    onUpdate({
+      supplierId: option.id,
+      supplierName: option.label,
+    });
+  };
+
+  // Size select
+  const handleSizeSelect = (option: { id: string; label: string }) => {
+    onUpdate({
+      sizeLabel: option.label,
+    });
+  };
+
+  // Handle product creation attempt - check if it's in stock
+  const handleProductCreate = async (name: string) => {
+    // Check if product exists but is out of stock
+    const outOfStockProduct = stockItems.find(
+      (stock) =>
+        stock.name.toLowerCase() === name.toLowerCase() && !stock.inStock
+    );
+
+    if (outOfStockProduct) {
+      setNoStockMessage(`"${name}" is currently out of stock`);
+      throw new Error("Product is out of stock");
+    }
+
+    // If it's a completely new product, allow creation but warn
+    setNoStockMessage(
+      `New product "${name}" added but may not be in inventory`
+    );
+    return { id: `new-${Date.now()}`, label: name };
+  };
+
   const calcTotal = (quantity: string, unitPrice: string) => {
     const qty = parseFloat(quantity) || 0;
     const price = parseFloat(unitPrice) || 0;
     return qty * price;
   };
+
+  // Check if quantity exceeds available stock
+  const checkQuantityExceedsStock = (
+    quantity: string,
+    availableQty: number
+  ) => {
+    const qty = parseFloat(quantity) || 0;
+    const exceeds = qty > availableQty;
+    setExceedsStock(exceeds);
+    return exceeds;
+  };
+
   // Quantity
   const handleQuantityChange = (quantity: string) => {
+    // Check if quantity exceeds available stock
+    const exceeds = checkQuantityExceedsStock(quantity, availableQuantity);
+
     onUpdate({
       quantity,
       totalPrice: calcTotal(quantity, item.unitPrice),
     });
   };
+
   // Price
   const handleUnitPriceChange = (unitPrice: string) => {
     onUpdate({
@@ -95,85 +192,181 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
     });
   };
 
+  // Toggle expanded state
+  const toggleExpanded = () => {
+    LayoutAnimation.configureNext(
+      LayoutAnimation.create(200, "easeInEaseOut", "opacity")
+    );
+    setExpanded(!expanded);
+  };
+
+  // Get selected stock item
+  const selectedStockItem = item.productId
+    ? stockItems.find((stock) => stock.id === item.productId)
+    : null;
+
   return (
     <View style={styles.card}>
-      <View style={styles.headerRow}>
+      <TouchableOpacity
+        style={styles.headerRow}
+        onPress={toggleExpanded}
+        activeOpacity={0.7}
+      >
         <View style={styles.headerLeft}>
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{index + 1}</Text>
           </View>
-          <Text style={styles.title} accessibilityRole="header">
-            Product
-          </Text>
-        </View>
-        <TouchableOpacity
-          onPress={onRemove}
-          style={styles.removeBtn}
-          accessibilityLabel={`Remove product ${index + 1}`}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <MaterialIcons name="delete" size={22} color={colors.error} />
-        </TouchableOpacity>
-      </View>
-      {/* Product Dropdown */}
-      <View style={styles.inputGroup}>
-        <CreatableDropdown
-          options={stockItems.map((s) => ({ id: s.id, label: s.name }))}
-          value={item.productId}
-          placeholder="Select product"
-          onSelect={handleProductSelect}
-          onCreate={async (label) => ({ id: `new-${Date.now()}`, label })}
-          aria-label={`Product dropdown for item ${index + 1}`}
-        />
-        {errors.product && (
-          <Text style={styles.errorText}>{errors.product}</Text>
-        )}
-      </View>
-      {/* Size Dropdown/Display */}
-      {item.sizeLabel ? (
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Packaging Size</Text>
-          <View style={styles.sizeDisplay}>
-            <Text style={styles.sizeText}>{item.sizeLabel}</Text>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.title} accessibilityRole="header">
+              {item.productName || "Select Product"}
+            </Text>
+            {item.productName && (
+              <Text style={styles.subtitle}>
+                {item.sizeLabel ? `${item.sizeLabel} • ` : ""}
+                Qty: {item.quantity || "0"} • ₹{item.totalPrice.toFixed(2)}
+              </Text>
+            )}
           </View>
         </View>
-      ) : null}
-      {/* Quantity and Price */}
-      <View style={styles.row}>
-        <View style={[styles.inputGroup, { flex: 1 }]}>
-          <Text style={styles.inputLabel}>Qty</Text>
-          <TextInput
-            style={[styles.input, errors.quantity && styles.inputError]}
-            value={item.quantity}
-            onChangeText={handleQuantityChange}
-            keyboardType="numeric"
-            placeholder="0"
-            accessibilityLabel={`Quantity for item ${index + 1}`}
-            returnKeyType="next"
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            onPress={onRemove}
+            style={styles.removeBtn}
+            accessibilityLabel={`Remove product ${index + 1}`}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <MaterialIcons name="delete" size={22} color={colors.error} />
+          </TouchableOpacity>
+          <MaterialIcons
+            name={expanded ? "expand-less" : "expand-more"}
+            size={24}
+            color={colors.textSecondary}
           />
-          {errors.quantity && (
-            <Text style={styles.errorText}>{errors.quantity}</Text>
+        </View>
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={styles.expandedContent}>
+          {/* Product Dropdown */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Product</Text>
+            <CreatableDropdown
+              options={inStockItems.map((s) => ({ id: s.id, label: s.name }))}
+              value={item.productId}
+              placeholder="Select product"
+              onSelect={handleProductSelect}
+              onCreate={handleProductCreate}
+              aria-label={`Product dropdown for item ${index + 1}`}
+            />
+            {errors.product && (
+              <Text style={styles.errorText}>{errors.product}</Text>
+            )}
+            {noStockMessage && (
+              <View style={styles.noStockContainer}>
+                <MaterialIcons name="info" size={16} color={colors.warning} />
+                <Text style={styles.noStockText}>{noStockMessage}</Text>
+              </View>
+            )}
+            {selectedStockItem && (
+              <View style={styles.stockInfoContainer}>
+                <MaterialIcons
+                  name="inventory"
+                  size={16}
+                  color={colors.primary}
+                />
+                <Text style={styles.stockInfoText}>
+                  Available: {selectedStockItem.availableQuantity || 0} units
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Supplier Dropdown - Show only if product is selected */}
+          {item.productId && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Supplier</Text>
+              <CreatableDropdown
+                options={suppliers.map((s) => ({ id: s.id, label: s.name }))}
+                value={item.supplierId}
+                placeholder="Select supplier"
+                onSelect={handleSupplierSelect}
+                onCreate={async (label) => ({ id: `new-${Date.now()}`, label })}
+                aria-label={`Supplier dropdown for item ${index + 1}`}
+              />
+              {errors.supplier && (
+                <Text style={styles.errorText}>{errors.supplier}</Text>
+              )}
+            </View>
           )}
+
+          {/* Size Dropdown/Display */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Packaging Size</Text>
+            {item.sizeLabel ? (
+              <View style={styles.sizeDisplay}>
+                <Text style={styles.sizeText}>{item.sizeLabel}</Text>
+              </View>
+            ) : (
+              <View style={styles.sizeDisplay}>
+                <Text style={[styles.sizeText, { color: colors.textMuted }]}>
+                  Select a product first
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Quantity and Price */}
+          <View style={styles.row}>
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.inputLabel}>Qty</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  errors.quantity && styles.inputError,
+                  exceedsStock && styles.inputExceedsStock,
+                ]}
+                value={item.quantity}
+                onChangeText={handleQuantityChange}
+                keyboardType="numeric"
+                placeholder="0"
+                accessibilityLabel={`Quantity for item ${index + 1}`}
+                returnKeyType="next"
+              />
+              {errors.quantity && (
+                <Text style={styles.errorText}>{errors.quantity}</Text>
+              )}
+              {exceedsStock && (
+                <Text style={styles.stockWarningText}>
+                  Exceeds available stock
+                </Text>
+              )}
+            </View>
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.inputLabel}>Unit Price</Text>
+              <TextInput
+                style={[styles.input, errors.price && styles.inputError]}
+                value={item.unitPrice}
+                onChangeText={handleUnitPriceChange}
+                keyboardType="numeric"
+                placeholder="0.00"
+                accessibilityLabel={`Unit price for item ${index + 1}`}
+                returnKeyType="done"
+              />
+              {errors.price && (
+                <Text style={styles.errorText}>{errors.price}</Text>
+              )}
+            </View>
+          </View>
+
+          {/* Line Total */}
+          <View style={styles.lineTotalRow}>
+            <Text style={styles.lineTotalLabel}>Line Total</Text>
+            <Text style={styles.lineTotalValue}>
+              ₹{item.totalPrice.toFixed(2)}
+            </Text>
+          </View>
         </View>
-        <View style={[styles.inputGroup, { flex: 1 }]}>
-          <Text style={styles.inputLabel}>Unit Price</Text>
-          <TextInput
-            style={[styles.input, errors.price && styles.inputError]}
-            value={item.unitPrice}
-            onChangeText={handleUnitPriceChange}
-            keyboardType="numeric"
-            placeholder="0.00"
-            accessibilityLabel={`Unit price for item ${index + 1}`}
-            returnKeyType="done"
-          />
-          {errors.price && <Text style={styles.errorText}>{errors.price}</Text>}
-        </View>
-      </View>
-      {/* Line Total */}
-      <View style={styles.lineTotalRow}>
-        <Text style={styles.lineTotalLabel}>Line Total</Text>
-        <Text style={styles.lineTotalValue}>₹{item.totalPrice.toFixed(2)}</Text>
-      </View>
+      )}
     </View>
   );
 };
@@ -195,6 +388,14 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   badge: {
     width: 32,
@@ -215,12 +416,24 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.text,
   },
+  subtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
   removeBtn: {
     minWidth: 44,
     minHeight: 44,
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 22,
+    marginRight: 4,
+  },
+  expandedContent: {
+    marginTop: 8,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   inputGroup: {
     marginBottom: 10,
@@ -251,21 +464,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
-  sizeDisplay: {
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: Theme.borderRadius.lg,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  sizeText: {
-    fontSize: 14,
-    color: colors.text,
-  },
   row: {
     flexDirection: "row",
-    gap: 12,
+    gap: 8,
+  },
+  sizeDisplay: {
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: Theme.borderRadius.xl,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 44,
+  },
+  sizeText: {
+    fontSize: 16,
+    color: colors.text,
   },
   lineTotalRow: {
     flexDirection: "row",
@@ -274,17 +486,54 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: colors.border,
   },
   lineTotalLabel: {
     fontSize: 14,
-    color: colors.text,
-    fontWeight: "500",
+    fontWeight: "600",
+    color: colors.textSecondary,
   },
   lineTotalValue: {
     fontSize: 16,
+    fontWeight: "700",
     color: colors.primary,
-    fontWeight: "bold",
+  },
+  noStockContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+    backgroundColor: colors.surfacePressed,
+    padding: 8,
+    borderRadius: Theme.borderRadius.md,
+  },
+  noStockText: {
+    color: colors.warning,
+    fontSize: 12,
+    marginLeft: 4,
+    flex: 1,
+  },
+  stockInfoContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+    backgroundColor: colors.surfacePressed,
+    padding: 8,
+    borderRadius: Theme.borderRadius.md,
+  },
+  stockInfoText: {
+    color: colors.primary,
+    fontSize: 12,
+    marginLeft: 4,
+    flex: 1,
+  },
+  inputExceedsStock: {
+    borderColor: colors.warning,
+    backgroundColor: colors.warning + "10", // 10% opacity
+  },
+  stockWarningText: {
+    color: colors.warning,
+    fontSize: 12,
+    marginTop: 2,
   },
 });
 

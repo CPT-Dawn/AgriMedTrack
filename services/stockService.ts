@@ -8,12 +8,15 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  Timestamp,
+  updateDoc,
   where,
 } from "firebase/firestore";
 import {
   BatchEntryFormData,
   PackagingSize,
   Product,
+  Sale,
   StockActivity,
   StockBatch,
   StockEntry,
@@ -566,10 +569,118 @@ export const addStockEntryBatch = async (
   }
 };
 
+// Helper function to update stock quantities after a sale
+export const updateStockQuantity = async (
+  productId: string,
+  sizeLabel: string,
+  quantitySold: number
+): Promise<void> => {
+  try {
+    // Find all stock entries for this product and size
+    const entriesSnapshot = await getDocs(
+      query(stockEntriesCollection, where("productId", "==", productId))
+    );
+
+    // Define a type for the entry with the fields we need
+    type StockEntryWithFields = {
+      id: string;
+      productId: string;
+      sizeId: string;
+      quantity: number;
+      createdAt: Timestamp;
+      productName?: string;
+      supplierName?: string;
+      sizeLabel?: string;
+      sizeName?: string;
+      buyPrice?: number | null;
+      sellPrice?: number | null;
+      [key: string]: any; // Allow other fields
+    };
+
+    // Filter entries by size label (since we don't have direct sizeId in sale items)
+    const matchingEntries = entriesSnapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() } as StockEntryWithFields))
+      .filter((entry) => {
+        // Get the size document to check its label
+        return entry.sizeLabel === sizeLabel || entry.sizeName === sizeLabel;
+      });
+
+    if (matchingEntries.length === 0) {
+      console.warn(
+        `No stock entries found for product ${productId} with size ${sizeLabel}`
+      );
+      return;
+    }
+
+    // Sort entries by creation date (oldest first)
+    matchingEntries.sort((a, b) => {
+      const dateA =
+        a.createdAt instanceof Timestamp ? a.createdAt.toDate().getTime() : 0;
+      const dateB =
+        b.createdAt instanceof Timestamp ? b.createdAt.toDate().getTime() : 0;
+      return dateA - dateB;
+    });
+
+    let remainingQuantity = quantitySold;
+
+    // Update entries until we've accounted for all sold quantity
+    for (const entry of matchingEntries) {
+      if (remainingQuantity <= 0) break;
+
+      const entryRef = doc(stockEntriesCollection, entry.id);
+      const entryDoc = await getDoc(entryRef);
+
+      if (!entryDoc.exists()) continue;
+
+      const entryData = entryDoc.data();
+      const currentQuantity = entryData.quantity || 0;
+
+      if (currentQuantity <= 0) continue;
+
+      // Calculate how much to deduct from this entry
+      const deduction = Math.min(currentQuantity, remainingQuantity);
+      const newQuantity = currentQuantity - deduction;
+
+      // Update the entry with new quantity
+      await updateDoc(entryRef, {
+        quantity: newQuantity,
+        updatedAt: serverTimestamp(),
+      });
+
+      // Create activity log for the stock reduction
+      const activityData = {
+        action: "sold",
+        stockEntryId: entry.id,
+        productName: entryData.productName || "",
+        supplierName: entryData.supplierName || "",
+        sizeName: sizeLabel,
+        quantity: deduction,
+        buyPrice: entryData.buyPrice || null,
+        sellPrice: entryData.sellPrice || null,
+        updatedBy: "system-sale",
+        timestamp: serverTimestamp(),
+      };
+
+      await addDoc(stockActivitiesCollection, activityData);
+
+      remainingQuantity -= deduction;
+    }
+
+    if (remainingQuantity > 0) {
+      console.warn(
+        `Not enough stock for product ${productId} with size ${sizeLabel}. Remaining quantity: ${remainingQuantity}`
+      );
+    }
+  } catch (error) {
+    console.error("Error updating stock quantity:", error);
+    throw error;
+  }
+};
+
 // ===== SALES =====
 
 export const addSale = async (
-  saleData: any,
+  saleData: Sale,
   userId: string = "current-user"
 ): Promise<string> => {
   try {
@@ -578,11 +689,14 @@ export const addSale = async (
       buyer: saleData.buyer || "",
       addedBy: userId,
       paymentStatus: saleData.paymentStatus || "Paid",
-      saleDate: convertDateToTimestamp(new Date(saleData.saleDate)),
+      saleDate:
+        typeof saleData.saleDate === "string"
+          ? convertDateToTimestamp(new Date(saleData.saleDate))
+          : convertDateToTimestamp(saleData.saleDate as Date),
       notes: saleData.notes || "",
       totalAmount: saleData.totalAmount || 0,
-      discount: saleData.discount ? parseFloat(saleData.discount) : 0,
-      tax: saleData.tax ? parseFloat(saleData.tax) : 0,
+      discount: saleData.discount || 0,
+      tax: saleData.tax || 0,
       createdAt: serverTimestamp(),
     };
 
@@ -593,14 +707,17 @@ export const addSale = async (
     // Add sale items as subcollection
     const itemsCollection = collection(db, "sales", saleId, "items");
 
+    // Process each sale item
     for (const item of saleData.items) {
       const saleItemData = {
-        productId: item.productId,
+        productId: item.productId || "",
         productName: item.productName,
         sizeLabel: item.sizeLabel,
-        quantity: parseFloat(item.quantity),
-        unitPrice: parseFloat(item.unitPrice),
-        totalPrice: parseFloat(item.totalPrice),
+        quantity: parseFloat(item.quantity) || 0,
+        unitPrice: parseFloat(item.unitPrice) || 0,
+        totalPrice: item.totalPrice || 0,
+        supplierId: item.supplierId || "",
+        supplierName: item.supplierName || "",
       };
 
       await addDoc(itemsCollection, saleItemData);
@@ -610,11 +727,11 @@ export const addSale = async (
         action: "sold",
         stockEntryId: "", // No direct reference to stock entry
         productName: item.productName,
-        supplierName: "", // Not applicable for sales
+        supplierName: item.supplierName || "",
         sizeName: item.sizeLabel,
-        quantity: parseFloat(item.quantity),
+        quantity: parseFloat(item.quantity) || 0,
         buyPrice: null,
-        sellPrice: parseFloat(item.unitPrice),
+        sellPrice: parseFloat(item.unitPrice) || 0,
         batchId: null,
         updatedBy: userId,
         updatedByName: "User", // Replace with actual user name
@@ -623,7 +740,14 @@ export const addSale = async (
 
       await addDoc(stockActivitiesCollection, activityData);
 
-      // Update stock quantities (in a real app, you would need to implement inventory reduction logic)
+      // Update stock quantities
+      if (item.productId) {
+        await updateStockQuantity(
+          item.productId,
+          item.sizeLabel,
+          parseFloat(item.quantity) || 0
+        );
+      }
     }
 
     return saleId;
@@ -633,7 +757,7 @@ export const addSale = async (
   }
 };
 
-export const getSales = async () => {
+export const getSales = async (): Promise<Sale[]> => {
   try {
     const querySnapshot = await getDocs(
       query(salesCollection, orderBy("createdAt", "desc"))
@@ -652,25 +776,27 @@ export const getSales = async () => {
           const itemData = itemDoc.data();
           return {
             id: itemDoc.id,
-            productId: itemData.productId,
-            productName: itemData.productName,
-            sizeLabel: itemData.sizeLabel,
-            quantity: itemData.quantity,
-            unitPrice: itemData.unitPrice,
-            totalPrice: itemData.totalPrice,
+            productId: itemData.productId || "",
+            productName: itemData.productName || "",
+            sizeLabel: itemData.sizeLabel || "",
+            quantity: String(itemData.quantity || 0),
+            unitPrice: String(itemData.unitPrice || 0),
+            totalPrice: itemData.totalPrice || 0,
+            supplierId: itemData.supplierId,
+            supplierName: itemData.supplierName,
           };
         });
 
         return {
           id: doc.id,
-          buyer: data.buyer,
-          addedBy: data.addedBy,
-          paymentStatus: data.paymentStatus,
+          buyer: data.buyer || "",
+          addedBy: data.addedBy || "",
+          paymentStatus: data.paymentStatus || "Paid",
           saleDate: convertTimestampToDate(data.saleDate),
-          notes: data.notes,
-          totalAmount: data.totalAmount,
-          discount: data.discount,
-          tax: data.tax,
+          notes: data.notes || "",
+          totalAmount: data.totalAmount || 0,
+          discount: data.discount || 0,
+          tax: data.tax || 0,
           createdAt: convertTimestampToDate(data.createdAt),
           items,
         };
@@ -681,5 +807,79 @@ export const getSales = async () => {
   } catch (error) {
     console.error("Error getting sales:", error);
     throw error;
+  }
+};
+
+// Get available stock for a specific product and size
+export const getAvailableStock = async (
+  productId: string,
+  sizeLabel: string
+): Promise<number> => {
+  try {
+    // Define types for the entries and sizes
+    type StockEntryData = {
+      id: string;
+      productId: string;
+      sizeId?: string;
+      sizeLabel?: string;
+      sizeName?: string;
+      quantity: number;
+      [key: string]: any;
+    };
+
+    type SizeData = {
+      id: string;
+      label: string;
+      unit: string;
+      [key: string]: any;
+    };
+
+    // Find all stock entries for this product
+    const entriesSnapshot = await getDocs(
+      query(stockEntriesCollection, where("productId", "==", productId))
+    );
+
+    // Get all entries and filter by size label
+    const entries: StockEntryData[] = entriesSnapshot.docs.map(
+      (doc) =>
+        ({
+          id: doc.id,
+          ...doc.data(),
+        } as StockEntryData)
+    );
+
+    // Get all size documents to match by label
+    const sizesSnapshot = await getDocs(packagingSizesCollection);
+    const sizes: SizeData[] = sizesSnapshot.docs.map(
+      (doc) =>
+        ({
+          id: doc.id,
+          ...doc.data(),
+        } as SizeData)
+    );
+
+    // Find entries with matching size label
+    let totalQuantity = 0;
+
+    for (const entry of entries) {
+      // If entry has sizeLabel or sizeName directly, check it
+      if (entry.sizeLabel === sizeLabel || entry.sizeName === sizeLabel) {
+        totalQuantity += entry.quantity || 0;
+        continue;
+      }
+
+      // Otherwise, look up the size by ID
+      if (entry.sizeId) {
+        const matchingSize = sizes.find((size) => size.id === entry.sizeId);
+        if (matchingSize && matchingSize.label === sizeLabel) {
+          totalQuantity += entry.quantity || 0;
+        }
+      }
+    }
+
+    return totalQuantity;
+  } catch (error) {
+    console.error("Error getting available stock:", error);
+    return 0; // Return 0 if there's an error
   }
 };

@@ -117,3 +117,31 @@ export interface BatchEntryFormData {
   };
   items: StockEntryFormData[];
 }
+
+// Sale item interface
+export interface SaleItem {
+  id: string;
+  productId: string;
+  productName: string;
+  sizeLabel: string;
+  quantity: string;
+  unitPrice: string;
+  totalPrice: number;
+  supplierId?: string;
+  supplierName?: string;
+}
+
+// Sale interface
+export interface Sale {
+  id?: string;
+  buyer: string;
+  addedBy: string;
+  paymentStatus: "Paid" | "Unpaid" | "Partial";
+  saleDate: string | Date;
+  notes: string;
+  items: SaleItem[];
+  totalAmount: number;
+  discount?: number;
+  tax?: number;
+  createdAt?: Date;
+}
