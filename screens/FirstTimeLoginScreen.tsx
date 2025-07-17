@@ -1,9 +1,11 @@
+import { initializeDefaultUsers } from "@/services/userService";
 import { User } from "@/types/user";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   Dimensions,
   StatusBar,
@@ -12,21 +14,43 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-const USERS: User[] = [
-  { id: "1e", name: "Gopal", avatar: "👨‍💼" },
-  { id: "2me", name: "Anil", avatar: "👨‍🌾" },
-  { id: "3me", name: "Papa", avatar: "👩‍💼" },
-];
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export default function FirstTimeLoginScreen() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [scaleAnim] = useState(new Animated.Value(1));
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(50));
   const [buttonScale] = useState(new Animated.Value(1));
   const router = useRouter();
+
+  // Load users from Firebase
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        setLoading(true);
+        // Initialize default users if they don't exist
+        const fetchedUsers = await initializeDefaultUsers();
+
+        // Log the fetched users for debugging
+        console.log("Fetched users:", JSON.stringify(fetchedUsers));
+
+        setUsers(fetchedUsers);
+        setError(null);
+      } catch (err) {
+        console.error("Error loading users:", err);
+        setError("Failed to load users. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUsers();
+  }, []);
 
   React.useEffect(() => {
     // Staggered animations
@@ -45,6 +69,7 @@ export default function FirstTimeLoginScreen() {
   }, []);
 
   const handleUserSelect = (user: User) => {
+    console.log("User selected:", JSON.stringify(user));
     setSelectedUser(user);
 
     // Enhanced selection animation
@@ -85,6 +110,8 @@ export default function FirstTimeLoginScreen() {
     if (!selectedUser) return;
 
     try {
+      console.log("Selected user:", selectedUser);
+
       // Save selected user to AsyncStorage
       await AsyncStorage.setItem("selectedUser", JSON.stringify(selectedUser));
       await AsyncStorage.setItem("hasCompletedOnboarding", "true");
@@ -137,42 +164,70 @@ export default function FirstTimeLoginScreen() {
 
         {/* User Selection */}
         <View style={styles.userSelection}>
-          {USERS.map((user, index) => (
-            <Animated.View
-              key={user.id}
-              style={[
-                styles.userCardWrapper,
-                {
-                  transform: [
-                    { scale: selectedUser?.id === user.id ? scaleAnim : 1 },
-                  ],
-                },
-              ]}
-            >
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#fff" />
+              <Text style={styles.loadingText}>Loading users...</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
               <TouchableOpacity
-                style={[
-                  styles.userCard,
-                  selectedUser?.id === user.id && styles.userCardSelected,
-                ]}
-                onPress={() => handleUserSelect(user)}
-                activeOpacity={0.8}
+                style={styles.retryButton}
+                onPress={() => {
+                  setLoading(true);
+                  initializeDefaultUsers()
+                    .then((fetchedUsers) => {
+                      setUsers(fetchedUsers);
+                      setError(null);
+                    })
+                    .catch((err) => {
+                      setError("Failed to load users. Please try again.");
+                    })
+                    .finally(() => setLoading(false));
+                }}
               >
-                <View style={styles.cardContent}>
-                  <View style={styles.avatarContainer}>
-                    <Text style={styles.avatar}>{user.avatar}</Text>
-                    {selectedUser?.id === user.id && (
-                      <View style={styles.selectionIndicator}>
-                        <Text style={styles.checkmarkText}>✓</Text>
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.userInfo}>
-                    <Text style={styles.userName}>{user.name}</Text>
-                  </View>
-                </View>
+                <Text style={styles.retryButtonText}>Retry</Text>
               </TouchableOpacity>
-            </Animated.View>
-          ))}
+            </View>
+          ) : (
+            users.map((user, index) => (
+              <Animated.View
+                key={user.id}
+                style={[
+                  styles.userCardWrapper,
+                  {
+                    transform: [
+                      { scale: selectedUser?.id === user.id ? scaleAnim : 1 },
+                    ],
+                  },
+                ]}
+              >
+                <TouchableOpacity
+                  style={[
+                    styles.userCard,
+                    selectedUser?.id === user.id && styles.userCardSelected,
+                  ]}
+                  onPress={() => handleUserSelect(user)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.cardContent}>
+                    <View style={styles.avatarContainer}>
+                      <Text style={styles.avatar}>{user.avatar}</Text>
+                      {selectedUser?.id === user.id && (
+                        <View style={styles.selectionIndicator}>
+                          <Text style={styles.checkmarkText}>✓</Text>
+                        </View>
+                      )}
+                    </View>
+                    <View style={styles.userInfo}>
+                      <Text style={styles.userName}>{user.name}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
+            ))
+          )}
         </View>
 
         {/* Continue Button */}
@@ -211,6 +266,40 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#667eea",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  loadingText: {
+    color: "#fff",
+    fontSize: 16,
+    marginTop: 10,
+    textAlign: "center",
+  },
+  errorContainer: {
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  errorText: {
+    color: "#fff",
+    fontSize: 16,
+    marginBottom: 15,
+    textAlign: "center",
+  },
+  retryButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+  },
+  retryButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
   backgroundGradient: {
     position: "absolute",

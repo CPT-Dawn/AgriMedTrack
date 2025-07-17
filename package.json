@@ -5,6 +5,9 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
+    "init-users": "node ./scripts/init-users.js",
+    "fix-users": "node ./scripts/fix-users.js",
+    "list-users": "node ./scripts/list-users.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",

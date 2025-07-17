@@ -1,3 +1,4 @@
+import { getUser } from "@/services/userService";
 import { User } from "@/types/user";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useState } from "react";
@@ -18,7 +19,22 @@ export function useUser() {
       ]);
 
       if (userData) {
-        setCurrentUser(JSON.parse(userData));
+        const parsedUser = JSON.parse(userData);
+
+        // Try to get the latest user data from Firebase
+        try {
+          const firebaseUser = await getUser(parsedUser.id);
+          if (firebaseUser) {
+            setCurrentUser(firebaseUser);
+          } else {
+            // If the user doesn't exist in Firebase, use the stored data
+            setCurrentUser(parsedUser);
+          }
+        } catch (firebaseError) {
+          console.error("Error fetching user from Firebase:", firebaseError);
+          // Fallback to stored user data
+          setCurrentUser(parsedUser);
+        }
       } else {
         setCurrentUser(null);
       }

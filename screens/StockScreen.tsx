@@ -42,6 +42,7 @@ export default function StockScreen() {
     loading,
     error,
     addStockEntry,
+    deleteStockBatch,
     getOrCreateProduct,
     getOrCreateSupplier,
     getOrCreateSize,
@@ -63,7 +64,7 @@ export default function StockScreen() {
   const [loadingMoreLogs, setLoadingMoreLogs] = useState(false);
   const [logPage, setLogPage] = useState(1);
   const LOGS_PER_PAGE = 5;
-  const [showBuyValues, setShowBuyValues] = useState(true);
+  // Buy values display removed
 
   // Current view state
   const [currentView, setCurrentView] = useState<"stock" | "logs" | "add">(
@@ -182,9 +183,12 @@ export default function StockScreen() {
       {
         text: "Delete",
         style: "destructive",
-        onPress: () => {
-          // TODO: Implement actual deletion logic
-          console.log("Delete batch:", batchId);
+        onPress: async () => {
+          try {
+            await deleteStockBatch(batchId);
+          } catch (err) {
+            Alert.alert("Error", "Failed to delete batch");
+          }
         },
       },
     ]);
@@ -221,12 +225,11 @@ export default function StockScreen() {
           isLogExpanded={isLogExpanded}
           onToggleLog={toggleLogExpansion}
           onHighlightProduct={handleHighlightProduct}
-          showBuyValues={showBuyValues}
           qtyRightAlign // new prop for right-aligning QTY
         />
       );
     },
-    [activities, expandedLogs, stockEntries, toggleLogExpansion, showBuyValues]
+    [activities, expandedLogs, stockEntries, toggleLogExpansion]
   );
 
   // Render all activity logs
@@ -269,8 +272,9 @@ export default function StockScreen() {
                   supplierName: item.supplierName,
                   sizeId: "",
                   sizeLabel: item.sizeName,
+                  sizeValue: "",
+                  unit: "",
                   quantity: item.quantity.toString(),
-                  buyPrice: item.buyPrice?.toString() || "",
                   sellPrice: "",
                 })),
               }
@@ -367,21 +371,7 @@ export default function StockScreen() {
           <View style={styles.headerTitleRow}>
             <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
             <View style={styles.headerBoxButtonsContainer}>
-              {currentView === "stock" && (
-                <TouchableOpacity
-                  onPress={() => setShowBuyValues(!showBuyValues)}
-                  style={styles.eyeToggle}
-                  accessibilityLabel={
-                    showBuyValues ? "Hide buy values" : "Show buy values"
-                  }
-                >
-                  <MaterialIcons
-                    name={showBuyValues ? "visibility" : "visibility-off"}
-                    size={24}
-                    color={Theme.colors.primary}
-                  />
-                </TouchableOpacity>
-              )}
+              {/* Buy price toggle removed */}
               <TouchableOpacity
                 style={[
                   styles.headerBoxButton,

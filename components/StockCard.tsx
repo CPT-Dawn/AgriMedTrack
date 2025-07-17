@@ -22,7 +22,6 @@ interface StockCardProps {
   onToggleLog: (productId: string) => void;
   onHighlightProduct?: (productId: string) => void;
   qtyRightAlign?: boolean;
-  showBuyValues?: boolean;
   wiggle?: boolean; // new prop
 }
 
@@ -42,7 +41,6 @@ const StockCardComponent: React.FC<StockCardProps> = ({
   onToggleLog,
   onHighlightProduct,
   qtyRightAlign = false,
-  showBuyValues = true,
   wiggle = false,
 }) => {
   // Gather all supplier/packaging/price/quantity rows for this product
@@ -63,7 +61,6 @@ const StockCardComponent: React.FC<StockCardProps> = ({
       rows.push({
         company: supplierGroup.supplier.name,
         packaging: sizeGroup.size.label,
-        buyPrice: stockEntry?.buyPrice ?? "",
         sellPrice: stockEntry?.sellPrice ?? "",
         quantity: sizeGroup.quantity,
       });
@@ -269,7 +266,6 @@ const StockCardComponent: React.FC<StockCardProps> = ({
             Supplier
           </Text>
           <Text style={[styles.tableHeader, styles.equalHeader]}>Pack</Text>
-          <Text style={[styles.tableHeader, styles.equalHeader]}>Buy</Text>
           <Text style={[styles.tableHeader, styles.equalHeader]}>Sell</Text>
           <Text
             style={[
@@ -296,9 +292,6 @@ const StockCardComponent: React.FC<StockCardProps> = ({
             </Text>
             <Text style={[styles.tableCell, styles.equalCell]}>
               {row.packaging}
-            </Text>
-            <Text style={[styles.tableCell, styles.equalCell]}>
-              {showBuyValues ? row.buyPrice : row.buyPrice ? "***" : ""}
             </Text>
             <Text style={[styles.tableCell, styles.equalCell]}>
               {row.sellPrice}

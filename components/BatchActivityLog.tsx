@@ -178,14 +178,8 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
                 <Text style={[styles.tableHeaderCell, styles.sizeCell]}>
                   Size
                 </Text>
-                <Text style={[styles.tableHeaderCell, styles.priceCell]}>
-                  Price
-                </Text>
                 <Text style={[styles.tableHeaderCell, styles.qtyCell]}>
                   Qty
-                </Text>
-                <Text style={[styles.tableHeaderCell, styles.totalCell]}>
-                  Total
                 </Text>
               </View>
 
@@ -218,29 +212,17 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
                   >
                     {item.sizeName}
                   </Text>
-                  <Text style={[styles.tableCell, styles.priceCell]}>
-                    ₹{item.buyPrice || 0}
-                  </Text>
                   <Text style={[styles.tableCell, styles.qtyCell]}>
                     {item.quantity}
-                  </Text>
-                  <Text style={[styles.tableCell, styles.totalCell]}>
-                    ₹{(item.buyPrice || 0) * item.quantity}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            {/* Batch total */}
+            {/* Items count */}
             <View style={styles.batchTotal}>
-              <Text style={styles.batchTotalLabel}>Batch Total:</Text>
-              <Text style={styles.batchTotalValue}>
-                ₹
-                {batch.items.reduce(
-                  (total, item) => total + (item.buyPrice || 0) * item.quantity,
-                  0
-                )}
-              </Text>
+              <Text style={styles.batchTotalLabel}>Items:</Text>
+              <Text style={styles.batchTotalValue}>{batch.items.length}</Text>
             </View>
 
             {/* Bill image thumbnail if available */}

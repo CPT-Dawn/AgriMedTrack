@@ -1,5 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  addStockEntryBatch,
+  createPackagingSize,
+  createProduct,
+  createSupplier,
+  deleteBatch,
+  getPackagingSizes,
+  getProducts,
+  getStockActivities,
+  getStockBatches,
+  getStockEntries,
+  getSuppliers,
+} from "../services/stockService";
+import {
   BatchEntryFormData,
   PackagingSize,
   Product,
@@ -92,13 +105,29 @@ export function useStock() {
       setLoading(true);
       setError(null);
 
-      // For now, set empty arrays since Firebase is not configured
-      setProducts([]);
-      setSuppliers([]);
-      setSizes([]);
-      setStockEntries([]);
-      setActivities([]);
-      setBatchLogs([]);
+      // Fetch data from Firebase
+      const [
+        productsData,
+        suppliersData,
+        sizesData,
+        entriesData,
+        activitiesData,
+        batchesData,
+      ] = await Promise.all([
+        getProducts(),
+        getSuppliers(),
+        getPackagingSizes(),
+        getStockEntries(),
+        getStockActivities(),
+        getStockBatches(),
+      ]);
+
+      setProducts(productsData);
+      setSuppliers(suppliersData);
+      setSizes(sizesData);
+      setStockEntries(entriesData);
+      setActivities(activitiesData);
+      setBatchLogs(batchesData);
     } catch (err) {
       console.error("Error loading stock data:", err);
       setError("Failed to load stock data");
@@ -110,65 +139,76 @@ export function useStock() {
   // Create or find product
   const getOrCreateProduct = useCallback(
     async (name: string): Promise<Product> => {
-      // For now, return a mock product since Firebase is not configured
-      const newProduct: Product = {
-        id: Date.now().toString(),
-        name,
-        createdAt: new Date(),
-      };
+      // Check if product already exists
+      const existingProduct = products.find(
+        (p) => p.name.toLowerCase() === name.toLowerCase()
+      );
+
+      if (existingProduct) {
+        return existingProduct;
+      }
+
+      // Create new product
+      const newProduct = await createProduct(name);
+
+      // Update local state
       setProducts((prev) =>
         [...prev, newProduct].sort((a, b) => a.name.localeCompare(b.name))
       );
+
       return newProduct;
     },
-    []
+    [products]
   );
 
   // Create or find supplier
   const getOrCreateSupplier = useCallback(
     async (name: string): Promise<Supplier> => {
-      // For now, return a mock supplier since Firebase is not configured
-      const newSupplier: Supplier = {
-        id: Date.now().toString(),
-        name,
-        createdAt: new Date(),
-      };
+      // Check if supplier already exists
+      const existingSupplier = suppliers.find(
+        (s) => s.name.toLowerCase() === name.toLowerCase()
+      );
+
+      if (existingSupplier) {
+        return existingSupplier;
+      }
+
+      // Create new supplier
+      const newSupplier = await createSupplier(name);
+
+      // Update local state
       setSuppliers((prev) =>
         [...prev, newSupplier].sort((a, b) => a.name.localeCompare(b.name))
       );
+
       return newSupplier;
     },
-    []
+    [suppliers]
   );
 
   // Create or find packaging size
   const getOrCreateSize = useCallback(
     async (label: string): Promise<PackagingSize> => {
-      // For now, return a mock size since Firebase is not configured
-      const unit = label.includes("tablet")
-        ? "tablet"
-        : label.includes("ml")
-        ? "ml"
-        : label.includes("vial")
-        ? "vial"
-        : label.includes("mg")
-        ? "mg"
-        : label.includes("g")
-        ? "g"
-        : "unit";
+      // Check if size already exists
+      const existingSize = sizes.find(
+        (s) => s.label.toLowerCase() === label.toLowerCase()
+      );
 
-      const newSize: PackagingSize = {
-        id: Date.now().toString(),
-        label,
-        unit,
-        createdAt: new Date(),
-      };
+      if (existingSize) {
+        return existingSize;
+      }
+
+      // Create new size
+      const newSize = await createPackagingSize(label);
+
+      // Update local state
       setSizes((prev) =>
         [...prev, newSize].sort((a, b) => a.label.localeCompare(b.label))
       );
+
       return newSize;
     },
-    []
+    [sizes]
   );
 
   // Add new stock entry
@@ -179,15 +219,42 @@ export function useStock() {
     ): Promise<void> => {
       try {
         setError(null);
-        // For now, just log the data since Firebase is not configured
-        console.log("Adding stock entry:", formData);
+
+        // Add stock entry batch to Firestore
+        await addStockEntryBatch(formData as BatchEntryFormData, userId);
+
+        // Refresh data to get the latest entries
+        await loadData();
       } catch (err) {
         console.error("Error adding stock entry:", err);
         setError("Failed to add stock entry");
         throw err;
       }
     },
-    []
+    [loadData]
+  );
+
+  // Delete batch
+  const deleteStockBatch = useCallback(
+    async (batchId: string): Promise<void> => {
+      try {
+        setError(null);
+        setLoading(true);
+        
+        // Delete the batch from Firestore
+        await deleteBatch(batchId);
+        
+        // Refresh data to update the UI
+        await loadData();
+      } catch (err) {
+        console.error("Error deleting batch:", err);
+        setError("Failed to delete batch");
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loadData]
   );
 
   // Clear error
@@ -216,6 +283,7 @@ export function useStock() {
 
     // Actions
     addStockEntry,
+    deleteStockBatch,
     refreshData: loadData,
     clearError: clearError,
 

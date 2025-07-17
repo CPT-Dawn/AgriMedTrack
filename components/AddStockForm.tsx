@@ -75,8 +75,9 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
     supplierName: "",
     sizeId: "",
     sizeLabel: "",
+    sizeValue: "",
+    unit: "",
     quantity: "",
-    buyPrice: "",
     sellPrice: "",
   });
   const [items, setItems] = useState<StockEntryFormData[]>(
@@ -88,8 +89,9 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
         supplierName: "",
         sizeId: "",
         sizeLabel: "",
+        sizeValue: "",
+        unit: "",
         quantity: "",
-        buyPrice: "",
         sellPrice: "",
       },
     ]
@@ -152,8 +154,9 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
       newErrors.productName = "Product name is required";
     if (!form.supplierName.trim())
       newErrors.supplierName = "Supplier name is required";
-    if (!form.sizeLabel.trim())
-      newErrors.sizeLabel = "Packaging size is required";
+    if (!form.sizeValue.trim() || isNaN(parseFloat(form.sizeValue)))
+      newErrors.sizeValue = "Valid size value is required";
+    if (!form.unit.trim()) newErrors.unit = "Unit is required";
     if (!form.quantity.trim() || isNaN(parseInt(form.quantity))) {
       newErrors.quantity = "Valid quantity is required";
     }
@@ -170,8 +173,9 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
       supplierName: "",
       sizeId: "",
       sizeLabel: "",
+      sizeValue: "",
+      unit: "",
       quantity: "",
-      buyPrice: "",
       sellPrice: "",
     });
     setErrors({});
@@ -187,8 +191,9 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
         supplierName: "",
         sizeId: "",
         sizeLabel: "",
+        sizeValue: "",
+        unit: "",
         quantity: "",
-        buyPrice: "",
         sellPrice: "",
       },
     ]);
@@ -211,21 +216,30 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
   const handleSubmit = async () => {
     // Validate all items
     let valid = true;
+    let invalidItems = [];
+
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       if (
         !item.productName.trim() ||
         !item.supplierName.trim() ||
-        !item.sizeLabel.trim() ||
+        !item.sizeValue.trim() ||
+        !item.unit.trim() ||
         !item.quantity.trim() ||
         isNaN(parseInt(item.quantity))
       ) {
         valid = false;
-        break;
+        invalidItems.push(i + 1);
       }
     }
+
     if (!valid) {
-      Alert.alert("Error", "Please fill all required fields for each product.");
+      Alert.alert(
+        "Error",
+        `Please fill all required fields for product item(s): ${invalidItems.join(
+          ", "
+        )}`
+      );
       return;
     }
     try {
@@ -244,8 +258,9 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
           supplierName: "",
           sizeId: "",
           sizeLabel: "",
+          sizeValue: "",
+          unit: "",
           quantity: "",
-          buyPrice: "",
           sellPrice: "",
         },
       ]);
@@ -259,12 +274,50 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
   };
 
   const confirmBatchSubmit = async () => {
+    // Validate all items
+    let valid = true;
+    let invalidItems = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (
+        !item.productName.trim() ||
+        !item.supplierName.trim() ||
+        !item.sizeValue.trim() ||
+        !item.unit.trim() ||
+        !item.quantity.trim() ||
+        isNaN(parseInt(item.quantity))
+      ) {
+        valid = false;
+        invalidItems.push(i + 1);
+      }
+    }
+
+    if (!valid) {
+      Alert.alert(
+        "Error",
+        `Please fill all required fields for product item(s): ${invalidItems.join(
+          ", "
+        )}`
+      );
+      return;
+    }
+
+    // Update sizeLabel based on sizeValue and unit for each item
+    const updatedItems = items.map((item) => ({
+      ...item,
+      sizeLabel:
+        item.sizeValue && item.unit
+          ? `${item.sizeValue} ${item.unit}`
+          : item.sizeLabel,
+    }));
+
     try {
       setSubmitting(true);
       const batchData: BatchEntryFormData = {
         addedBy: "current-user",
         billImage: billImage || undefined,
-        items: items,
+        items: updatedItems,
       };
       await onSubmit(batchData);
 
@@ -278,8 +331,9 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
           supplierName: "",
           sizeId: "",
           sizeLabel: "",
+          sizeValue: "",
+          unit: "",
           quantity: "",
-          buyPrice: "",
           sellPrice: "",
         },
       ]);
@@ -294,10 +348,11 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
   };
 
   const isFormValid =
-    form.productName &&
-    form.supplierName &&
-    form.sizeLabel &&
-    form.quantity &&
+    form.productName.trim() &&
+    form.supplierName.trim() &&
+    form.sizeValue.trim() &&
+    form.unit.trim() &&
+    form.quantity.trim() &&
     !isNaN(parseInt(form.quantity));
 
   const renderItemCard = (item: StockEntryFormData, index: number) => (
@@ -397,42 +452,12 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
           </View>
         </View>
 
-        {/* Size and Unit - 2 fields in one row */}
+        {/* Size Value and Unit - 2 fields in one row */}
         <View style={styles.inputRow}>
           <View style={[styles.inputGroup, styles.flex1]}>
             <Text style={styles.inputLabel}>
-              Size <Text style={styles.requiredAsterisk}>*</Text>
+              Size Value <Text style={styles.requiredAsterisk}>*</Text>
             </Text>
-            <View style={styles.dropdownContainer}>
-              <CreatableDropdown
-                options={sizes.map((s) => ({ id: s.id, label: s.label }))}
-                value={item.sizeId}
-                placeholder="Select size"
-                onSelect={(option) =>
-                  updateProduct(index, {
-                    sizeId: option.id,
-                    sizeLabel: option.label,
-                  })
-                }
-                onCreate={async (newLabel: string) => {
-                  try {
-                    const newSize = await getOrCreateSize(newLabel);
-                    updateProduct(index, {
-                      sizeId: newSize.id,
-                      sizeLabel: newSize.label,
-                    });
-                    return { id: newSize.id, label: newSize.label };
-                  } catch (error) {
-                    Alert.alert("Error", "Failed to create new size");
-                    throw error;
-                  }
-                }}
-              />
-            </View>
-          </View>
-
-          <View style={[styles.inputGroup, styles.flex1]}>
-            <Text style={styles.inputLabel}>Unit</Text>
             <View style={styles.inputContainer}>
               <MaterialIcons
                 name="straighten"
@@ -442,12 +467,69 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
               />
               <TextInput
                 style={[styles.textInput, styles.inputWithIcon]}
-                value={sizes.find((s) => s.id === item.sizeId)?.unit || ""}
-                placeholder="ML, KG, G"
+                value={item.sizeValue}
+                onChangeText={(value) =>
+                  updateProduct(index, { sizeValue: value })
+                }
+                placeholder="10, 20, 500"
                 placeholderTextColor={colors.gray[400]}
-                editable={false}
+                keyboardType="numeric"
               />
             </View>
+          </View>
+
+          <View style={[styles.inputGroup, styles.flex1]}>
+            <Text style={styles.inputLabel}>
+              Unit <Text style={styles.requiredAsterisk}>*</Text>
+            </Text>
+            <View style={styles.inputContainer}>
+              <MaterialIcons
+                name="category"
+                size={20}
+                color={colors.gray[400]}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={[styles.textInput, styles.inputWithIcon]}
+                value={item.unit}
+                onChangeText={(value) => updateProduct(index, { unit: value })}
+                placeholder="mg, g, kg, ml, tablet"
+                placeholderTextColor={colors.gray[400]}
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Packaging Size - Full width but hidden, used for compatibility */}
+        <View style={[styles.inputGroup, { display: "none" }]}>
+          <Text style={styles.inputLabel}>
+            Packaging Size <Text style={styles.requiredAsterisk}>*</Text>
+          </Text>
+          <View style={styles.dropdownContainer}>
+            <CreatableDropdown
+              options={sizes.map((s) => ({ id: s.id, label: s.label }))}
+              value={item.sizeId}
+              placeholder="Select size"
+              onSelect={(option) =>
+                updateProduct(index, {
+                  sizeId: option.id,
+                  sizeLabel: option.label,
+                })
+              }
+              onCreate={async (newLabel: string) => {
+                try {
+                  const newSize = await getOrCreateSize(newLabel);
+                  updateProduct(index, {
+                    sizeId: newSize.id,
+                    sizeLabel: newSize.label,
+                  });
+                  return { id: newSize.id, label: newSize.label };
+                } catch (error) {
+                  Alert.alert("Error", "Failed to create new size");
+                  throw error;
+                }
+              }}
+            />
           </View>
         </View>
 
@@ -476,54 +558,26 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
           </View>
         </View>
 
-        {/* Buy Price and Sell Price - 2 fields in one row */}
-        <View style={styles.inputRow}>
-          <View style={[styles.inputGroup, styles.flex1]}>
-            <Text style={styles.inputLabel}>
-              Buy Price (₹) <Text style={styles.requiredAsterisk}>*</Text>
-            </Text>
-            <View style={styles.inputContainer}>
-              <MaterialIcons
-                name="attach-money"
-                size={20}
-                color={colors.gray[400]}
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={[styles.textInput, styles.inputWithIcon]}
-                value={item.buyPrice}
-                onChangeText={(value) =>
-                  updateProduct(index, { buyPrice: value })
-                }
-                placeholder="0.00"
-                keyboardType="numeric"
-                placeholderTextColor={colors.gray[400]}
-              />
-            </View>
-          </View>
-
-          <View style={[styles.inputGroup, styles.flex1]}>
-            <Text style={styles.inputLabel}>
-              Sell Price (₹) <Text style={styles.requiredAsterisk}>*</Text>
-            </Text>
-            <View style={styles.inputContainer}>
-              <MaterialIcons
-                name="sell"
-                size={20}
-                color={colors.gray[400]}
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={[styles.textInput, styles.inputWithIcon]}
-                value={item.sellPrice}
-                onChangeText={(value) =>
-                  updateProduct(index, { sellPrice: value })
-                }
-                placeholder="0.00"
-                keyboardType="numeric"
-                placeholderTextColor={colors.gray[400]}
-              />
-            </View>
+        {/* Sell Price - Full width */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Sell Price (₹)</Text>
+          <View style={styles.inputContainer}>
+            <MaterialIcons
+              name="sell"
+              size={20}
+              color={colors.gray[400]}
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={[styles.textInput, styles.inputWithIcon]}
+              value={item.sellPrice}
+              onChangeText={(value) =>
+                updateProduct(index, { sellPrice: value })
+              }
+              placeholder="0.00"
+              keyboardType="numeric"
+              placeholderTextColor={colors.gray[400]}
+            />
           </View>
         </View>
       </View>

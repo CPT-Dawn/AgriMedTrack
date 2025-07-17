@@ -1,27 +1,17 @@
 export interface Product {
   id: string;
   name: string;
-  category?: string;
-  description?: string;
-  createdAt: Date;
 }
 
 export interface Supplier {
   id: string;
   name: string;
-  contactInfo?: {
-    email?: string;
-    phone?: string;
-    address?: string;
-  };
-  createdAt: Date;
 }
 
 export interface PackagingSize {
   id: string;
-  label: string; // e.g., "10mg tablet", "20ml vial"
-  unit: string; // e.g., "tablet", "vial", "ml", "g"
-  createdAt: Date;
+  label: string;
+  unit: string;
 }
 
 export interface StockEntry {
@@ -92,6 +82,8 @@ export interface StockEntryFormData {
   supplierName: string;
   sizeId: string;
   sizeLabel: string;
+  sizeValue: string; // New field for size value (e.g., "10", "20")
+  unit: string; // New field for unit (e.g., "tablet", "ml")
   quantity: string;
   buyPrice?: string;
   sellPrice?: string;
