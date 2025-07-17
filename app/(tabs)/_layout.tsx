@@ -46,11 +46,16 @@ export default function TabLayout() {
             height: Platform.OS === "ios" ? 88 : 68,
             paddingBottom: Platform.OS === "ios" ? 28 : 8,
             paddingTop: Theme.spacing.md,
-            elevation: 12,
-            shadowColor: Theme.colors.text,
-            shadowOffset: { width: 0, height: -4 },
-            shadowOpacity: 0.15,
-            shadowRadius: 12,
+            // Enhanced 3D shadows for depth
+            elevation: 20,
+            shadowColor: "#000000",
+            shadowOffset: { width: 0, height: -8 },
+            shadowOpacity: 0.25,
+            shadowRadius: 20,
+            // Additional inner shadow effect
+            borderWidth: 1,
+            borderColor: "rgba(255, 255, 255, 0.1)",
+            // Position and spacing
             position: "absolute",
             left: Theme.spacing.sm,
             right: Theme.spacing.sm,
@@ -60,6 +65,10 @@ export default function TabLayout() {
             fontSize: Theme.typography.fontSize.xs,
             fontWeight: Theme.typography.fontWeight.semibold,
             marginTop: 4,
+            // Enhanced 3D text styling
+            textShadowColor: "rgba(0, 0, 0, 0.1)",
+            textShadowOffset: { width: 0, height: 1 },
+            textShadowRadius: 2,
           },
           tabBarIconStyle: {
             marginTop: 4,
@@ -71,7 +80,19 @@ export default function TabLayout() {
           options={{
             title: "Home",
             tabBarIcon: ({ color, focused }) => (
-              <IconSymbol size={24} name="house.fill" color={color} />
+              <IconSymbol
+                size={focused ? 26 : 24}
+                name="house.fill"
+                color={color}
+                style={{
+                  transform: [{ scale: focused ? 1.1 : 1 }],
+                  shadowColor: focused ? color : "transparent",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: focused ? 0.3 : 0,
+                  shadowRadius: 4,
+                  elevation: focused ? 8 : 0,
+                }}
+              />
             ),
           }}
         />
@@ -80,7 +101,19 @@ export default function TabLayout() {
           options={{
             title: "Sales",
             tabBarIcon: ({ color, focused }) => (
-              <IconSymbol size={24} name="chart.bar.fill" color={color} />
+              <IconSymbol
+                size={focused ? 26 : 24}
+                name="chart.bar.fill"
+                color={color}
+                style={{
+                  transform: [{ scale: focused ? 1.1 : 1 }],
+                  shadowColor: focused ? color : "transparent",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: focused ? 0.3 : 0,
+                  shadowRadius: 4,
+                  elevation: focused ? 8 : 0,
+                }}
+              />
             ),
           }}
         />
@@ -89,7 +122,19 @@ export default function TabLayout() {
           options={{
             title: "Stock",
             tabBarIcon: ({ color, focused }) => (
-              <IconSymbol size={24} name="shippingbox.fill" color={color} />
+              <IconSymbol
+                size={focused ? 26 : 24}
+                name="shippingbox.fill"
+                color={color}
+                style={{
+                  transform: [{ scale: focused ? 1.1 : 1 }],
+                  shadowColor: focused ? color : "transparent",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: focused ? 0.3 : 0,
+                  shadowRadius: 4,
+                  elevation: focused ? 8 : 0,
+                }}
+              />
             ),
           }}
         />

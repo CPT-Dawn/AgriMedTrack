@@ -1,9 +1,11 @@
 import { Theme } from "@/constants/Theme";
+import { useUser } from "@/hooks/useUser";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
+  Alert,
   Animated,
-  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -12,12 +14,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-interface Profile {
-  id: string;
-  name: string;
-  avatar: string;
-}
 
 interface SummaryCard {
   id: string;
@@ -30,7 +26,7 @@ interface SummaryCard {
 
 interface ActivityItem {
   id: string;
-  user: Profile;
+  user: { name: string; avatar: string };
   action: string;
   details: string;
   timestamp: string;
@@ -38,12 +34,6 @@ interface ActivityItem {
 }
 
 // Mock data
-const PROFILES: Profile[] = [
-  { id: "1", name: "Gopal", avatar: "👨‍💼" },
-  { id: "2", name: "Anil", avatar: "👨‍🌾" },
-  { id: "3", name: "Papa", avatar: "👩‍💼" },
-];
-
 const SUMMARY_DATA: SummaryCard[] = [
   {
     id: "1",
@@ -79,7 +69,7 @@ const SUMMARY_DATA: SummaryCard[] = [
 const RECENT_ACTIVITIES: ActivityItem[] = [
   {
     id: "1",
-    user: PROFILES[1],
+    user: { name: "Anil", avatar: "👨‍🌾" },
     action: "added",
     details: "3× Urea 50kg",
     timestamp: "10:42 AM",
@@ -87,7 +77,7 @@ const RECENT_ACTIVITIES: ActivityItem[] = [
   },
   {
     id: "2",
-    user: PROFILES[2],
+    user: { name: "Gopal", avatar: "👨‍💼" },
     action: "sold",
     details: "2× Glyphosate",
     timestamp: "12:13 PM",
@@ -95,7 +85,7 @@ const RECENT_ACTIVITIES: ActivityItem[] = [
   },
   {
     id: "3",
-    user: PROFILES[0],
+    user: { name: "Papa", avatar: "👩‍💼" },
     action: "received payment",
     details: "₹2,400 from Gopal",
     timestamp: "09:15 AM",
@@ -103,7 +93,7 @@ const RECENT_ACTIVITIES: ActivityItem[] = [
   },
   {
     id: "4",
-    user: PROFILES[1],
+    user: { name: "Anil", avatar: "👨‍🌾" },
     action: "added",
     details: "5× NPK Fertilizer",
     timestamp: "Yesterday",
@@ -111,7 +101,7 @@ const RECENT_ACTIVITIES: ActivityItem[] = [
   },
   {
     id: "5",
-    user: PROFILES[2],
+    user: { name: "Gopal", avatar: "👨‍💼" },
     action: "sold",
     details: "1× Pesticide",
     timestamp: "Yesterday",
@@ -121,8 +111,8 @@ const RECENT_ACTIVITIES: ActivityItem[] = [
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const [currentProfile, setCurrentProfile] = useState<Profile>(PROFILES[0]);
-  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const { currentUser, logout } = useUser();
+  const router = useRouter();
   const [greeting, setGreeting] = useState("");
 
   // Animated values
@@ -143,49 +133,26 @@ export default function HomeScreen() {
         timeGreeting = "Good Evening";
       }
 
-      setGreeting(`${timeGreeting}, ${currentProfile.name} 👋`);
+      setGreeting(`${timeGreeting}, ${currentUser?.name || "User"} 👋`);
     };
 
     updateGreeting();
     const interval = setInterval(updateGreeting, 60000); // Update every minute
 
     return () => clearInterval(interval);
-  }, [currentProfile]);
+  }, [currentUser]);
 
-  // Animate profile dropdown
-  useEffect(() => {
-    if (showProfileDropdown) {
-      Animated.parallel([
-        Animated.timing(dropdownOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(dropdownScale, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(dropdownOpacity, {
-          toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-        Animated.timing(dropdownScale, {
-          toValue: 0.8,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [showProfileDropdown, dropdownOpacity, dropdownScale]);
-
-  const handleProfileSelect = (profile: Profile) => {
-    setCurrentProfile(profile);
-    setShowProfileDropdown(false);
+  const handleLogout = () => {
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          await logout();
+        },
+      },
+    ]);
   };
 
   const getActivityIcon = (type: string) => {
@@ -218,19 +185,16 @@ export default function HomeScreen() {
   const renderSummaryCard = ({ item }: { item: SummaryCard }) => (
     <View style={styles.summaryCard}>
       <View style={styles.summaryCardHeader}>
-        <View
-          style={[styles.summaryIcon, { backgroundColor: item.color + "15" }]}
-        >
-          <MaterialIcons name={item.icon as any} size={24} color={item.color} />
-        </View>
+        <MaterialIcons
+          name={item.icon as any}
+          size={24}
+          color={item.color || Theme.colors.primary}
+        />
         {item.trend && (
           <View
-            style={[
-              styles.trendBadge,
-              { backgroundColor: Theme.colors.success + "15" },
-            ]}
+            style={[styles.trendBadge, { backgroundColor: item.color + "15" }]}
           >
-            <Text style={[styles.trendText, { color: Theme.colors.success }]}>
+            <Text style={[styles.trendText, { color: item.color }]}>
               {item.trend}
             </Text>
           </View>
@@ -245,11 +209,11 @@ export default function HomeScreen() {
   const renderActivityItem = ({ item }: { item: ActivityItem }) => (
     <View style={styles.activityItem}>
       <View style={styles.activityAvatar}>
-        <Text style={styles.avatarText}>{item.user.avatar}</Text>
+        <Text style={styles.activityAvatarText}>{item.user.avatar}</Text>
       </View>
       <View style={styles.activityContent}>
         <Text style={styles.activityText}>
-          <Text style={styles.activityUser}>{item.user.name}</Text>{" "}
+          <Text style={styles.activityUserName}>{item.user.name}</Text>{" "}
           {item.action}{" "}
           <Text style={styles.activityDetails}>{item.details}</Text>
         </Text>
@@ -263,7 +227,7 @@ export default function HomeScreen() {
       >
         <MaterialIcons
           name={getActivityIcon(item.type) as any}
-          size={16}
+          size={20}
           color={getActivityColor(item.type)}
         />
       </View>
@@ -274,68 +238,21 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" translucent={false} />
 
-      {/* Header */}
+      {/* Header with current user */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <View style={styles.greetingContainer}>
-            <Text style={styles.greeting}>{greeting}</Text>
-            <Text style={styles.subtitle}>Welcome to AgriMedTrack</Text>
+          <View style={styles.userSection}>
+            <View style={styles.userAvatar}>
+              <Text style={styles.userAvatarText}>
+                {currentUser?.avatar || "👤"}
+              </Text>
+            </View>
+            <View style={styles.userInfo}>
+              <Text style={styles.greeting}>{greeting}</Text>
+              <Text style={styles.subtitle}>.</Text>
+            </View>
           </View>
-
-          <TouchableOpacity
-            style={styles.profileButton}
-            onPress={() => setShowProfileDropdown(!showProfileDropdown)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.profileAvatar}>{currentProfile.avatar}</Text>
-            <MaterialIcons
-              name={
-                showProfileDropdown
-                  ? "keyboard-arrow-up"
-                  : "keyboard-arrow-down"
-              }
-              size={20}
-              color={Theme.colors.textMuted}
-            />
-          </TouchableOpacity>
         </View>
-
-        {/* Profile Dropdown */}
-        {showProfileDropdown && (
-          <Animated.View
-            style={[
-              styles.profileDropdown,
-              {
-                opacity: dropdownOpacity,
-                transform: [{ scale: dropdownScale }],
-              },
-            ]}
-          >
-            {PROFILES.map((profile) => (
-              <TouchableOpacity
-                key={profile.id}
-                style={[
-                  styles.profileOption,
-                  currentProfile.id === profile.id &&
-                    styles.profileOptionActive,
-                ]}
-                onPress={() => handleProfileSelect(profile)}
-              >
-                <Text style={styles.profileOptionAvatar}>{profile.avatar}</Text>
-                <View style={styles.profileOptionInfo}>
-                  <Text style={styles.profileOptionName}>{profile.name}</Text>
-                </View>
-                {currentProfile.id === profile.id && (
-                  <MaterialIcons
-                    name="check"
-                    size={20}
-                    color={Theme.colors.primary}
-                  />
-                )}
-              </TouchableOpacity>
-            ))}
-          </Animated.View>
-        )}
       </View>
 
       <ScrollView
@@ -344,8 +261,8 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Summary Cards */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Dashboard Overview</Text>
+        <View style={styles.summarySection}>
+          <Text style={styles.sectionTitle}>Overview</Text>
           <View style={styles.summaryGrid}>
             {SUMMARY_DATA.map((item) => (
               <View key={item.id} style={styles.summaryCardWrapper}>
@@ -355,79 +272,28 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActions}>
-            <TouchableOpacity style={styles.quickActionButton}>
-              <View
-                style={[
-                  styles.quickActionIcon,
-                  { backgroundColor: Theme.colors.primary },
-                ]}
-              >
-                <MaterialIcons
-                  name="add-shopping-cart"
-                  size={24}
-                  color={Theme.colors.white}
-                />
+        {/* Recent Activities */}
+        <View style={styles.activitiesSection}>
+          <Text style={styles.sectionTitle}>Recent Activities</Text>
+          <View style={styles.activitiesList}>
+            {RECENT_ACTIVITIES.map((item) => (
+              <View key={item.id} style={styles.activityItemWrapper}>
+                {renderActivityItem({ item })}
               </View>
-              <Text style={styles.quickActionText}>New Sale</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.quickActionButton}>
-              <View
-                style={[
-                  styles.quickActionIcon,
-                  { backgroundColor: Theme.colors.secondary },
-                ]}
-              >
-                <MaterialIcons
-                  name="add-box"
-                  size={24}
-                  color={Theme.colors.white}
-                />
-              </View>
-              <Text style={styles.quickActionText}>Add Stock</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.quickActionButton}>
-              <View
-                style={[
-                  styles.quickActionIcon,
-                  { backgroundColor: Theme.colors.accent },
-                ]}
-              >
-                <MaterialIcons
-                  name="history"
-                  size={24}
-                  color={Theme.colors.white}
-                />
-              </View>
-              <Text style={styles.quickActionText}>View Logs</Text>
-            </TouchableOpacity>
+            ))}
           </View>
         </View>
 
-        {/* Recent Activity */}
-        <View style={styles.section}>
-          <View style={styles.activityHeader}>
-            <Text style={styles.sectionTitle}>Recent Activity</Text>
-            <TouchableOpacity style={styles.viewAllButton}>
-              <Text style={styles.viewAllText}>View All</Text>
-              <MaterialIcons
-                name="arrow-forward"
-                size={16}
-                color={Theme.colors.primary}
-              />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.activityList}>
-            {RECENT_ACTIVITIES.map((item) => (
-              <View key={item.id}>{renderActivityItem({ item })}</View>
-            ))}
-          </View>
+        {/* Logout Button */}
+        <View style={styles.logoutContainer}>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            activeOpacity={0.8}
+          >
+            <MaterialIcons name="logout" size={20} color="#EF4444" />
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -440,78 +306,57 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.background,
   },
   header: {
-    backgroundColor: Theme.colors.background,
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight || 0 : 0,
     paddingHorizontal: Theme.spacing.xl,
+    paddingTop: Theme.spacing.xl,
     paddingBottom: Theme.spacing.lg,
+    marginBottom: Theme.spacing.md,
   },
   headerContent: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: Theme.spacing.md,
   },
-  greetingContainer: {
+  userSection: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  userAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Theme.colors.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: Theme.spacing.md,
+    shadowColor: Theme.colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  userAvatarText: {
+    fontSize: Theme.typography.fontSize["2xl"],
+  },
+  userInfo: {
     flex: 1,
   },
   greeting: {
-    fontSize: Theme.typography.fontSize["2xl"],
-    fontWeight: Theme.typography.fontWeight.bold,
+    fontSize: Theme.typography.fontSize.xl,
+    fontWeight: Theme.typography.fontWeight.semibold,
     color: Theme.colors.text,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   subtitle: {
     fontSize: Theme.typography.fontSize.sm,
     color: Theme.colors.textMuted,
-  },
-  profileButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Theme.colors.surface,
-    borderRadius: Theme.borderRadius["2xl"],
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: Theme.spacing.sm,
-    gap: Theme.spacing.sm,
-    ...Theme.shadows.sm,
-  },
-  profileAvatar: {
-    fontSize: Theme.typography.fontSize["2xl"],
-  },
-  profileDropdown: {
-    backgroundColor: Theme.colors.surface,
-    borderRadius: Theme.borderRadius.xl,
-    padding: Theme.spacing.sm,
-    ...Theme.shadows.lg,
-  },
-  profileOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: Theme.spacing.md,
-    paddingHorizontal: Theme.spacing.md,
-    borderRadius: Theme.spacing.sm,
-    gap: Theme.spacing.md,
-  },
-  profileOptionActive: {
-    backgroundColor: Theme.colors.primary + "10",
-  },
-  profileOptionAvatar: {
-    fontSize: Theme.typography.fontSize.xl,
-  },
-  profileOptionInfo: {
-    flex: 1,
-  },
-  profileOptionName: {
-    fontSize: Theme.typography.fontSize.base,
-    fontWeight: Theme.typography.fontWeight.semibold,
-    color: Theme.colors.text,
+    marginTop: 2,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100,
+    paddingBottom: 60,
   },
-  section: {
+  summarySection: {
     paddingHorizontal: Theme.spacing.xl,
     marginBottom: Theme.spacing["2xl"],
   },
@@ -541,13 +386,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: Theme.spacing.md,
   },
-  summaryIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: Theme.borderRadius.xl,
-    justifyContent: "center",
-    alignItems: "center",
-  },
   trendBadge: {
     borderRadius: Theme.borderRadius.xl,
     paddingHorizontal: Theme.spacing.sm,
@@ -568,58 +406,22 @@ const styles = StyleSheet.create({
     color: Theme.colors.textMuted,
     fontWeight: Theme.typography.fontWeight.medium,
   },
-  quickActions: {
-    flexDirection: "row",
+  activitiesSection: {
+    paddingHorizontal: Theme.spacing.xl,
+    marginBottom: Theme.spacing["2xl"],
+  },
+  activitiesList: {
     gap: Theme.spacing.md,
   },
-  quickActionButton: {
-    flex: 1,
+  activityItemWrapper: {
     backgroundColor: Theme.colors.surface,
     borderRadius: Theme.borderRadius.xl,
-    paddingVertical: Theme.spacing.lg,
-    alignItems: "center",
-    gap: Theme.spacing.sm,
-    ...Theme.shadows.md,
-  },
-  quickActionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  quickActionText: {
-    fontSize: Theme.typography.fontSize.sm,
-    fontWeight: Theme.typography.fontWeight.semibold,
-    color: Theme.colors.text,
-  },
-  activityHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Theme.spacing.lg,
-  },
-  viewAllButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  viewAllText: {
-    fontSize: Theme.typography.fontSize.sm,
-    fontWeight: Theme.typography.fontWeight.medium,
-    color: Theme.colors.primary,
-  },
-  activityList: {
-    gap: Theme.spacing.md,
+    padding: Theme.spacing.lg,
+    ...Theme.shadows.sm,
   },
   activityItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Theme.colors.surface,
-    borderRadius: Theme.borderRadius.xl,
-    padding: Theme.spacing.lg,
-    gap: Theme.spacing.md,
-    ...Theme.shadows.sm,
   },
   activityAvatar: {
     width: 40,
@@ -628,8 +430,9 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.surfacePressed,
     justifyContent: "center",
     alignItems: "center",
+    marginRight: Theme.spacing.md,
   },
-  avatarText: {
+  activityAvatarText: {
     fontSize: Theme.typography.fontSize.base,
   },
   activityContent: {
@@ -640,7 +443,7 @@ const styles = StyleSheet.create({
     color: Theme.colors.text,
     lineHeight: 20,
   },
-  activityUser: {
+  activityUserName: {
     fontWeight: Theme.typography.fontWeight.semibold,
   },
   activityDetails: {
@@ -657,5 +460,29 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
+  },
+  logoutContainer: {
+    paddingHorizontal: Theme.spacing.xl,
+    paddingTop: Theme.spacing.xl,
+    paddingBottom: Theme.spacing.xl,
+    marginTop: Theme.spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
+  },
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FEF2F2",
+    borderRadius: Theme.borderRadius.xl,
+    paddingVertical: Theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  logoutText: {
+    color: "#EF4444",
+    fontSize: Theme.typography.fontSize.base,
+    fontWeight: Theme.typography.fontWeight.semibold,
+    marginLeft: Theme.spacing.sm,
   },
 });

@@ -21,30 +21,67 @@ export default function Navigation() {
 
         // Tab bar styling
         tabBarStyle: {
-          backgroundColor: AppColors.background,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-          borderTopWidth: 0,
+          backgroundColor: "rgba(255, 255, 255, 0.95)",
+          borderTopLeftRadius: 32,
+          borderTopRightRadius: 32,
+          borderTopWidth: 1,
+          borderTopColor: "rgba(255, 255, 255, 0.15)",
+          borderLeftWidth: 1,
+          borderRightWidth: 1,
+          borderLeftColor: "rgba(255, 255, 255, 0.1)",
+          borderRightColor: "rgba(255, 255, 255, 0.1)",
           height: Platform.OS === "ios" ? 88 : 68,
           paddingBottom: Platform.OS === "ios" ? 28 : 8,
           paddingTop: 12,
           paddingHorizontal: 16,
-          elevation: 12,
+          elevation: 20,
           shadowColor: AppColors.shadow,
           shadowOffset: {
             width: 0,
-            height: -4,
+            height: -12,
           },
-          shadowOpacity: 0.15,
-          shadowRadius: 12,
+          shadowOpacity: 0.3,
+          shadowRadius: 20,
           position: "absolute",
+          // Add 3D effect with multiple shadows and curved corners
+          ...Platform.select({
+            ios: {
+              shadowColor: AppColors.shadow,
+              shadowOffset: { width: 0, height: -12 },
+              shadowOpacity: 0.3,
+              shadowRadius: 20,
+              // Add inner shadow for curved corners
+              borderTopLeftRadius: 32,
+              borderTopRightRadius: 32,
+            },
+            android: {
+              elevation: 20,
+              borderTopLeftRadius: 32,
+              borderTopRightRadius: 32,
+            },
+          }),
         },
 
         // Tab bar item styling
         tabBarItemStyle: {
-          borderRadius: 16,
-          marginHorizontal: 4,
-          paddingVertical: 4,
+          borderRadius: 20,
+          marginHorizontal: 6,
+          paddingVertical: 6,
+          paddingHorizontal: 8,
+          // Add 3D effect to individual tabs with curved corners
+          ...Platform.select({
+            ios: {
+              shadowColor: AppColors.shadow,
+              shadowOffset: { width: 0, height: 3 },
+              shadowOpacity: 0.15,
+              shadowRadius: 6,
+              backgroundColor: "rgba(255, 255, 255, 0.05)",
+            },
+            android: {
+              elevation: 6,
+              backgroundColor: "rgba(255, 255, 255, 0.05)",
+            },
+          }),
         },
 
         // Label styling
@@ -100,8 +137,26 @@ export default function Navigation() {
               size={24}
               color={color}
               style={{
-                transform: [{ scale: focused ? 1.05 : 1 }],
-                opacity: focused ? 1 : 0.6,
+                transform: [{ scale: focused ? 1.1 : 1 }],
+                opacity: focused ? 1 : 0.7,
+                // Add enhanced 3D effect to icons with curved appearance
+                ...Platform.select({
+                  ios: {
+                    shadowColor: focused ? AppColors.primary : "transparent",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: focused ? 0.4 : 0,
+                    shadowRadius: 4,
+                    // Add subtle glow effect for focused state
+                    textShadowColor: focused
+                      ? AppColors.primary
+                      : "transparent",
+                    textShadowOffset: { width: 0, height: 1 },
+                    textShadowRadius: focused ? 3 : 0,
+                  },
+                  android: {
+                    elevation: focused ? 4 : 0,
+                  },
+                }),
               }}
             />
           );

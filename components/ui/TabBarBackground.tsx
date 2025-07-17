@@ -1,5 +1,6 @@
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
+import { AppColors } from "../../constants/Colors";
 // If you have react-native-linear-gradient installed, you can use it for a better effect:
 // import LinearGradient from 'react-native-linear-gradient';
 
@@ -20,8 +21,34 @@ export default function VibrantTabBarBackground() {
 const styles = StyleSheet.create({
   gradient: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "linear-gradient(90deg, #43cea2 0%, #185a9d 100%)", // fallback for web/Android
-    // If LinearGradient is used, this will be replaced
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    // Add 3D effect with multiple layers and curved corners for cloudy white theme
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(0, 0, 0, 0.08)',
+        shadowOffset: { width: 0, height: -6 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        // Add inner shadow effect for curved corners
+        borderTopWidth: 1,
+        borderTopColor: "rgba(255, 255, 255, 0.25)",
+        borderLeftWidth: 1,
+        borderRightWidth: 1,
+        borderLeftColor: "rgba(255, 255, 255, 0.12)",
+        borderRightColor: "rgba(255, 255, 255, 0.12)",
+      },
+      android: {
+        elevation: 12,
+        borderTopWidth: 1,
+        borderTopColor: "rgba(255, 255, 255, 0.25)",
+        borderLeftWidth: 1,
+        borderRightWidth: 1,
+        borderLeftColor: "rgba(255, 255, 255, 0.12)",
+        borderRightColor: "rgba(255, 255, 255, 0.12)",
+      },
+    }),
   },
 });
 
