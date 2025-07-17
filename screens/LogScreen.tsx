@@ -1,10 +1,27 @@
-import React from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import React, { useEffect } from "react";
+import { BackHandler, ScrollView, StyleSheet, Text, View } from "react-native";
 import { AppColors } from "../constants/Colors";
 import { useStock } from "../hooks/useStock";
 
 export default function LogScreen() {
   const { activities } = useStock();
+  const router = useRouter();
+
+  // Handle Android back button
+  useEffect(() => {
+    const backAction = () => {
+      router.back();
+      return true; // Prevent default back behavior
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [router]);
 
   const formatLogDate = (date: Date) => {
     return date.toLocaleString("en-US", {

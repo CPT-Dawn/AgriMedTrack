@@ -1,9 +1,16 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
   Animated,
+  BackHandler,
   FlatList,
   Platform,
   StatusBar,
@@ -68,6 +75,24 @@ export default function StockScreen() {
   const paginatedBatchLogs = useMemo(() => {
     return batchLogs.slice(0, logPage * LOGS_PER_PAGE);
   }, [batchLogs, logPage]);
+
+  // Handle Android back button
+  useEffect(() => {
+    const backAction = () => {
+      if (currentView === "logs" || currentView === "add") {
+        handleBackToStock();
+        return true; // Prevent default back behavior
+      }
+      return false; // Allow default back behavior
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [currentView]);
 
   // Handle left bubble press (Activity Log)
   const handleLogBubblePress = () => {

@@ -1,8 +1,9 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Animated,
+  BackHandler,
   Dimensions,
   FlatList,
   LayoutAnimation,
@@ -182,6 +183,24 @@ export default function SalesScreen() {
       UIManager.setLayoutAnimationEnabledExperimental(true);
     }
   }, []);
+
+  // Handle Android back button
+  useEffect(() => {
+    const backAction = () => {
+      if (currentView === "add") {
+        handleBackToSales();
+        return true; // Prevent default back behavior
+      }
+      return false; // Allow default back behavior
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [currentView]);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const bubbleScale = useRef(new Animated.Value(1)).current;
@@ -1112,32 +1131,43 @@ export default function SalesScreen() {
       <View style={{ flex: 1, backgroundColor: Theme.colors.background }}>
         {/* Sticky Header */}
         <View
-          style={{
-            backgroundColor: Theme.colors.background,
-            paddingTop: insets.top,
-            paddingHorizontal: Theme.spacing.xl,
-            flexDirection: "row",
-            alignItems: "center",
-            paddingBottom: Theme.spacing.xs,
-          }}
+          style={[
+            styles.header,
+            {
+              paddingTop:
+                Platform.OS === "ios" ? 16 : (StatusBar.currentHeight || 0) + 4,
+              paddingBottom: Theme.spacing.sm,
+            },
+          ]}
         >
-          <TouchableOpacity
-            onPress={handleBackToSales}
-            accessibilityLabel="Back to sales"
-            style={{ padding: 4, marginRight: Theme.spacing.sm }}
-          >
-            <MaterialIcons
-              name="arrow-back"
-              size={28}
-              color={Theme.colors.text}
-            />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>New Sale</Text>
+          <View style={styles.headerTitleContainer}>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <TouchableOpacity
+                onPress={handleBackToSales}
+                accessibilityLabel="Back to sales"
+                style={styles.backButton}
+              >
+                <MaterialIcons
+                  name="arrow-back"
+                  size={24}
+                  color={Theme.colors.text}
+                />
+              </TouchableOpacity>
+              <Text
+                style={[
+                  styles.headerTitle,
+                  { fontSize: Theme.typography.fontSize.lg },
+                ]}
+              >
+                New Sale
+              </Text>
+            </View>
+          </View>
         </View>
         {/* Input Row */}
         <KeyboardAwareScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ padding: 20 }}
+          contentContainerStyle={{ padding: 12 }}
           enableOnAndroid
           extraScrollHeight={100}
           keyboardShouldPersistTaps="handled"
@@ -1650,9 +1680,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   header: {
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight || 0 : 0,
+    paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0 + 20,
     paddingHorizontal: Theme.spacing.xl,
-    paddingBottom: Theme.spacing.xs,
+    paddingBottom: Theme.spacing.lg,
     backgroundColor: Theme.colors.background,
     zIndex: 10,
   },
