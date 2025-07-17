@@ -1,6 +1,7 @@
 import { getUser } from "@/services/userService";
 import { User } from "@/types/user";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 
 export function useUser() {
@@ -54,8 +55,10 @@ export function useUser() {
     loadUserData();
   }, [loadUserData]);
 
-  const logout = async () => {
+    const logout = async () => {
     try {
+      console.log("Logging out...");
+      
       // Clear AsyncStorage first
       await AsyncStorage.multiRemove([
         "selectedUser",
@@ -66,6 +69,18 @@ export function useUser() {
       setCurrentUser(null);
       setHasCompletedOnboarding(false);
       setLoading(false);
+      
+      // Navigate to root which should show the login screen
+      console.log("Navigating to login screen...");
+      router.replace("/");
+      
+      // Force reload the app to ensure clean state (as a fallback)
+      setTimeout(() => {
+        if (typeof window !== "undefined") {
+          console.log("Reloading app...");
+          window.location.reload();
+        }
+      }, 300);
     } catch (error) {
       console.error("Error logging out:", error);
     }

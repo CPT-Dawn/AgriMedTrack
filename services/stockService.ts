@@ -160,6 +160,7 @@ export const getPackagingSizes = async (): Promise<PackagingSize[]> => {
         id: doc.id,
         label: data.label,
         unit: data.unit,
+        value: data.value || "",
         createdAt: convertTimestampToDate(data.createdAt),
       };
     });
@@ -170,32 +171,76 @@ export const getPackagingSizes = async (): Promise<PackagingSize[]> => {
 };
 
 export const createPackagingSize = async (
-  label: string
+  label: string,
+  sizeValue?: string,
+  unit?: string
 ): Promise<PackagingSize> => {
   try {
+    // If we have explicit size value and unit, use them
+    if (sizeValue && unit) {
+      const combinedLabel = `${sizeValue} ${unit}`;
+
+      const newSize = {
+        label: combinedLabel,
+        unit,
+        value: sizeValue,
+        createdAt: serverTimestamp(),
+      };
+
+      const docRef = await addDoc(packagingSizesCollection, newSize);
+
+      return {
+        id: docRef.id,
+        label: combinedLabel,
+        unit,
+        value: sizeValue,
+        createdAt: new Date(),
+      };
+    }
+
+    // Otherwise, try to extract unit from label (legacy approach)
     // Extract unit from label (e.g., "10mg tablet" -> "tablet")
     // This handles both combined format (10mg) and separate format where label might just be a unit
-    let unit = "unit";
+    let extractedUnit = "unit";
+    let extractedValue = "";
 
-    if (label.includes("tablet")) unit = "tablet";
-    else if (label.includes("ml")) unit = "ml";
-    else if (label.includes("vial")) unit = "vial";
-    else if (label.includes("mg")) unit = "mg";
-    else if (label.includes("g") && !label.includes("mg")) unit = "g";
-    else if (label.includes("kg")) unit = "kg";
-    else if (label.includes("L")) unit = "L";
-    // If label is just a unit without a value, use it directly
-    else if (
-      ["tablet", "ml", "vial", "mg", "g", "kg", "L", "unit"].includes(
-        label.toLowerCase()
-      )
-    ) {
-      unit = label.toLowerCase();
+    // Try to parse the label into a value and unit
+    const match = label.match(/^([\d.]+)\s*([a-zA-Z]+)$/);
+    if (match) {
+      extractedValue = match[1];
+      extractedUnit = match[2];
+    } else if (!isNaN(parseFloat(label))) {
+      // If it's just a number
+      extractedValue = label;
+    } else {
+      // If it's just a unit
+      extractedUnit = label;
+    }
+
+    // Fallback checks for common units
+    if (!extractedUnit || extractedUnit === "unit") {
+      if (label.includes("tablet")) extractedUnit = "tablet";
+      else if (label.includes("ml")) extractedUnit = "ml";
+      else if (label.includes("vial")) extractedUnit = "vial";
+      else if (label.includes("mg")) extractedUnit = "mg";
+      else if (label.includes("g") && !label.includes("mg"))
+        extractedUnit = "g";
+      else if (label.includes("kg")) extractedUnit = "kg";
+      else if (label.includes("L")) extractedUnit = "L";
+      // If label is just a unit without a value, use it directly
+      else if (
+        ["tablet", "ml", "vial", "mg", "g", "kg", "L", "unit"].includes(
+          label.toLowerCase()
+        )
+      ) {
+        extractedUnit = label.toLowerCase();
+      }
     }
 
     const newSize = {
       label,
-      unit,
+      unit: extractedUnit,
+      value: extractedValue,
       createdAt: serverTimestamp(),
     };
 
@@ -204,7 +249,8 @@ export const createPackagingSize = async (
     return {
       id: docRef.id,
       label,
-      unit,
+      unit: extractedUnit,
+      value: extractedValue,
       createdAt: new Date(),
     };
   } catch (error) {
@@ -378,18 +424,42 @@ export const addStockEntryBatch = async (
   userId: string = "current-user"
 ): Promise<void> => {
   try {
+    // Get user information
+    let userName = "User";
+    let userAvatar = "";
+
+    // Try to get user information if we have a valid userId
+    if (userId && userId !== "unknown-user" && userId !== "current-user") {
+      try {
+        const userDoc = await getDoc(doc(db, "users", userId));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          userName = userData.name || "User";
+          userAvatar = userData.avatar || "";
+        }
+      } catch (userError) {
+        console.error("Error fetching user data:", userError);
+      }
+    }
+
     // 1. Create batch document
     const batchData: {
       addedBy: string;
       addedByName: string;
+      addedByAvatar?: string;
       addedAt: any;
       billUrl?: string;
       billThumbnail?: string;
     } = {
       addedBy: userId,
-      addedByName: "User", // Replace with actual user name when user management is implemented
+      addedByName: userName,
       addedAt: serverTimestamp(),
     };
+
+    // Add avatar if available
+    if (userAvatar) {
+      batchData.addedByAvatar = userAvatar;
+    }
 
     // Upload bill image if provided
     if (formData.billImage) {
@@ -429,13 +499,18 @@ export const addStockEntryBatch = async (
       }
 
       if (!sizeId) {
-        // Create a combined label if we have separate size value and unit
-        const combinedLabel =
-          item.sizeValue && item.unit
-            ? `${item.sizeValue} ${item.unit}`
-            : item.sizeLabel;
-
-        const size = await createPackagingSize(combinedLabel);
+        // Create a size entry with separate value and unit
+        let size;
+        if (item.sizeValue && item.unit) {
+          // Use the new approach with separate value and unit
+          size = await createPackagingSize("", item.sizeValue, item.unit);
+        } else if (item.sizeLabel) {
+          // Fallback to the legacy approach
+          size = await createPackagingSize(item.sizeLabel);
+        } else {
+          // Create a default size if nothing is provided
+          size = await createPackagingSize("unit");
+        }
         sizeId = size.id;
       }
 
@@ -455,6 +530,8 @@ export const addStockEntryBatch = async (
         notes: item.notes || "",
         batchId,
         updatedBy: userId,
+        updatedByName: userName,
+        updatedByAvatar: userAvatar || "",
         updatedAt: serverTimestamp(),
         createdAt: serverTimestamp(),
       };
@@ -476,7 +553,8 @@ export const addStockEntryBatch = async (
         sellPrice: item.sellPrice ? parseFloat(item.sellPrice) : null,
         batchId,
         updatedBy: userId,
-        updatedByName: "User", // Replace with actual user name
+        updatedByName: userName,
+        updatedByAvatar: userAvatar || "",
         timestamp: serverTimestamp(),
       };
 

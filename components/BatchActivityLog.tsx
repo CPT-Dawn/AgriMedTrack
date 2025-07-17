@@ -148,11 +148,19 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
           <View style={styles.batchCard}>
             <View style={styles.batchHeader}>
               <View style={styles.batchHeaderContent}>
-                {/* User avatar instead of inventory icon */}
+                {/* User avatar */}
                 <View style={styles.userAvatar}>
-                  <Text style={styles.userInitial}>
-                    {(batch.addedByName || "User").charAt(0).toUpperCase()}
-                  </Text>
+                  {batch.addedByAvatar ? (
+                    <Image
+                      source={{ uri: batch.addedByAvatar }}
+                      style={styles.avatarImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text style={styles.userInitial}>
+                      {(batch.addedByName || "User").charAt(0).toUpperCase()}
+                    </Text>
+                  )}
                 </View>
                 <View style={styles.batchHeaderText}>
                   <Text style={styles.batchTitle}>
@@ -478,6 +486,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginRight: 10,
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
   userInitial: {
     color: "#FFFFFF",

@@ -1,17 +1,24 @@
 export interface Product {
   id: string;
   name: string;
+  category?: string;
+  description?: string;
+  createdAt?: Date;
 }
 
 export interface Supplier {
   id: string;
   name: string;
+  contactInfo?: any;
+  createdAt?: Date;
 }
 
 export interface PackagingSize {
   id: string;
   label: string;
   unit: string;
+  value?: string;
+  createdAt?: Date;
 }
 
 export interface StockEntry {
@@ -26,6 +33,8 @@ export interface StockEntry {
   notes?: string;
   batchId?: string; // Reference to the batch this entry belongs to
   updatedBy: string; // profile/user ID
+  updatedByName?: string;
+  updatedByAvatar?: string;
   updatedAt: Date;
   createdAt: Date;
 }
@@ -60,6 +69,7 @@ export interface StockActivity {
   batchId?: string; // Reference to the batch this activity belongs to
   updatedBy: string;
   updatedByName?: string;
+  updatedByAvatar?: string;
   timestamp: Date;
 }
 
@@ -68,6 +78,7 @@ export interface StockBatch {
   id: string;
   addedBy: string;
   addedByName?: string;
+  addedByAvatar?: string;
   addedAt: Date;
   billUrl?: string;
   billThumbnail?: string;

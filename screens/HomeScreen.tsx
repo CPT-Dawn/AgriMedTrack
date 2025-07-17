@@ -1,7 +1,7 @@
 import { Theme } from "@/constants/Theme";
 import { useUser } from "@/hooks/useUser";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useRouter } from "expo-router";
+import { router, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface SummaryCard {
   id: string;
@@ -73,7 +74,35 @@ export default function HomeScreen() {
         text: "Logout",
         style: "destructive",
         onPress: async () => {
-          await logout();
+          try {
+            // First, clear AsyncStorage directly to ensure it's done
+            await AsyncStorage.multiRemove([
+              "selectedUser",
+              "hasCompletedOnboarding",
+            ]);
+            
+            console.log("AsyncStorage cleared");
+            
+            // Then call the logout function which will update state
+            await logout();
+            
+            // Force navigation to root
+            console.log("Navigating to root");
+            router.replace("/");
+            
+            // Force app reload as a fallback
+            setTimeout(() => {
+              if (typeof window !== 'undefined') {
+                console.log("Reloading app");
+                window.location.reload();
+              }
+            }, 300);
+          } catch (error) {
+            console.error("Error during logout:", error);
+            
+            // Even if there's an error, try to navigate back to login
+            router.replace("/");
+          }
         },
       },
     ]);

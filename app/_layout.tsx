@@ -8,6 +8,7 @@ import {
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -30,10 +31,16 @@ const LovelyWhiteTheme = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const { currentUser, hasCompletedOnboarding, loading } = useUser();
+  const { currentUser, hasCompletedOnboarding, loading, loadUserData } =
+    useUser();
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
+
+  // Force refresh user data on mount
+  useEffect(() => {
+    loadUserData();
+  }, []);
 
   // Add debugging
   console.log("RootLayout state:", {
@@ -50,7 +57,7 @@ export default function RootLayout() {
   // Show onboarding if not completed and not loading
   if (!hasCompletedOnboarding && !loading) {
     console.log("Showing FirstTimeLoginScreen");
-    return <FirstTimeLoginScreen key="login" />;
+    return <FirstTimeLoginScreen key={`login-${Date.now()}`} />;
   }
 
   // Show main app if onboarding is completed or still loading (to avoid flash)

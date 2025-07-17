@@ -1,7 +1,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as ImagePicker from "expo-image-picker";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +18,7 @@ import {
 } from "react-native";
 import { AppColors } from "../constants/Colors";
 import { Theme } from "../constants/Theme";
+import { useUser } from "../hooks/useUser";
 import { BatchEntryFormData, StockEntryFormData } from "../types/stock";
 import { CreatableDropdown } from "./CreatableDropdown";
 
@@ -67,6 +68,7 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
   getOrCreateSize,
   initialData,
 }) => {
+  const { currentUser } = useUser();
   const [invoiceDate, setInvoiceDate] = useState(new Date());
   const [form, setForm] = useState<StockEntryFormData>({
     productId: "",
@@ -111,6 +113,53 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
   const [stockTime, setStockTime] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+
+  // Extract unique size values and units from sizes
+  const [sizeValues, setSizeValues] = useState<{ id: string; label: string }[]>(
+    []
+  );
+  const [unitValues, setUnitValues] = useState<{ id: string; label: string }[]>(
+    []
+  );
+
+  // Extract size values and units from the packaging sizes on component mount
+  useEffect(() => {
+    // Extract unique size values and units
+    const extractedSizeValues = new Set<string>();
+    const extractedUnits = new Set<string>();
+
+    sizes.forEach((size) => {
+      // Try to split the label into value and unit
+      const match = size.label.match(/^([\d.]+)\s*([a-zA-Z]+)$/);
+      if (match) {
+        extractedSizeValues.add(match[1]);
+        extractedUnits.add(match[2]);
+      } else if (!isNaN(parseFloat(size.label))) {
+        // If it's just a number
+        extractedSizeValues.add(size.label);
+      } else {
+        // If it's just a unit
+        extractedUnits.add(size.label);
+      }
+
+      // Also add the unit from the size object if it exists
+      if (size.unit) {
+        extractedUnits.add(size.unit);
+      }
+    });
+
+    // Convert to array of objects for the dropdown
+    const sizeValueArray = Array.from(extractedSizeValues)
+      .sort((a, b) => parseFloat(a) - parseFloat(b))
+      .map((value) => ({ id: value, label: value }));
+
+    const unitArray = Array.from(extractedUnits)
+      .sort()
+      .map((unit) => ({ id: unit, label: unit }));
+
+    setSizeValues(sizeValueArray);
+    setUnitValues(unitArray);
+  }, [sizes]);
 
   const handleImagePicker = async () => {
     const permissionResult =
@@ -213,6 +262,83 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
     );
   };
 
+  // Handle size value selection
+  const handleSizeValueSelect = (
+    index: number,
+    option: { id: string; label: string }
+  ) => {
+    updateProduct(index, { sizeValue: option.label });
+    updateCombinedSizeLabel(index, option.label, items[index].unit);
+  };
+
+  // Handle unit selection
+  const handleUnitSelect = (
+    index: number,
+    option: { id: string; label: string }
+  ) => {
+    updateProduct(index, { unit: option.label });
+    updateCombinedSizeLabel(index, items[index].sizeValue, option.label);
+  };
+
+  // Update the combined size label
+  const updateCombinedSizeLabel = (
+    index: number,
+    sizeValue: string,
+    unit: string
+  ) => {
+    if (sizeValue && unit) {
+      const combinedLabel = `${sizeValue} ${unit}`;
+      updateProduct(index, {
+        sizeLabel: combinedLabel,
+        // We'll find or create the size ID when submitting
+        sizeId: "",
+      });
+    }
+  };
+
+  // Add a new function to create a size with separate value and unit
+  const getOrCreateSizeWithValueAndUnit = async (
+    index: number,
+    sizeValue: string,
+    unit: string
+  ): Promise<void> => {
+    try {
+      // Create the combined label
+      const combinedLabel = `${sizeValue} ${unit}`;
+
+      // Check if this size already exists
+      const existingSize = sizes.find(
+        (s) => s.label.toLowerCase() === combinedLabel.toLowerCase()
+      );
+
+      if (existingSize) {
+        // Use existing size
+        updateProduct(index, {
+          sizeId: existingSize.id,
+          sizeLabel: existingSize.label,
+          sizeValue,
+          unit,
+        });
+        return;
+      }
+
+      // Create a new size with the separate value and unit
+      const newSize = await getOrCreateSize(combinedLabel);
+
+      // Update the product with the new size
+      updateProduct(index, {
+        sizeId: newSize.id,
+        sizeLabel: newSize.label,
+        sizeValue,
+        unit,
+      });
+    } catch (error) {
+      console.error("Error creating size:", error);
+      Alert.alert("Error", "Failed to create new size");
+    }
+  };
+
+  // Update the handleSubmit function to ensure size and unit are properly combined
   const handleSubmit = async () => {
     // Validate all items
     let valid = true;
@@ -220,6 +346,12 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
+
+      // Ensure sizeLabel is set for each item
+      if (item.sizeValue && item.unit && !item.sizeLabel) {
+        item.sizeLabel = `${item.sizeValue} ${item.unit}`;
+      }
+
       if (
         !item.productName.trim() ||
         !item.supplierName.trim() ||
@@ -242,13 +374,24 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
       );
       return;
     }
+
     try {
       setSubmitting(true);
+
+      // Process each item to ensure size IDs are set
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.sizeValue && item.unit && !item.sizeId) {
+          await getOrCreateSizeWithValueAndUnit(i, item.sizeValue, item.unit);
+        }
+      }
+
       const batchData: BatchEntryFormData = {
-        addedBy: "current-user",
+        addedBy: currentUser?.id || "unknown-user",
         billImage: billImage || undefined,
         items,
       };
+
       await onSubmit(batchData);
       setItems([
         {
@@ -280,6 +423,12 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
+
+      // Ensure sizeLabel is set for each item
+      if (item.sizeValue && item.unit && !item.sizeLabel) {
+        item.sizeLabel = `${item.sizeValue} ${item.unit}`;
+      }
+
       if (
         !item.productName.trim() ||
         !item.supplierName.trim() ||
@@ -303,21 +452,21 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
       return;
     }
 
-    // Update sizeLabel based on sizeValue and unit for each item
-    const updatedItems = items.map((item) => ({
-      ...item,
-      sizeLabel:
-        item.sizeValue && item.unit
-          ? `${item.sizeValue} ${item.unit}`
-          : item.sizeLabel,
-    }));
-
     try {
       setSubmitting(true);
+
+      // Process each item to ensure size IDs are set
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.sizeValue && item.unit && !item.sizeId) {
+          await getOrCreateSizeWithValueAndUnit(i, item.sizeValue, item.unit);
+        }
+      }
+
       const batchData: BatchEntryFormData = {
-        addedBy: "current-user",
+        addedBy: currentUser?.id || "unknown-user",
         billImage: billImage || undefined,
-        items: updatedItems,
+        items,
       };
       await onSubmit(batchData);
 
@@ -452,51 +601,46 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
           </View>
         </View>
 
-        {/* Size Value and Unit - 2 fields in one row */}
+        {/* Replace the Size Value and Unit fields with CreatableDropdown */}
         <View style={styles.inputRow}>
           <View style={[styles.inputGroup, styles.flex1]}>
             <Text style={styles.inputLabel}>
-              Size Value <Text style={styles.requiredAsterisk}>*</Text>
+              Size <Text style={styles.requiredAsterisk}>*</Text>
             </Text>
-            <View style={styles.inputContainer}>
-              <MaterialIcons
-                name="straighten"
-                size={20}
-                color={colors.gray[400]}
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={[styles.textInput, styles.inputWithIcon]}
-                value={item.sizeValue}
-                onChangeText={(value) =>
-                  updateProduct(index, { sizeValue: value })
+            <CreatableDropdown
+              options={sizeValues}
+              value={item.sizeValue}
+              placeholder="Select or create size"
+              onSelect={(option) => handleSizeValueSelect(index, option)}
+              onCreate={async (newValue) => {
+                if (isNaN(parseFloat(newValue))) {
+                  Alert.alert("Invalid Size", "Size value must be a number");
+                  throw new Error("Invalid size value");
                 }
-                placeholder="10, 20, 500"
-                placeholderTextColor={colors.gray[400]}
-                keyboardType="numeric"
-              />
-            </View>
+                updateProduct(index, { sizeValue: newValue });
+                updateCombinedSizeLabel(index, newValue, item.unit);
+                return { id: newValue, label: newValue };
+              }}
+              createLabel="Create size"
+            />
           </View>
 
           <View style={[styles.inputGroup, styles.flex1]}>
             <Text style={styles.inputLabel}>
               Unit <Text style={styles.requiredAsterisk}>*</Text>
             </Text>
-            <View style={styles.inputContainer}>
-              <MaterialIcons
-                name="category"
-                size={20}
-                color={colors.gray[400]}
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={[styles.textInput, styles.inputWithIcon]}
-                value={item.unit}
-                onChangeText={(value) => updateProduct(index, { unit: value })}
-                placeholder="mg, g, kg, ml, tablet"
-                placeholderTextColor={colors.gray[400]}
-              />
-            </View>
+            <CreatableDropdown
+              options={unitValues}
+              value={item.unit}
+              placeholder="Select or create unit"
+              onSelect={(option) => handleUnitSelect(index, option)}
+              onCreate={async (newUnit) => {
+                updateProduct(index, { unit: newUnit });
+                updateCombinedSizeLabel(index, item.sizeValue, newUnit);
+                return { id: newUnit, label: newUnit };
+              }}
+              createLabel="Create unit"
+            />
           </View>
         </View>
 

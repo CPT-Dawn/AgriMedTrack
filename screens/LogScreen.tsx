@@ -1,6 +1,13 @@
 import { useRouter } from "expo-router";
 import React, { useEffect } from "react";
-import { BackHandler, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  BackHandler,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { AppColors } from "../constants/Colors";
 import { useStock } from "../hooks/useStock";
 
@@ -34,18 +41,44 @@ export default function LogScreen() {
 
   const renderActivityItem = (activity: (typeof activities)[0]) => (
     <View key={activity.id} style={styles.activityLogItem}>
-      <View style={styles.activityLogRow}>
-        <Text style={styles.activityLogAction}>
-          {activity.action.toUpperCase()}
+      <View style={styles.activityHeader}>
+        {/* User avatar */}
+        <View style={styles.userAvatar}>
+          {activity.updatedByAvatar ? (
+            <Image
+              source={{ uri: activity.updatedByAvatar }}
+              style={styles.avatarImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <Text style={styles.userInitial}>
+              {(activity.updatedByName || "User").charAt(0).toUpperCase()}
+            </Text>
+          )}
+        </View>
+
+        {/* User name and action */}
+        <View style={styles.userActionContainer}>
+          <Text style={styles.userName}>
+            {activity.updatedByName || "User"}
+          </Text>
+          <Text style={styles.actionText}>
+            {activity.action.toLowerCase()} stock
+          </Text>
+        </View>
+
+        {/* Date */}
+        <Text style={styles.activityLogDate}>
+          {formatLogDate(activity.timestamp)}
         </Text>
+      </View>
+
+      <View style={styles.activityLogRow}>
         <Text style={styles.activityLogProduct}>{activity.productName}</Text>
         <Text style={styles.activityLogSupplier}>{activity.supplierName}</Text>
         <Text style={styles.activityLogPackaging}>{activity.sizeName}</Text>
         <Text style={styles.activityLogQty}>{activity.quantity}</Text>
       </View>
-      <Text style={styles.activityLogDate}>
-        {formatLogDate(activity.timestamp)}
-      </Text>
     </View>
   );
 
@@ -91,6 +124,46 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     elevation: 1,
   },
+  activityHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+  },
+  userAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: AppColors.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  userInitial: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  userActionContainer: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+  },
+  actionText: {
+    fontSize: 12,
+    color: "#666",
+  },
   activityLogRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -133,7 +206,6 @@ const styles = StyleSheet.create({
   activityLogDate: {
     fontSize: 11,
     color: "#999",
-    marginTop: 2,
     textAlign: "right",
   },
   emptyActivityText: {

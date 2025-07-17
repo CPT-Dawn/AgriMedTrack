@@ -25,6 +25,7 @@ import { BatchActivityLog } from "../components/BatchActivityLog";
 import { StockCard } from "../components/StockCard";
 import { Theme } from "../constants/Theme";
 import { useStock } from "../hooks/useStock";
+import { useUser } from "../hooks/useUser";
 import {
   BatchEntryFormData,
   StockBatch,
@@ -50,6 +51,7 @@ export default function StockScreen() {
     stockEntries,
     batchLogs,
   } = useStock();
+  const { currentUser } = useUser();
 
   const [search, setSearch] = useState("");
   // const router = useRouter();
@@ -154,7 +156,7 @@ export default function StockScreen() {
   ) => {
     try {
       clearError();
-      await addStockEntry(formData);
+      await addStockEntry(formData, currentUser?.id || "unknown-user");
       setCurrentView("stock"); // Return to stock view after adding
       setEditBatch(null); // Clear edit state
       return Promise.resolve();
