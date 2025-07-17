@@ -16,7 +16,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { AppColors } from "../constants/Colors";
 import { Theme } from "../constants/Theme";
 import { useUser } from "../hooks/useUser";
 import { BatchEntryFormData, StockEntryFormData } from "../types/stock";
@@ -731,98 +730,76 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1, backgroundColor: colors.bg }}
+      style={{ flex: 1, backgroundColor: Theme.colors.background }}
     >
       <ScrollView
         ref={scrollViewRef}
         style={{ flex: 1 }}
         contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingTop: 0,
-          paddingBottom: 150,
+          paddingHorizontal: Theme.spacing.lg,
+          paddingTop: Theme.spacing.md,
+          paddingBottom: Theme.spacing["6xl"],
         }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Form Header */}
+        <View style={styles.formHeader}>
+          <Text style={styles.formTitle}>Add New Stock</Text>
+          <Text style={styles.formSubtitle}>
+            Enter details for new stock items
+          </Text>
+        </View>
+
         {/* Date & Time Section */}
-        <View style={{ flexDirection: "row", gap: 14, marginBottom: 18 }}>
-          {/* Date Field */}
-          <View style={{ flex: 1 }}>
-            <Text
-              style={{ fontWeight: "600", marginBottom: 4, color: colors.text }}
-            >
-              Date
-            </Text>
-            <TouchableOpacity
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                backgroundColor: Theme.colors.surface,
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: Theme.colors.border,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                shadowColor: "#000",
-                shadowOpacity: 0.04,
-                shadowRadius: 4,
-                elevation: 2,
-              }}
-              onPress={() => setShowDatePicker(true)}
-              accessibilityLabel="Select date"
-              activeOpacity={0.85}
-            >
-              <MaterialIcons
-                name="event"
-                size={20}
-                color={Theme.colors.primary}
-                style={{ marginRight: 8 }}
-              />
-              <Text style={{ color: Theme.colors.text, fontSize: 16, flex: 1 }}>
-                {stockDate ? stockDate.toLocaleDateString() : "Select"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          {/* Time Field */}
-          <View style={{ flex: 1 }}>
-            <Text
-              style={{ fontWeight: "600", marginBottom: 4, color: colors.text }}
-            >
-              Time
-            </Text>
-            <TouchableOpacity
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                backgroundColor: Theme.colors.surface,
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: Theme.colors.border,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                shadowColor: "#000",
-                shadowOpacity: 0.04,
-                shadowRadius: 4,
-                elevation: 2,
-              }}
-              onPress={() => setShowTimePicker(true)}
-              accessibilityLabel="Select time"
-              activeOpacity={0.85}
-            >
-              <MaterialIcons
-                name="schedule"
-                size={20}
-                color={Theme.colors.primary}
-                style={{ marginRight: 8 }}
-              />
-              <Text style={{ color: Theme.colors.text, fontSize: 16, flex: 1 }}>
-                {stockTime
-                  ? stockTime.toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-                  : "Select"}
-              </Text>
-            </TouchableOpacity>
+        <View style={styles.dateTimeSection}>
+          <Text style={styles.sectionLabel}>Stock Entry Date & Time</Text>
+          <View style={styles.dateTimeRow}>
+            {/* Date Field */}
+            <View style={styles.dateTimeField}>
+              <Text style={styles.inputLabel}>DATE</Text>
+              <TouchableOpacity
+                style={styles.dateTimeButton}
+                onPress={() => setShowDatePicker(true)}
+                accessibilityLabel="Select date"
+                activeOpacity={0.85}
+              >
+                <MaterialIcons
+                  name="event"
+                  size={20}
+                  color={Theme.colors.primary}
+                  style={styles.dateTimeIcon}
+                />
+                <Text style={styles.dateTimeText}>
+                  {stockDate ? stockDate.toLocaleDateString() : "Select Date"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Time Field */}
+            <View style={styles.dateTimeField}>
+              <Text style={styles.inputLabel}>TIME</Text>
+              <TouchableOpacity
+                style={styles.dateTimeButton}
+                onPress={() => setShowTimePicker(true)}
+                accessibilityLabel="Select time"
+                activeOpacity={0.85}
+              >
+                <MaterialIcons
+                  name="schedule"
+                  size={20}
+                  color={Theme.colors.primary}
+                  style={styles.dateTimeIcon}
+                />
+                <Text style={styles.dateTimeText}>
+                  {stockTime
+                    ? stockTime.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "Select Time"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
         {/* Date Picker Modal */}
@@ -850,6 +827,14 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
             is24Hour={true}
           />
         )}
+        {/* Product Section Header */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionLabel}>Product Information</Text>
+          <Text style={styles.sectionSubtitle}>
+            Add details for each product item
+          </Text>
+        </View>
+
         {/* Product Section (FlatList) */}
         <FlatList
           data={items}
@@ -863,11 +848,20 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
           onPress={addAnotherProduct}
           accessibilityLabel="Add another product"
         >
-          <Text style={styles.addProductText}>+ Add Another Product</Text>
+          <MaterialIcons
+            name="add-circle"
+            size={20}
+            color={Theme.colors.primary}
+          />
+          <Text style={styles.addProductText}>Add Another Product</Text>
         </TouchableOpacity>
         {/* Bill Image Upload */}
-        <View style={[styles.inputGroup, { marginTop: 20 }]}>
-          <Text style={styles.inputLabel}>Bill Photo</Text>
+        <View style={styles.billSection}>
+          <Text style={styles.sectionLabel}>Bill Image</Text>
+          <Text style={styles.sectionSubtitle}>
+            Upload an image of the purchase bill (optional)
+          </Text>
+
           {billImage ? (
             <View style={styles.imagePreviewContainer}>
               <Image
@@ -879,14 +873,22 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
                   style={styles.imageActionButton}
                   onPress={handleImagePicker}
                 >
-                  <MaterialIcons name="edit" size={16} color={colors.white} />
+                  <MaterialIcons
+                    name="edit"
+                    size={16}
+                    color={Theme.colors.white}
+                  />
                   <Text style={styles.imageActionText}>Retake</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.imageActionButton}
+                  style={[styles.imageActionButton, styles.deleteButton]}
                   onPress={removeBillImage}
                 >
-                  <MaterialIcons name="delete" size={16} color={colors.white} />
+                  <MaterialIcons
+                    name="delete"
+                    size={16}
+                    color={Theme.colors.white}
+                  />
                   <Text style={styles.imageActionText}>Remove</Text>
                 </TouchableOpacity>
               </View>
@@ -899,7 +901,7 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
               <MaterialIcons
                 name="add-a-photo"
                 size={24}
-                color={colors.primary}
+                color={Theme.colors.primary}
               />
               <Text style={styles.imageUploadText}>Upload Bill Photo</Text>
             </TouchableOpacity>
@@ -907,7 +909,7 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
         </View>
 
         {/* Confirm & Save Button */}
-        <View style={{}}>
+        <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[
               styles.primaryButton,
@@ -918,9 +920,16 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
             accessibilityLabel="Confirm and save stock"
           >
             {submitting ? (
-              <ActivityIndicator color={colors.white} size="small" />
+              <ActivityIndicator color={Theme.colors.white} size="small" />
             ) : (
-              <Text style={styles.primaryButtonText}>Confirm & Save</Text>
+              <>
+                <MaterialIcons
+                  name="save"
+                  size={20}
+                  color={Theme.colors.white}
+                />
+                <Text style={styles.primaryButtonText}>Confirm & Save</Text>
+              </>
             )}
           </TouchableOpacity>
         </View>
@@ -929,10 +938,11 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
   );
 };
 
+// Update the styles to match the app's design system
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
   },
   scrollView: {
     flex: 1,
@@ -945,20 +955,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: colors.white,
+    backgroundColor: Theme.colors.surface,
     padding: 16,
-    borderRadius: 16,
+    borderRadius: Theme.borderRadius["2xl"],
     marginBottom: 16,
-    shadowColor: colors.gray[900],
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    ...Theme.shadows.sm,
   },
   batchToggleLabel: {
     fontSize: 16,
     fontWeight: "600",
-    color: colors.text,
+    color: Theme.colors.text,
   },
   section: {
     marginBottom: 24,
@@ -966,7 +972,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: colors.text,
+    color: Theme.colors.text,
     marginBottom: 16,
   },
   inputGroup: {
@@ -975,35 +981,31 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 12,
     fontWeight: "700",
-    color: colors.gray[600],
+    color: Theme.colors.textSecondary,
     marginBottom: 8,
     textTransform: "uppercase",
     letterSpacing: 0.8,
   },
   textInput: {
-    backgroundColor: colors.white,
+    backgroundColor: Theme.colors.surface,
     borderWidth: 1.5,
-    borderColor: colors.gray[300],
-    borderRadius: 10,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.borderRadius.lg,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: colors.text,
-    shadowColor: colors.gray[900],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    color: Theme.colors.text,
+    ...Theme.shadows.sm,
   },
   textArea: {
     minHeight: 80,
     textAlignVertical: "top",
   },
   inputError: {
-    borderColor: AppColors.error,
+    borderColor: Theme.colors.error,
   },
   errorText: {
-    color: AppColors.error,
+    color: Theme.colors.error,
     fontSize: 12,
     marginTop: 4,
   },
@@ -1017,53 +1019,52 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.white,
+    backgroundColor: Theme.colors.surface,
     borderWidth: 1.5,
-    borderColor: colors.gray[300],
-    borderRadius: 10,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.borderRadius.lg,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    shadowColor: colors.gray[900],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
+    ...Theme.shadows.sm,
   },
   datePickerButton: {
-    backgroundColor: colors.white,
+    backgroundColor: Theme.colors.surface,
     borderWidth: 1,
-    borderColor: colors.gray[300],
-    borderRadius: 12,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.borderRadius.lg,
     paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    ...Theme.shadows.sm,
   },
   datePickerText: {
     fontSize: 16,
-    color: colors.text,
+    color: Theme.colors.text,
   },
   imageUploadButton: {
-    backgroundColor: colors.white,
+    backgroundColor: Theme.colors.surface,
     borderWidth: 2,
-    borderColor: colors.gray[300],
+    borderColor: Theme.colors.border,
     borderStyle: "dashed",
-    borderRadius: 12,
+    borderRadius: Theme.borderRadius.lg,
     paddingVertical: 24,
     alignItems: "center",
     justifyContent: "center",
+    ...Theme.shadows.sm,
   },
   imageUploadText: {
     marginTop: 8,
     fontSize: 16,
-    color: colors.primary,
+    color: Theme.colors.primary,
     fontWeight: "500",
   },
   imagePreviewContainer: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius.lg,
     overflow: "hidden",
+    ...Theme.shadows.sm,
   },
   imagePreview: {
     width: "100%",
@@ -1077,8 +1078,8 @@ const styles = StyleSheet.create({
   },
   imageActionButton: {
     flex: 1,
-    backgroundColor: colors.primary,
-    borderRadius: 8,
+    backgroundColor: Theme.colors.primary,
+    borderRadius: Theme.borderRadius.md,
     paddingVertical: 8,
     paddingHorizontal: 12,
     flexDirection: "row",
@@ -1087,7 +1088,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   imageActionText: {
-    color: colors.white,
+    color: Theme.colors.white,
     fontSize: 14,
     fontWeight: "500",
   },
@@ -1095,104 +1096,42 @@ const styles = StyleSheet.create({
     maxHeight: 300,
   },
   batchItemCard: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: colors.gray[900],
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  batchItemHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius.lg,
+    padding: 12,
     marginBottom: 8,
-  },
-  batchItemTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.primary,
-  },
-  removeItemButton: {
-    padding: 4,
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  batchItemContent: {
-    flex: 1,
-  },
-  batchItemProduct: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: colors.text,
-    marginBottom: 4,
-  },
-  batchItemDetails: {
-    fontSize: 14,
-    color: colors.gray[600],
-    marginBottom: 2,
-  },
-  batchItemPrices: {
-    fontSize: 12,
-    color: colors.secondary,
-    fontWeight: "500",
+    ...Theme.shadows.sm,
   },
   itemCard: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 18,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius["2xl"],
+    padding: 16,
     marginBottom: 16,
-    shadowColor: colors.gray[900],
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    // Add subtle gradient-like effect with border
-    borderTopWidth: 1,
-    borderTopColor: colors.gray[100],
-    borderLeftWidth: 1,
-    borderLeftColor: colors.gray[100],
-    borderRightWidth: 1,
-    borderRightColor: colors.gray[300],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[300],
+    ...Theme.shadows.sm,
   },
   itemHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   itemHeaderLeft: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
   },
   itemNumberBadge: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Theme.colors.primary,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
   },
   itemNumberText: {
-    color: colors.white,
+    color: Theme.colors.white,
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "600",
   },
   itemHeaderText: {
     flex: 1,
@@ -1200,11 +1139,11 @@ const styles = StyleSheet.create({
   itemTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: colors.text,
+    color: Theme.colors.text,
   },
   itemSubtitle: {
     fontSize: 12,
-    color: colors.gray[500],
+    color: Theme.colors.textSecondary,
     marginTop: 4,
     fontWeight: "500",
   },
@@ -1221,27 +1160,19 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 14,
     fontWeight: "600",
-    color: colors.gray[700],
+    color: Theme.colors.textSecondary,
     marginBottom: 12,
   },
   requiredAsterisk: {
-    color: AppColors.error,
+    color: Theme.colors.error,
   },
   dropdownContainer: {
-    backgroundColor: colors.white,
+    backgroundColor: Theme.colors.surface,
     borderWidth: 1.5,
-    borderColor: colors.gray[300],
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    shadowColor: colors.gray[900],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.borderRadius.lg,
+    ...Theme.shadows.sm,
+    overflow: "hidden",
   },
   inputWithIcon: {
     flex: 1,
@@ -1255,230 +1186,104 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 4,
   },
-  itemSummary: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.gray[50],
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 16,
-  },
-  itemSummaryText: {
-    fontSize: 14,
-    color: colors.gray[600],
-    marginLeft: 8,
-  },
-  profitIndicator: {
-    backgroundColor: colors.gray[100],
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    alignItems: "center",
-  },
-  profitText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.gray[700],
-  },
-  profitPositive: {
-    color: AppColors.success,
-  },
-  profitNegative: {
-    color: AppColors.error,
-  },
-  addItemButton: {
-    backgroundColor: colors.white,
+  addProductButton: {
+    backgroundColor: Theme.colors.surface,
     borderWidth: 2,
-    borderColor: colors.primary,
+    borderColor: Theme.colors.primary,
     borderStyle: "dashed",
-    borderRadius: 16,
+    borderRadius: Theme.borderRadius.lg,
     paddingVertical: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+    marginTop: 8,
+    marginBottom: 16,
   },
-  addItemText: {
+  addProductText: {
     fontSize: 16,
-    color: colors.primary,
+    color: Theme.colors.primary,
     fontWeight: "500",
   },
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.white,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.gray[200],
-  },
-  saveButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
+  primaryButton: {
+    backgroundColor: Theme.colors.primary,
+    borderRadius: Theme.borderRadius.lg,
     paddingVertical: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     minHeight: 56,
     gap: 8,
-  },
-  saveButtonDisabled: {
-    backgroundColor: colors.gray[300],
-  },
-  saveButtonText: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContent: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    margin: 20,
-    maxHeight: "80%",
-    width: "90%",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: colors.text,
-  },
-  modalBody: {
-    padding: 20,
-  },
-  modalFooter: {
-    flexDirection: "row",
-    padding: 20,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.gray[200],
-  },
-  summarySection: {
-    marginBottom: 20,
-  },
-  summarySectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: colors.text,
-    marginBottom: 8,
-  },
-  summaryText: {
-    fontSize: 14,
-    color: colors.gray[600],
-    marginBottom: 4,
-  },
-  summaryImage: {
-    width: "100%",
-    height: 150,
-    borderRadius: 8,
-    resizeMode: "cover",
-  },
-  summaryItem: {
-    backgroundColor: colors.gray[50],
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-  },
-  summaryItemTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.text,
-    marginBottom: 4,
-  },
-  summaryItemText: {
-    fontSize: 12,
-    color: colors.gray[600],
-    marginBottom: 2,
-  },
-  primaryButton: {
-    flex: 1,
-    backgroundColor: "#43a047",
-    borderRadius: 16,
-    paddingVertical: 18,
-    alignItems: "center",
-    shadowColor: "#2e7d32",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
+    ...Theme.shadows.md,
   },
   primaryButtonDisabled: {
-    backgroundColor: colors.gray[300],
-    shadowOpacity: 0,
-    elevation: 0,
+    backgroundColor: Theme.colors.textMuted,
   },
   primaryButtonText: {
-    color: colors.white,
-    fontSize: 18,
-    fontWeight: "700",
+    color: Theme.colors.white,
+    fontSize: 16,
+    fontWeight: "600",
   },
-  secondaryButton: {
+  formHeader: {
+    marginBottom: Theme.spacing["2xl"],
+  },
+  formTitle: {
+    fontSize: Theme.typography.fontSize["2xl"],
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.xs,
+  },
+  formSubtitle: {
+    fontSize: Theme.typography.fontSize.base,
+    color: Theme.colors.textSecondary,
+  },
+  dateTimeSection: {
+    marginBottom: Theme.spacing.xl,
+  },
+  dateTimeRow: {
+    flexDirection: "row",
+    gap: Theme.spacing.md,
+  },
+  dateTimeField: {
     flex: 1,
-    backgroundColor: colors.gray[200],
-    borderRadius: 8,
-    paddingVertical: 12,
+  },
+  dateTimeButton: {
+    flexDirection: "row",
     alignItems: "center",
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
+    ...Theme.shadows.sm,
   },
-  secondaryButtonText: {
-    color: colors.gray[700],
-    fontSize: 16,
-    fontWeight: "600",
+  dateTimeIcon: {
+    marginRight: Theme.spacing.sm,
   },
-  formCard: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: colors.gray[900],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  dateTimeText: {
+    color: Theme.colors.text,
+    fontSize: Theme.typography.fontSize.base,
+    flex: 1,
   },
-
-  batchListCard: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: colors.gray[900],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  billSection: {
+    marginTop: Theme.spacing.xl,
+    marginBottom: Theme.spacing.xl,
   },
-  addProductButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 16,
+  sectionSubtitle: {
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.textSecondary,
+    marginBottom: Theme.spacing.md,
   },
-  addProductText: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: "600",
+  deleteButton: {
+    backgroundColor: Theme.colors.error,
   },
-  actionButtonsRow: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    marginTop: 30,
-    marginBottom: 40,
+  buttonContainer: {
+    marginTop: Theme.spacing.xl,
+    marginBottom: Theme.spacing.xl,
+  },
+  sectionHeader: {
+    marginTop: Theme.spacing.xl,
+    marginBottom: Theme.spacing.md,
   },
 });
