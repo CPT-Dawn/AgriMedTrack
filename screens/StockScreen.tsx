@@ -1,4 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -28,6 +30,13 @@ import {
   StockItem,
 } from "../types/stock";
 
+// Define the stack param list for type safety
+// (You may need to move this to a types file if used elsewhere)
+type StockStackParamList = {
+  StockMain: undefined;
+  EditStock: { batch: StockBatch };
+};
+
 export default function StockScreen() {
   const {
     stockItems,
@@ -48,6 +57,8 @@ export default function StockScreen() {
     refreshData,
   } = useStock();
   const { currentUser } = useUser();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<StockStackParamList>>();
 
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -67,7 +78,7 @@ export default function StockScreen() {
   const [currentView, setCurrentView] = useState<"stock" | "logs" | "add">(
     "stock"
   );
-  const [editBatch, setEditBatch] = useState<StockBatch | null>(null);
+  // const [editBatch, setEditBatch] = useState<StockBatch | null>(null);
 
   // Handle pull-to-refresh
   const onRefresh = useCallback(async () => {
@@ -171,7 +182,7 @@ export default function StockScreen() {
       clearError();
       await addStockEntry(formData, currentUser?.id || "unknown-user");
       setCurrentView("stock"); // Return to stock view after adding
-      setEditBatch(null); // Clear edit state
+      // setEditBatch(null); // Clear edit state
       return Promise.resolve();
     } catch (err) {
       Alert.alert("Error", "Failed to add stock entry");
@@ -184,10 +195,17 @@ export default function StockScreen() {
     setCurrentView("stock"); // Switch to stock view to show the highlighted product
   };
 
-  // Handle edit batch
+  // Handle edit batch: navigate to EditStockScreen with batch data
   const handleEditBatch = (batch: StockBatch) => {
-    setEditBatch(batch);
-    setCurrentView("add");
+    // Ensure addedAt is a string for navigation params
+    const safeBatch = {
+      ...batch,
+      addedAt:
+        batch.addedAt instanceof Date
+          ? batch.addedAt.toISOString()
+          : batch.addedAt,
+    };
+    navigation.navigate("EditStock", { batch: safeBatch as any });
   };
 
   // Handle delete batch
@@ -264,7 +282,7 @@ export default function StockScreen() {
     );
   };
 
-  // Render add stock form
+  // Render add stock form (for Add Stock page only, always empty)
   const renderAddStockForm = () => {
     return (
       <AddStockForm
@@ -275,23 +293,7 @@ export default function StockScreen() {
         getOrCreateProduct={getOrCreateProduct}
         getOrCreateSupplier={getOrCreateSupplier}
         getOrCreateSize={getOrCreateSize}
-        initialData={
-          editBatch
-            ? {
-                addedBy: editBatch.addedBy,
-                items: editBatch.items.map((item) => ({
-                  productId: item.stockEntryId,
-                  productName: item.productName,
-                  supplierId: "",
-                  supplierName: item.supplierName,
-                  packagingId: "",
-                  packaging: item.sizeName,
-                  quantity: item.quantity.toString(),
-                  sellPrice: "",
-                })),
-              }
-            : undefined
-        }
+        initialData={undefined} // Always empty for Add Stock
       />
     );
   };

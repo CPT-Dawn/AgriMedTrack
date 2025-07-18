@@ -90,6 +90,26 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
   // Filter stock items to only show those in stock
   const inStockItems = stockItems.filter((item) => item.inStock);
 
+  // Ensure dropdowns are pre-filled when editing
+  useEffect(() => {
+    if (item.productId) {
+      const selectedStockItem = stockItems.find(
+        (stock) => stock.id === item.productId
+      );
+      if (selectedStockItem) {
+        // Set suppliers for this product
+        setSuppliers(selectedStockItem.suppliers || []);
+        // Set available packaging options
+        const packagingOptions = selectedStockItem.packagingOptions || [];
+        setAvailableSizes(
+          packagingOptions.map((p) => ({ id: p.packaging, label: p.packaging }))
+        );
+        // Set available quantity
+        setAvailableQuantity(selectedStockItem.availableQuantity || 0);
+      }
+    }
+  }, [item.productId, item.supplierId, item.packaging, stockItems]);
+
   // Product select
   const handleProductSelect = (option: { id: string; label: string }) => {
     const selectedStockItem = stockItems.find(

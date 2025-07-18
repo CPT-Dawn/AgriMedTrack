@@ -13,11 +13,30 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useStock } from "../hooks/useStock";
+import { getSales } from "../services/stockService";
+import { Sale } from "../types/stock";
 
 export default function HomeScreen() {
   const { currentUser, logout } = useUser();
   const router = useRouter();
   const [greeting, setGreeting] = useState("");
+  const {
+    products,
+    stockEntries,
+    activities,
+    loading: stockLoading,
+  } = useStock();
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [salesLoading, setSalesLoading] = useState(true);
+
+  // Fetch sales on mount
+  useEffect(() => {
+    setSalesLoading(true);
+    getSales()
+      .then((data) => setSales(data))
+      .finally(() => setSalesLoading(false));
+  }, []);
 
   // Update greeting based on time
   useEffect(() => {
@@ -41,6 +60,43 @@ export default function HomeScreen() {
 
     return () => clearInterval(interval);
   }, [currentUser]);
+
+  // --- Summary Calculations ---
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  // Total sales this month
+  const salesThisMonth = sales.filter(
+    (s) => s.saleDate && new Date(s.saleDate) >= monthStart
+  );
+  const totalSalesAmount = salesThisMonth.reduce(
+    (sum, s) => sum + (s.totalAmount || 0),
+    0
+  );
+
+  // Pending payment (unpaid or partial sales)
+  const pendingSales = sales.filter(
+    (s) => s.paymentStatus === "Unpaid" || s.paymentStatus === "Partial"
+  );
+  const pendingAmount = pendingSales.reduce(
+    (sum, s) => sum + (s.totalAmount || 0),
+    0
+  );
+
+  // Recent sales (last 5)
+  const recentSales = sales.slice(0, 5);
+  // Recent stock activities (last 5 'added')
+  const recentStockAdds = activities
+    .filter((a) => a.action === "added")
+    .sort((a, b) => {
+      const tA = a.timestamp instanceof Date ? a.timestamp.getTime() : 0;
+      const tB = b.timestamp instanceof Date ? b.timestamp.getTime() : 0;
+      return tB - tA;
+    })
+    .slice(0, 5);
+
+  // --- Loading State ---
+  const isLoading = stockLoading || salesLoading;
 
   const handleLogout = () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
@@ -86,7 +142,6 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
-
       {/* Header with current user */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
@@ -103,7 +158,6 @@ export default function HomeScreen() {
           </View>
         </View>
       </View>
-
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -113,18 +167,101 @@ export default function HomeScreen() {
         <View style={styles.summarySection}>
           <Text style={styles.sectionTitle}>Overview</Text>
           <View style={styles.summaryGrid}>
-            {/* Summary cards will be rendered here using Firebase data */}
+            <View style={styles.summaryCardWrapper}>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryTitle}>Pending Payment</Text>
+                <Text style={styles.summaryValue}>
+                  {isLoading ? "..." : `₹${pendingAmount.toLocaleString()}`}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.summaryCardWrapper}>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryTitle}>Month&apos;s Sale</Text>
+                <Text style={styles.summaryValue}>
+                  {isLoading ? "..." : `₹${totalSalesAmount.toLocaleString()}`}
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
-
         {/* Recent Activities */}
         <View style={styles.activitiesSection}>
-          <Text style={styles.sectionTitle}>Recent Activities</Text>
+          <Text style={styles.sectionTitle}>Recent Sales</Text>
           <View style={styles.activitiesList}>
-            {/* Recent activities will be rendered here using Firebase data */}
+            {isLoading ? (
+              <Text>Loading...</Text>
+            ) : recentSales.length === 0 ? (
+              <Text>No recent sales</Text>
+            ) : (
+              recentSales.map((sale) => (
+                <View key={sale.id} style={styles.activityItemWrapper}>
+                  <View style={styles.activityItem}>
+                    <View style={styles.activityAvatar}>
+                      <MaterialIcons name="receipt" size={24} color="#4CAF50" />
+                    </View>
+                    <View style={styles.activityContent}>
+                      <Text style={styles.activityText}>
+                        <Text style={styles.activityUserName}>
+                          {sale.buyer}
+                        </Text>{" "}
+                        bought for{" "}
+                        <Text style={styles.activityDetails}>
+                          ₹{sale.totalAmount}
+                        </Text>
+                      </Text>
+                      <Text style={styles.activityTime}>
+                        {sale.saleDate
+                          ? new Date(sale.saleDate).toLocaleString()
+                          : ""}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))
+            )}
           </View>
         </View>
-
+        <View style={styles.activitiesSection}>
+          <Text style={styles.sectionTitle}>Recent Stock Entries</Text>
+          <View style={styles.activitiesList}>
+            {isLoading ? (
+              <Text>Loading...</Text>
+            ) : recentStockAdds.length === 0 ? (
+              <Text>No recent stock entries</Text>
+            ) : (
+              recentStockAdds.map((activity) => (
+                <View key={activity.id} style={styles.activityItemWrapper}>
+                  <View style={styles.activityItem}>
+                    <View style={styles.activityAvatar}>
+                      <MaterialIcons name="add" size={24} color="#2196F3" />
+                    </View>
+                    <View style={styles.activityContent}>
+                      <Text style={styles.activityText}>
+                        <Text style={styles.activityUserName}>
+                          {activity.updatedByName || activity.updatedBy}
+                        </Text>{" "}
+                        added{" "}
+                        <Text style={styles.activityDetails}>
+                          {activity.quantity} {activity.sizeName}
+                        </Text>{" "}
+                        of{" "}
+                        <Text style={styles.activityDetails}>
+                          {activity.productName}
+                        </Text>
+                      </Text>
+                      <Text style={styles.activityTime}>
+                        {activity.timestamp
+                          ? new Date(activity.timestamp).toLocaleString()
+                          : ""}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        </View>
         {/* Logout Button */}
         <View style={styles.logoutContainer}>
           <TouchableOpacity

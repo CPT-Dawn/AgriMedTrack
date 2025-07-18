@@ -10,6 +10,7 @@ import {
   FlatList,
   LayoutAnimation,
   Platform,
+  RefreshControl,
   StatusBar,
   StyleSheet,
   Text,
@@ -84,7 +85,12 @@ type ViewType = "sales" | "add";
 export default function SalesScreen() {
   const insets = useSafeAreaInsets();
   const { currentUser } = useUser();
-  const { stockItems, stockEntries, refreshData: refreshStock } = useStock();
+  const {
+    stockItems,
+    stockEntries,
+    suppliers,
+    refreshData: refreshStock,
+  } = useStock();
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [buyer, setBuyer] = useState(currentUser?.name || "");
   const [saleDate, setSaleDate] = useState<Date | null>(new Date());
@@ -106,6 +112,7 @@ export default function SalesScreen() {
   const [loadingSales, setLoadingSales] = useState(true);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Update buyer when currentUser changes
   useEffect(() => {
@@ -233,10 +240,30 @@ export default function SalesScreen() {
       setPaymentStatus("Paid");
       setNotes("");
       setErrors({});
+      setEditSale(null); // Clear edit state for new sale
+      setSaleDate(new Date());
+      setSaleTime(new Date());
     } else {
       // Going to add view - clear any existing edit state
       setCurrentView("add");
       setEditSale(null); // Clear edit state for new sale
+      setSaleItems([
+        {
+          id: Date.now().toString(),
+          productId: "",
+          productName: "",
+          packaging: "",
+          quantity: "",
+          unitPrice: "",
+          totalPrice: 0,
+        },
+      ]);
+      setBuyer(currentUser?.name || "");
+      setPaymentStatus("Paid");
+      setNotes("");
+      setErrors({});
+      setSaleDate(new Date());
+      setSaleTime(new Date());
     }
   };
 
@@ -245,20 +272,55 @@ export default function SalesScreen() {
     setEditSale(sale);
     setBuyer(sale.buyer || "");
     // Handle both string and Date types for saleDate
-    setSaleDate(
-      typeof sale.saleDate === "string"
-        ? new Date(sale.saleDate)
-        : (sale.saleDate as Date)
-    );
+    let dateObj: Date;
+    let timeObj: Date;
+    if (typeof sale.saleDate === "string") {
+      dateObj = new Date(sale.saleDate);
+      timeObj = new Date(sale.saleDate);
+    } else {
+      dateObj = sale.saleDate as Date;
+      timeObj = sale.saleDate as Date;
+    }
+    setSaleDate(dateObj);
+    setSaleTime(timeObj);
     setPaymentStatus(sale.paymentStatus);
     setNotes(sale.notes || "");
-    // Ensure we have proper string values for quantity and unitPrice
+    // Ensure all dropdown fields are set for each sale item
     setSaleItems(
-      sale.items.map((item) => ({
-        ...item,
-        quantity: String(item.quantity || "0"),
-        unitPrice: String(item.unitPrice || "0"),
-      }))
+      sale.items.map((item) => {
+        // Try to infer missing fields from stockEntries or stockItems
+        let inferredSupplierId = item.supplierId || "";
+        let inferredSupplierName = item.supplierName || "";
+        let inferredPackagingId = (item as any).packagingId || "";
+        // Try to find the matching stock entry
+        const stockEntry = stockEntries.find(
+          (e: any) =>
+            e.productId === item.productId &&
+            (item.supplierId ? e.supplierId === item.supplierId : true) &&
+            (item.packaging ? e.packaging === item.packaging : true)
+        );
+        if (stockEntry) {
+          if (!inferredSupplierId) inferredSupplierId = stockEntry.supplierId;
+          // Try to infer supplierName from suppliers list if not present
+          if (!inferredSupplierName) {
+            const supplierObj = (
+              typeof suppliers !== "undefined" ? suppliers : []
+            ).find((s: any) => s.id === stockEntry.supplierId);
+            inferredSupplierName = supplierObj ? supplierObj.name : "";
+          }
+          if (!inferredPackagingId && stockEntry.packagingId)
+            inferredPackagingId = stockEntry.packagingId;
+        }
+        const result: any = {
+          ...item,
+          quantity: String(item.quantity || "0"),
+          unitPrice: String(item.unitPrice || "0"),
+          supplierId: inferredSupplierId,
+          supplierName: inferredSupplierName,
+        };
+        if (inferredPackagingId) result.packagingId = inferredPackagingId;
+        return result;
+      })
     );
     setCurrentView("add");
     setExpandedSaleId(null);
@@ -516,6 +578,14 @@ export default function SalesScreen() {
             maxToRenderPerBatch={10}
             windowSize={10}
             removeClippedSubviews={Platform.OS === "android"}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleReload}
+                colors={[Theme.colors.primary]}
+                tintColor={Theme.colors.primary}
+              />
+            }
             ListEmptyComponent={() => (
               <View style={styles.emptyState}>
                 <MaterialIcons
@@ -1301,6 +1371,13 @@ export default function SalesScreen() {
     );
   };
 
+  // Add reload handler for button and pull-to-refresh
+  const handleReload = async () => {
+    setRefreshing(true);
+    await loadSalesData();
+    setRefreshing(false);
+  };
+
   // --- Main Render ---
   return (
     <View style={styles.container}>
@@ -1349,6 +1426,29 @@ export default function SalesScreen() {
                 placeholderTextColor={Theme.colors.textMuted}
                 accessibilityLabel="Search sales"
               />
+              <TouchableOpacity
+                onPress={handleReload}
+                disabled={loadingSales || refreshing}
+                style={{ marginLeft: 8, padding: 4, borderRadius: 8 }}
+                accessibilityLabel="Reload sales"
+              >
+                <MaterialIcons
+                  name="refresh"
+                  size={20}
+                  color={
+                    loadingSales || refreshing
+                      ? Theme.colors.textMuted
+                      : Theme.colors.primary
+                  }
+                  style={{
+                    transform: [
+                      {
+                        rotate: loadingSales || refreshing ? "180deg" : "0deg",
+                      },
+                    ],
+                  }}
+                />
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -1359,7 +1459,38 @@ export default function SalesScreen() {
                 <Text style={styles.loadingText}>Loading sales...</Text>
               </View>
             ) : (
-              renderContent()
+              <FlatList
+                data={filteredSaleEntries}
+                renderItem={renderSaleCard}
+                keyExtractor={(item) => item.id || Date.now().toString()}
+                contentContainerStyle={styles.listContainer}
+                showsVerticalScrollIndicator={false}
+                initialNumToRender={6}
+                maxToRenderPerBatch={10}
+                windowSize={10}
+                removeClippedSubviews={Platform.OS === "android"}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={handleReload}
+                    colors={[Theme.colors.primary]}
+                    tintColor={Theme.colors.primary}
+                  />
+                }
+                ListEmptyComponent={() => (
+                  <View style={styles.emptyState}>
+                    <MaterialIcons
+                      name="receipt"
+                      size={48}
+                      color={colors.gray[300]}
+                    />
+                    <Text style={styles.emptyStateText}>No sales found</Text>
+                    <Text style={styles.emptyStateSubtext}>
+                      Try a different search or tap the + button to add a sale
+                    </Text>
+                  </View>
+                )}
+              />
             )}
           </View>
         </View>
