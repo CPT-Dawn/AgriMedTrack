@@ -1154,13 +1154,6 @@ export const getAvailableStock = async (
       [key: string]: any;
     };
 
-    type SizeData = {
-      id: string;
-      label: string;
-      unit: string;
-      [key: string]: any;
-    };
-
     // Find all stock entries for this product
     const entriesSnapshot = await getDocs(
       query(stockEntriesCollection, where("productId", "==", productId))
@@ -1173,16 +1166,6 @@ export const getAvailableStock = async (
           id: doc.id,
           ...doc.data(),
         } as StockEntryData)
-    );
-
-    // Get all size documents to match by label
-    const sizesSnapshot = await getDocs(packagingSizesCollection);
-    const sizes: SizeData[] = sizesSnapshot.docs.map(
-      (doc) =>
-        ({
-          id: doc.id,
-          ...doc.data(),
-        } as SizeData)
     );
 
     // Find entries with matching packaging label

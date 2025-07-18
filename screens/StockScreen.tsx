@@ -56,9 +56,7 @@ export default function StockScreen() {
   const searchInputRef = useRef<TextInput>(null);
   const leftBubbleScale = useRef(new Animated.Value(1)).current;
   const rightBubbleScale = useRef(new Animated.Value(1)).current;
-  const [highlightedProductId, setHighlightedProductId] = useState<
-    string | null
-  >(null);
+
   const [isLogsExpanded, setIsLogsExpanded] = useState(false);
   const [loadingMoreLogs, setLoadingMoreLogs] = useState(false);
   const [logPage, setLogPage] = useState(1);
@@ -155,8 +153,6 @@ export default function StockScreen() {
   // Handle back to stock view
   const handleBackToStock = () => {
     setCurrentView("stock");
-    // Reset any highlighted product
-    setHighlightedProductId(null);
   };
 
   // Toggle log expansion for a specific product
@@ -185,7 +181,6 @@ export default function StockScreen() {
 
   // Handle highlighting a product when clicked in the log
   const handleHighlightProduct = (productId: string) => {
-    setHighlightedProductId(productId);
     setCurrentView("stock"); // Switch to stock view to show the highlighted product
   };
 
@@ -205,7 +200,7 @@ export default function StockScreen() {
         onPress: async () => {
           try {
             await deleteStockBatch(batchId);
-          } catch (err) {
+          } catch {
             Alert.alert("Error", "Failed to delete batch");
           }
         },
@@ -375,7 +370,7 @@ export default function StockScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" translucent={false} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Header */}
       <View style={styles.header}>

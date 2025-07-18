@@ -48,8 +48,8 @@ export const AddStockModal: React.FC<AddStockModalProps> = ({
     productName: "",
     supplierId: "",
     supplierName: "",
-    sizeId: "",
-    sizeLabel: "",
+    packagingId: "",
+    packaging: "",
     quantity: "",
     notes: "",
     buyPrice: "",
@@ -75,8 +75,8 @@ export const AddStockModal: React.FC<AddStockModalProps> = ({
         productName: "",
         supplierId: "",
         supplierName: "",
-        sizeId: "",
-        sizeLabel: "",
+        packagingId: "",
+        packaging: "",
         quantity: "",
         notes: "",
         buyPrice: "",
@@ -165,8 +165,8 @@ export const AddStockModal: React.FC<AddStockModalProps> = ({
       newErrors.productName = "Product name is required";
     if (!form.supplierName.trim())
       newErrors.supplierName = "Supplier name is required";
-    if (!form.sizeLabel.trim())
-      newErrors.sizeLabel = "Packaging size is required";
+    if (!form.packaging.trim())
+      newErrors.packaging = "Packaging size is required";
     if (!form.quantity.trim() || isNaN(parseInt(form.quantity))) {
       newErrors.quantity = "Valid quantity is required";
     }
@@ -192,7 +192,7 @@ export const AddStockModal: React.FC<AddStockModalProps> = ({
   const isFormValid =
     form.productName &&
     form.supplierName &&
-    form.sizeLabel &&
+    form.packaging &&
     form.quantity &&
     !isNaN(parseInt(form.quantity));
 
@@ -294,13 +294,13 @@ export const AddStockModal: React.FC<AddStockModalProps> = ({
                 <Text style={styles.formLabel}>Packaging Size</Text>
                 <CreatableDropdown
                   options={sizes.map((s) => ({ id: s.id, label: s.label }))}
-                  value={form.sizeId}
+                  value={form.packagingId}
                   placeholder="Select or create size"
                   onSelect={(option) =>
                     setForm((prev) => ({
                       ...prev,
-                      sizeId: option.id,
-                      sizeLabel: option.label,
+                      packagingId: option.id,
+                      packaging: option.label,
                     }))
                   }
                   onCreate={async (label) => {
@@ -310,8 +310,8 @@ export const AddStockModal: React.FC<AddStockModalProps> = ({
                   createLabel="Create size"
                   style={styles.inputWithIcon}
                 />
-                {errors.sizeLabel && (
-                  <Text style={styles.inputError}>{errors.sizeLabel}</Text>
+                {errors.packaging && (
+                  <Text style={styles.inputError}>{errors.packaging}</Text>
                 )}
               </View>
 

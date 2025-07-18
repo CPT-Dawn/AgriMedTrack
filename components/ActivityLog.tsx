@@ -67,7 +67,7 @@ export const ActivityLog: React.FC<ActivityLogProps> = ({
     if (Platform.OS === "ios") {
       configureLayoutAnimation();
     }
-  }, [isExpanded]);
+  }, [isExpanded, rotateAnim]);
 
   // Handle toggle with animation
   const handleToggle = () => {

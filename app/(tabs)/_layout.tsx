@@ -3,25 +3,11 @@ import { IconSymbol } from "@/components/ui/IconSymbol";
 import TabBarBackground from "@/components/ui/TabBarBackground";
 import { Theme } from "@/constants/Theme";
 import { Tabs } from "expo-router";
-import React, { useEffect } from "react";
+import React from "react";
 import { Platform } from "react-native";
-import changeNavigationBarColor from "react-native-navigation-bar-color";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function TabLayout() {
-  // Set Android navigation bar color to match the app background
-  useEffect(() => {
-    if (Platform.OS === "android") {
-      try {
-        // Check if the function exists before calling
-        if (changeNavigationBarColor) {
-          changeNavigationBarColor(Theme.colors.background, false, false);
-        }
-      } catch (e) {
-        console.log("Navigation bar color change not supported:", e);
-      }
-    }
-  }, []);
 
   return (
     <SafeAreaView

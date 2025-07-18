@@ -86,7 +86,7 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
     if (Platform.OS === "ios") {
       configureLayoutAnimation();
     }
-  }, [isExpanded]);
+  }, [isExpanded, rotateAnim]);
 
   // Handle toggle with animation
   const handleToggle = () => {

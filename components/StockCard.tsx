@@ -159,7 +159,7 @@ const StockCardComponent: React.FC<StockCardProps> = ({
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
-  }, [isLogExpanded]);
+  }, [isLogExpanded, expandAnim]);
 
   // Card press feedback
   const handlePressIn = () => {
@@ -176,11 +176,11 @@ const StockCardComponent: React.FC<StockCardProps> = ({
     }).start();
   };
 
-  // Chevron rotation
-  const chevronRotate = expandAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "180deg"],
-  });
+  // Chevron rotation (commented out as not currently used)
+  // const chevronRotate = expandAnim.interpolate({
+  //   inputRange: [0, 1],
+  //   outputRange: ["0deg", "180deg"],
+  // });
 
   // Expandable section style
   const expandedStyle = {
@@ -221,7 +221,7 @@ const StockCardComponent: React.FC<StockCardProps> = ({
       wiggleAnim.stopAnimation();
       wiggleAnim.setValue(0);
     }
-  }, [wiggle]);
+  }, [wiggle, wiggleAnim]);
 
   return (
     <TouchableOpacity

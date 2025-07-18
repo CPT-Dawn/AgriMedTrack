@@ -10,7 +10,6 @@ import {
   FlatList,
   LayoutAnimation,
   Platform,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -34,16 +33,11 @@ import {
 } from "../services/stockService";
 import { Sale, SaleItem } from "../types/stock";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HEADER_HORIZONTAL = Math.max(
   Theme.spacing.lg,
   Math.round(SCREEN_WIDTH * 0.045)
 );
-const SEARCHBAR_VERTICAL = Math.max(
-  Theme.spacing.xs,
-  Math.round(SCREEN_HEIGHT * 0.012)
-);
-const SEARCHBAR_MIN_HEIGHT = Math.max(40, Math.round(SCREEN_HEIGHT * 0.055));
 
 // Local color reference for backward compatibility
 const colors = {
@@ -90,12 +84,7 @@ type ViewType = "sales" | "add";
 export default function SalesScreen() {
   const insets = useSafeAreaInsets();
   const { currentUser } = useUser();
-  const {
-    stockItems,
-    stockEntries,
-    loading: stockLoading,
-    refreshData: refreshStock,
-  } = useStock();
+  const { stockItems, stockEntries, refreshData: refreshStock } = useStock();
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [buyer, setBuyer] = useState(currentUser?.name || "");
   const [saleDate, setSaleDate] = useState<Date | null>(new Date());
@@ -104,9 +93,7 @@ export default function SalesScreen() {
     "Paid" | "Unpaid" | "Partial"
   >("Paid");
   const [notes, setNotes] = useState("");
-  const [notesExpanded, setNotesExpanded] = useState(false);
-  const [discount, setDiscount] = useState("");
-  const [tax, setTax] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -150,6 +137,19 @@ export default function SalesScreen() {
     loadSalesData();
   }, []);
 
+  // Handle back to sales view
+  const handleBackToSales = React.useCallback(() => {
+    setCurrentView("sales");
+    // Reset form when going back
+    setSaleItems([]);
+    setBuyer(currentUser?.name || "");
+    setPaymentStatus("Paid");
+    setNotes("");
+    setErrors({});
+    setEditSale(null); // Clear edit state
+  }, [currentUser?.name]);
+
+  // Load sales data from Firebase
   const loadSalesData = async () => {
     try {
       setLoadingSales(true);
@@ -187,7 +187,7 @@ export default function SalesScreen() {
     );
 
     return () => backHandler.remove();
-  }, [currentView]);
+  }, [currentView, handleBackToSales]);
 
   // Ensure we have at least one item when entering add view
   useEffect(() => {
@@ -207,12 +207,7 @@ export default function SalesScreen() {
     }
   }, [currentView, saleItems.length]);
 
-  const scrollViewRef = useRef<ScrollView>(null);
   const bubbleScale = useRef(new Animated.Value(1)).current;
-  const plusScale = useRef(new Animated.Value(1)).current;
-
-  // Calculate total amount
-  const totalAmount = saleItems.reduce((sum, item) => sum + item.totalPrice, 0);
 
   // Handle bubble press (Add Sale)
   const handleBubblePress = () => {
@@ -245,18 +240,6 @@ export default function SalesScreen() {
     }
   };
 
-  // Handle back to sales view
-  const handleBackToSales = () => {
-    setCurrentView("sales");
-    // Reset form when going back
-    setSaleItems([]);
-    setBuyer(currentUser?.name || "");
-    setPaymentStatus("Paid");
-    setNotes("");
-    setErrors({});
-    setEditSale(null); // Clear edit state
-  };
-
   // --- Edit logic ---
   const handleEdit = (sale: SaleEntry) => {
     setEditSale(sale);
@@ -269,9 +252,6 @@ export default function SalesScreen() {
     );
     setPaymentStatus(sale.paymentStatus);
     setNotes(sale.notes || "");
-    // Set discount and tax fields
-    setDiscount(sale.discount ? String(sale.discount) : "");
-    setTax(sale.tax ? String(sale.tax) : "");
     // Ensure we have proper string values for quantity and unitPrice
     setSaleItems(
       sale.items.map((item) => ({
@@ -505,16 +485,6 @@ export default function SalesScreen() {
     );
   };
 
-  // Get the header title based on current view
-  const getHeaderTitle = () => {
-    switch (currentView) {
-      case "add":
-        return "Add Sale";
-      default:
-        return "Sales";
-    }
-  };
-
   // Filtered sale entries based on search
   const filteredSaleEntries = saleEntries.filter(
     (entry) =>
@@ -566,23 +536,6 @@ export default function SalesScreen() {
 
   // Implement renderSaleForm for both add and edit
   // Old SaleForm component removed - now using renderAddSale() with proper Firebase integration
-
-  const handlePlusPressIn = () => {
-    Animated.spring(plusScale, {
-      toValue: 0.92,
-      useNativeDriver: true,
-      speed: 30,
-      bounciness: 8,
-    }).start();
-  };
-  const handlePlusPressOut = () => {
-    Animated.spring(plusScale, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 30,
-      bounciness: 8,
-    }).start();
-  };
 
   // --- Add Sale Page ---
   const renderAddSale = () => {
@@ -789,10 +742,7 @@ export default function SalesScreen() {
         setSaleDate(new Date());
         setPaymentStatus("Paid");
         setNotes("");
-        setNotesExpanded(false);
         setSaleItems([]);
-        setDiscount("");
-        setTax("");
         setShowConfirm(false);
         setSubmitting(false);
         setCurrentView("sales");
@@ -1176,27 +1126,32 @@ export default function SalesScreen() {
               </View>
             ) : (
               <>
-                {saleItems.map((item, index) => (
-                  <SaleItemInput
-                    key={item.id}
-                    item={item}
-                    index={index}
-                    stockItems={availableStockItems}
-                    onUpdate={(updates) => handleUpdateItem(item.id, updates)}
-                    onRemove={() => handleRemoveItem(item.id)}
-                    errors={{
-                      product: errors[`item${index}Product`],
-                      quantity: errors[`item${index}Quantity`],
-                      price: errors[`item${index}Price`],
-                      supplier: errors[`item${index}Supplier`],
-                    }}
-                    initiallyExpanded={
-                      editSale
-                        ? true
-                        : index === 0 || index === saleItems.length - 1
-                    } // All items expanded when editing, otherwise first and last items
-                  />
-                ))}
+                <FlatList
+                  data={saleItems}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item, index }) => (
+                    <SaleItemInput
+                      item={item}
+                      index={index}
+                      stockItems={availableStockItems}
+                      onUpdate={(updates) => handleUpdateItem(item.id, updates)}
+                      onRemove={() => handleRemoveItem(item.id)}
+                      errors={{
+                        product: errors[`item${index}Product`],
+                        quantity: errors[`item${index}Quantity`],
+                        price: errors[`item${index}Price`],
+                        supplier: errors[`item${index}Supplier`],
+                      }}
+                      initiallyExpanded={
+                        editSale
+                          ? true
+                          : index === 0 || index === saleItems.length - 1
+                      } // All items expanded when editing, otherwise first and last items
+                    />
+                  )}
+                  scrollEnabled={false}
+                  showsVerticalScrollIndicator={false}
+                />
 
                 <TouchableOpacity
                   style={{

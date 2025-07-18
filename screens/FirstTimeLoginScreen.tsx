@@ -15,7 +15,7 @@ import {
   View,
 } from "react-native";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export default function FirstTimeLoginScreen() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -66,7 +66,7 @@ export default function FirstTimeLoginScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim]);
 
   const handleUserSelect = (user: User) => {
     console.log("User selected:", JSON.stringify(user));

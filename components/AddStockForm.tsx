@@ -1,7 +1,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as ImagePicker from "expo-image-picker";
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -9,7 +9,6 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -20,27 +19,6 @@ import { Theme } from "../constants/Theme";
 import { useUser } from "../hooks/useUser";
 import { BatchEntryFormData, StockEntryFormData } from "../types/stock";
 import { CreatableDropdown } from "./CreatableDropdown";
-
-// Local color reference for backward compatibility
-const colors = {
-  primary: Theme.colors.primary,
-  secondary: Theme.colors.secondary,
-  accent: Theme.colors.accent,
-  white: Theme.colors.white,
-  text: Theme.colors.text,
-  bg: Theme.colors.background,
-  gray: {
-    50: Theme.colors.surfacePressed,
-    100: Theme.colors.surfacePressed,
-    200: Theme.colors.border,
-    300: Theme.colors.border,
-    400: Theme.colors.textMuted,
-    500: Theme.colors.textMuted,
-    600: Theme.colors.textMuted,
-    700: Theme.colors.text,
-    900: Theme.colors.text,
-  },
-};
 
 interface AddStockFormProps {
   onSubmit: (
@@ -66,17 +44,6 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
   initialData,
 }) => {
   const { currentUser } = useUser();
-  const [invoiceDate, setInvoiceDate] = useState(new Date());
-  const [form, setForm] = useState<StockEntryFormData>({
-    productId: "",
-    productName: "",
-    supplierId: "",
-    supplierName: "",
-    packagingId: "",
-    packaging: "",
-    quantity: "",
-    sellPrice: "",
-  });
   const [items, setItems] = useState<StockEntryFormData[]>(
     initialData?.items || [
       {
@@ -91,15 +58,12 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
       },
     ]
   );
-  const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [showSummary, setShowSummary] = useState(false);
   const [billImage, setBillImage] = useState<{
     uri: string;
     name: string;
     type: string;
   } | null>(null);
-  const scrollViewRef = useRef<ScrollView>(null);
 
   // Date/Time state
   const [stockDate, setStockDate] = useState(new Date());
@@ -140,36 +104,6 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
 
   const removeBillImage = () => {
     setBillImage(null);
-  };
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!form.productName.trim())
-      newErrors.productName = "Product name is required";
-    if (!form.supplierName.trim())
-      newErrors.supplierName = "Supplier name is required";
-    if (!form.packaging.trim()) newErrors.packaging = "Packaging is required";
-    if (!form.quantity.trim() || isNaN(parseInt(form.quantity))) {
-      newErrors.quantity = "Valid quantity is required";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const resetForm = () => {
-    setForm({
-      productId: "",
-      productName: "",
-      supplierId: "",
-      supplierName: "",
-      packagingId: "",
-      packaging: "",
-      quantity: "",
-      sellPrice: "",
-    });
-    setErrors({});
   };
 
   const addAnotherProduct = () => {
@@ -272,99 +206,12 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
       ]);
       setBillImage(null);
       Alert.alert("Success", "Stock entry added successfully");
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to add stock entry");
     } finally {
       setSubmitting(false);
     }
   };
-
-  const confirmBatchSubmit = async () => {
-    // Validate all items
-    let valid = true;
-    let invalidItems = [];
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-
-      if (
-        !item.productName.trim() ||
-        !item.supplierName.trim() ||
-        !item.packaging.trim() ||
-        !item.quantity.trim() ||
-        isNaN(parseInt(item.quantity))
-      ) {
-        valid = false;
-        invalidItems.push(i + 1);
-      }
-    }
-
-    if (!valid) {
-      Alert.alert(
-        "Error",
-        `Please fill all required fields for product item(s): ${invalidItems.join(
-          ", "
-        )}`
-      );
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-
-      // Process each item to ensure packaging IDs are set
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        if (item.packaging && !item.packagingId) {
-          try {
-            const newSize = await getOrCreateSize(item.packaging);
-            updateProduct(i, {
-              packagingId: newSize.id,
-              packaging: newSize.label,
-            });
-          } catch (error) {
-            console.error("Error creating packaging:", error);
-          }
-        }
-      }
-
-      const batchData: BatchEntryFormData = {
-        addedBy: currentUser?.id || "unknown-user",
-        billImage: billImage || undefined,
-        items,
-      };
-      await onSubmit(batchData);
-
-      // Reset form and batch items
-      resetForm();
-      setItems([
-        {
-          productId: "",
-          productName: "",
-          supplierId: "",
-          supplierName: "",
-          packagingId: "",
-          packaging: "",
-          quantity: "",
-          sellPrice: "",
-        },
-      ]);
-      setBillImage(null);
-      setShowSummary(false);
-      Alert.alert("Success", "Stock batch added successfully");
-    } catch (error) {
-      Alert.alert("Error", "Failed to add stock batch");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const isFormValid =
-    form.productName.trim() &&
-    form.supplierName.trim() &&
-    form.packaging.trim() &&
-    form.quantity.trim() &&
-    !isNaN(parseInt(form.quantity));
 
   const renderItemCard = (item: StockEntryFormData, index: number) => (
     <View key={`item-${index}`} style={styles.itemCard}>
@@ -430,9 +277,9 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
                       productName: newProduct.name,
                     });
                     return { id: newProduct.id, label: newProduct.name };
-                  } catch (error) {
+                  } catch {
                     Alert.alert("Error", "Failed to create new product");
-                    throw error;
+                    throw new Error("Failed to create new product");
                   }
                 }}
               />
@@ -471,9 +318,9 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
                       supplierName: newSupplier.name,
                     });
                     return { id: newSupplier.id, label: newSupplier.name };
-                  } catch (error) {
+                  } catch {
                     Alert.alert("Error", "Failed to create new supplier");
-                    throw error;
+                    throw new Error("Failed to create new supplier");
                   }
                 }}
               />
@@ -512,9 +359,9 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
                       packaging: newSize.label,
                     });
                     return { id: newSize.id, label: newSize.label };
-                  } catch (error) {
+                  } catch {
                     Alert.alert("Error", "Failed to create new packaging");
-                    throw error;
+                    throw new Error("Failed to create new packaging");
                   }
                 }}
                 createLabel="Create packaging"
@@ -579,189 +426,191 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={{ flex: 1, backgroundColor: Theme.colors.background }}
     >
-      <ScrollView
-        ref={scrollViewRef}
-        style={{ flex: 1 }}
+      <FlatList
+        data={items}
+        keyExtractor={(_, idx) => `item-${idx}`}
+        renderItem={({ item, index }) => renderItemCard(item, index)}
         contentContainerStyle={{
           paddingHorizontal: Theme.spacing.lg,
           paddingTop: Theme.spacing.md,
           paddingBottom: Theme.spacing["6xl"],
         }}
         showsVerticalScrollIndicator={false}
-      >
-        {/* Date & Time Section */}
-        <View style={styles.dateTimeSection}>
-          <View style={styles.dateTimeRow}>
-            {/* Date Field */}
-            <View style={styles.dateTimeField}>
-              <Text style={styles.inputLabel}>DATE</Text>
-              <TouchableOpacity
-                style={styles.dateTimeButton}
-                onPress={() => setShowDatePicker(true)}
-                accessibilityLabel="Select date"
-                activeOpacity={0.85}
-              >
-                <MaterialIcons
-                  name="event"
-                  size={20}
-                  color={Theme.colors.primary}
-                  style={styles.dateTimeIcon}
-                />
-                <Text style={styles.dateTimeText}>
-                  {stockDate ? stockDate.toLocaleDateString() : "Select Date"}
-                </Text>
-              </TouchableOpacity>
+        ListHeaderComponent={() => (
+          <>
+            {/* Date & Time Section */}
+            <View style={styles.dateTimeSection}>
+              <View style={styles.dateTimeRow}>
+                {/* Date Field */}
+                <View style={styles.dateTimeField}>
+                  <Text style={styles.inputLabel}>DATE</Text>
+                  <TouchableOpacity
+                    style={styles.dateTimeButton}
+                    onPress={() => setShowDatePicker(true)}
+                    accessibilityLabel="Select date"
+                    activeOpacity={0.85}
+                  >
+                    <MaterialIcons
+                      name="event"
+                      size={20}
+                      color={Theme.colors.primary}
+                      style={styles.dateTimeIcon}
+                    />
+                    <Text style={styles.dateTimeText}>
+                      {stockDate
+                        ? stockDate.toLocaleDateString()
+                        : "Select Date"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Time Field */}
+                <View style={styles.dateTimeField}>
+                  <Text style={styles.inputLabel}>TIME</Text>
+                  <TouchableOpacity
+                    style={styles.dateTimeButton}
+                    onPress={() => setShowTimePicker(true)}
+                    accessibilityLabel="Select time"
+                    activeOpacity={0.85}
+                  >
+                    <MaterialIcons
+                      name="schedule"
+                      size={20}
+                      color={Theme.colors.primary}
+                      style={styles.dateTimeIcon}
+                    />
+                    <Text style={styles.dateTimeText}>
+                      {stockTime
+                        ? stockTime.toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "Select Time"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
-
-            {/* Time Field */}
-            <View style={styles.dateTimeField}>
-              <Text style={styles.inputLabel}>TIME</Text>
-              <TouchableOpacity
-                style={styles.dateTimeButton}
-                onPress={() => setShowTimePicker(true)}
-                accessibilityLabel="Select time"
-                activeOpacity={0.85}
-              >
-                <MaterialIcons
-                  name="schedule"
-                  size={20}
-                  color={Theme.colors.primary}
-                  style={styles.dateTimeIcon}
-                />
-                <Text style={styles.dateTimeText}>
-                  {stockTime
-                    ? stockTime.toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "Select Time"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-        {/* Date Picker Modal */}
-        {showDatePicker && (
-          <DateTimePicker
-            value={stockDate}
-            mode="date"
-            display={Platform.OS === "ios" ? "spinner" : "default"}
-            onChange={(event, selectedDate) => {
-              setShowDatePicker(false);
-              if (selectedDate) setStockDate(selectedDate);
-            }}
-          />
+          </>
         )}
-        {/* Time Picker Modal */}
-        {showTimePicker && (
-          <DateTimePicker
-            value={stockTime}
-            mode="time"
-            display={Platform.OS === "ios" ? "spinner" : "default"}
-            onChange={(event, selectedTime) => {
-              setShowTimePicker(false);
-              if (selectedTime) setStockTime(selectedTime);
-            }}
-            is24Hour={true}
-          />
-        )}
-
-        {/* Product Section (FlatList) */}
-        <FlatList
-          data={items}
-          keyExtractor={(_, idx) => `item-${idx}`}
-          renderItem={({ item, index }) => renderItemCard(item, index)}
-          contentContainerStyle={{ paddingBottom: 0 }}
-          showsVerticalScrollIndicator={false}
-        />
-        <TouchableOpacity
-          style={styles.addProductButton}
-          onPress={addAnotherProduct}
-          accessibilityLabel="Add another product"
-        >
-          <MaterialIcons
-            name="add-circle"
-            size={20}
-            color={Theme.colors.primary}
-          />
-          <Text style={styles.addProductText}>Add Another Product</Text>
-        </TouchableOpacity>
-        {/* Bill Image Upload */}
-        <View style={styles.billSection}>
-          <Text style={styles.sectionLabel}>Bill Image</Text>
-
-          {billImage ? (
-            <View style={styles.imagePreviewContainer}>
-              <Image
-                source={{ uri: billImage.uri }}
-                style={styles.imagePreview}
+        ListFooterComponent={() => (
+          <>
+            <TouchableOpacity
+              style={styles.addProductButton}
+              onPress={addAnotherProduct}
+              accessibilityLabel="Add another product"
+            >
+              <MaterialIcons
+                name="add-circle"
+                size={20}
+                color={Theme.colors.primary}
               />
-              <View style={styles.imageActions}>
+              <Text style={styles.addProductText}>Add Another Product</Text>
+            </TouchableOpacity>
+            {/* Bill Image Upload */}
+            <View style={styles.billSection}>
+              <Text style={styles.sectionLabel}>Bill Image</Text>
+
+              {billImage ? (
+                <View style={styles.imagePreviewContainer}>
+                  <Image
+                    source={{ uri: billImage.uri }}
+                    style={styles.imagePreview}
+                  />
+                  <View style={styles.imageActions}>
+                    <TouchableOpacity
+                      style={styles.imageActionButton}
+                      onPress={handleImagePicker}
+                    >
+                      <MaterialIcons
+                        name="edit"
+                        size={16}
+                        color={Theme.colors.white}
+                      />
+                      <Text style={styles.imageActionText}>Retake</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.imageActionButton, styles.deleteButton]}
+                      onPress={removeBillImage}
+                    >
+                      <MaterialIcons
+                        name="delete"
+                        size={16}
+                        color={Theme.colors.white}
+                      />
+                      <Text style={styles.imageActionText}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
                 <TouchableOpacity
-                  style={styles.imageActionButton}
+                  style={styles.imageUploadButton}
                   onPress={handleImagePicker}
                 >
                   <MaterialIcons
-                    name="edit"
-                    size={16}
-                    color={Theme.colors.white}
+                    name="add-a-photo"
+                    size={24}
+                    color={Theme.colors.primary}
                   />
-                  <Text style={styles.imageActionText}>Retake</Text>
+                  <Text style={styles.imageUploadText}>Upload Bill Photo</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.imageActionButton, styles.deleteButton]}
-                  onPress={removeBillImage}
-                >
-                  <MaterialIcons
-                    name="delete"
-                    size={16}
-                    color={Theme.colors.white}
-                  />
-                  <Text style={styles.imageActionText}>Remove</Text>
-                </TouchableOpacity>
-              </View>
+              )}
             </View>
-          ) : (
-            <TouchableOpacity
-              style={styles.imageUploadButton}
-              onPress={handleImagePicker}
-            >
-              <MaterialIcons
-                name="add-a-photo"
-                size={24}
-                color={Theme.colors.primary}
-              />
-              <Text style={styles.imageUploadText}>Upload Bill Photo</Text>
-            </TouchableOpacity>
-          )}
-        </View>
 
-        {/* Confirm & Save Button */}
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[
-              styles.primaryButton,
-              submitting && styles.primaryButtonDisabled,
-            ]}
-            onPress={handleSubmit}
-            disabled={submitting}
-            accessibilityLabel="Confirm and save stock"
-          >
-            {submitting ? (
-              <ActivityIndicator color={Theme.colors.white} size="small" />
-            ) : (
-              <>
-                <MaterialIcons
-                  name="save"
-                  size={20}
-                  color={Theme.colors.white}
-                />
-                <Text style={styles.primaryButtonText}>Confirm & Save</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+            {/* Confirm & Save Button */}
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.primaryButton,
+                  submitting && styles.primaryButtonDisabled,
+                ]}
+                onPress={handleSubmit}
+                disabled={submitting}
+                accessibilityLabel="Confirm and save stock"
+              >
+                {submitting ? (
+                  <ActivityIndicator color={Theme.colors.white} size="small" />
+                ) : (
+                  <>
+                    <MaterialIcons
+                      name="save"
+                      size={20}
+                      color={Theme.colors.white}
+                    />
+                    <Text style={styles.primaryButtonText}>Confirm & Save</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+      />
+
+      {/* Date Picker Modal */}
+      {showDatePicker && (
+        <DateTimePicker
+          value={stockDate}
+          mode="date"
+          display={Platform.OS === "ios" ? "spinner" : "default"}
+          onChange={(event, selectedDate) => {
+            setShowDatePicker(false);
+            if (selectedDate) setStockDate(selectedDate);
+          }}
+        />
+      )}
+      {/* Time Picker Modal */}
+      {showTimePicker && (
+        <DateTimePicker
+          value={stockTime}
+          mode="time"
+          display={Platform.OS === "ios" ? "spinner" : "default"}
+          onChange={(event, selectedTime) => {
+            setShowTimePicker(false);
+            if (selectedTime) setStockTime(selectedTime);
+          }}
+          is24Hour={true}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 };

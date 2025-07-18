@@ -65,7 +65,6 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
   errors,
   initiallyExpanded = false,
 }) => {
-  const [searchText, setSearchText] = useState("");
   const [noStockMessage, setNoStockMessage] = useState("");
   const [expanded, setExpanded] = useState(initiallyExpanded);
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>(
@@ -206,7 +205,7 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
   // Quantity
   const handleQuantityChange = (quantity: string) => {
     // Check if quantity exceeds available stock
-    const exceeds = checkQuantityExceedsStock(quantity, availableQuantity);
+    checkQuantityExceedsStock(quantity, availableQuantity);
 
     onUpdate({
       quantity,

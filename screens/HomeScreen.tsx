@@ -1,11 +1,11 @@
 import { Theme } from "@/constants/Theme";
 import { useUser } from "@/hooks/useUser";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { router, useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
-  Animated,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -13,36 +13,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
-interface SummaryCard {
-  id: string;
-  title: string;
-  value: string;
-  icon: string;
-  color?: string;
-  trend?: string;
-}
-
-interface ActivityItem {
-  id: string;
-  user: { name: string; avatar: string };
-  action: string;
-  details: string;
-  timestamp: string;
-  type: "stock" | "sale" | "payment";
-}
 
 export default function HomeScreen() {
-  const insets = useSafeAreaInsets();
   const { currentUser, logout } = useUser();
   const router = useRouter();
   const [greeting, setGreeting] = useState("");
-
-  // Animated values
-  const dropdownOpacity = React.useMemo(() => new Animated.Value(0), []);
-  const dropdownScale = React.useMemo(() => new Animated.Value(0.8), []);
 
   // Update greeting based on time
   useEffect(() => {
@@ -80,26 +55,26 @@ export default function HomeScreen() {
               "selectedUser",
               "hasCompletedOnboarding",
             ]);
-            
+
             console.log("AsyncStorage cleared");
-            
+
             // Then call the logout function which will update state
             await logout();
-            
+
             // Force navigation to root
             console.log("Navigating to root");
             router.replace("/");
-            
+
             // Force app reload as a fallback
             setTimeout(() => {
-              if (typeof window !== 'undefined') {
+              if (typeof window !== "undefined") {
                 console.log("Reloading app");
                 window.location.reload();
               }
             }, 300);
           } catch (error) {
             console.error("Error during logout:", error);
-            
+
             // Even if there's an error, try to navigate back to login
             router.replace("/");
           }
@@ -108,88 +83,9 @@ export default function HomeScreen() {
     ]);
   };
 
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case "stock":
-        return "add-circle";
-      case "sale":
-        return "shopping-cart";
-      case "payment":
-        return "payment";
-      default:
-        return "info";
-    }
-  };
-
-  const getActivityColor = (type: string) => {
-    switch (type) {
-      case "stock":
-        return Theme.colors.primary;
-      case "sale":
-        return Theme.colors.secondary;
-      case "payment":
-        return Theme.colors.accent;
-      default:
-        return Theme.colors.textMuted;
-    }
-  };
-
-  // Render summary card
-  const renderSummaryCard = ({ item }: { item: SummaryCard }) => (
-    <View style={styles.summaryCard}>
-      <View style={styles.summaryCardHeader}>
-        <MaterialIcons
-          name={item.icon as any}
-          size={24}
-          color={item.color || Theme.colors.primary}
-        />
-        {item.trend && (
-          <View
-            style={[styles.trendBadge, { backgroundColor: item.color + "15" }]}
-          >
-            <Text style={[styles.trendText, { color: item.color }]}>
-              {item.trend}
-            </Text>
-          </View>
-        )}
-      </View>
-      <Text style={styles.summaryValue}>{item.value}</Text>
-      <Text style={styles.summaryTitle}>{item.title}</Text>
-    </View>
-  );
-
-  // Render activity item
-  const renderActivityItem = ({ item }: { item: ActivityItem }) => (
-    <View style={styles.activityItem}>
-      <View style={styles.activityAvatar}>
-        <Text style={styles.activityAvatarText}>{item.user.avatar}</Text>
-      </View>
-      <View style={styles.activityContent}>
-        <Text style={styles.activityText}>
-          <Text style={styles.activityUserName}>{item.user.name}</Text>{" "}
-          {item.action}{" "}
-          <Text style={styles.activityDetails}>{item.details}</Text>
-        </Text>
-        <Text style={styles.activityTime}>{item.timestamp}</Text>
-      </View>
-      <View
-        style={[
-          styles.activityIcon,
-          { backgroundColor: getActivityColor(item.type) + "15" },
-        ]}
-      >
-        <MaterialIcons
-          name={getActivityIcon(item.type) as any}
-          size={20}
-          color={getActivityColor(item.type)}
-        />
-      </View>
-    </View>
-  );
-
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" translucent={false} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Header with current user */}
       <View style={styles.header}>

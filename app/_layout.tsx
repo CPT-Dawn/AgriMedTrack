@@ -67,23 +67,13 @@ export default function RootLayout() {
         <ThemeProvider
           value={colorScheme === "dark" ? DarkTheme : LovelyWhiteTheme}
         >
-          <Stack
-            key={currentUser?.id || "no-user"}
-            screenOptions={{
-              navigationBarColor:
-                colorScheme === "dark" ? Theme.colors.background : "#FFFFFF",
-            }}
-          >
+          <Stack key={currentUser?.id || "no-user"}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="log" options={{ headerShown: false }} />
             <Stack.Screen name="+not-found" />
           </Stack>
           <StatusBar
             style={colorScheme === "dark" ? "light" : "dark"}
-            backgroundColor={
-              colorScheme === "dark" ? Theme.colors.background : "#FFFFFF"
-            }
-            translucent={false}
             animated={true}
           />
         </ThemeProvider>
