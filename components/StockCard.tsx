@@ -55,7 +55,7 @@ const StockCardComponent: React.FC<StockCardProps> = ({
         (e) =>
           e.productId === item.product.id &&
           e.supplierId === supplierGroup.supplier.id &&
-          e.sizeId === sizeGroup.size.id
+          e.packagingId === sizeGroup.size.id
       );
 
       rows.push({
@@ -66,7 +66,13 @@ const StockCardComponent: React.FC<StockCardProps> = ({
       });
 
       totalQuantity += sizeGroup.quantity;
-      if (!unit) unit = sizeGroup.size.unit;
+      // Extract unit from packaging label if not already set
+      if (!unit) {
+        const match = sizeGroup.size.label.match(/^[\d.]+\s*([a-zA-Z]+)$/);
+        if (match) {
+          unit = match[1];
+        }
+      }
     });
   });
 

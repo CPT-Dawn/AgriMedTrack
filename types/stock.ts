@@ -15,9 +15,7 @@ export interface Supplier {
 
 export interface PackagingSize {
   id: string;
-  label: string;
-  unit: string;
-  value?: string;
+  label: string; // This is now the packaging string (e.g., "10 ml bottle")
   createdAt?: Date;
 }
 
@@ -25,14 +23,15 @@ export interface StockEntry {
   id: string;
   productId: string;
   supplierId: string;
-  sizeId: string;
+  packagingId: string;
+  packaging: string;
   quantity: number;
   buyPrice?: number;
   sellPrice?: number;
   billImageUrl?: string;
   notes?: string;
-  batchId?: string; // Reference to the batch this entry belongs to
-  updatedBy: string; // profile/user ID
+  batchId?: string;
+  updatedBy: string;
   updatedByName?: string;
   updatedByAvatar?: string;
   updatedAt: Date;
@@ -91,10 +90,8 @@ export interface StockEntryFormData {
   productName: string;
   supplierId: string;
   supplierName: string;
-  sizeId: string;
-  sizeLabel: string;
-  sizeValue: string; // New field for size value (e.g., "10", "20")
-  unit: string; // New field for unit (e.g., "tablet", "ml")
+  packagingId: string; // formerly sizeId
+  packaging: string; // formerly sizeLabel
   quantity: string;
   buyPrice?: string;
   sellPrice?: string;
@@ -123,7 +120,7 @@ export interface SaleItem {
   id: string;
   productId: string;
   productName: string;
-  sizeLabel: string;
+  packaging: string;
   quantity: string;
   unitPrice: string;
   totalPrice: number;
@@ -136,6 +133,7 @@ export interface Sale {
   id?: string;
   buyer: string;
   addedBy: string;
+  addedByName?: string;
   paymentStatus: "Paid" | "Unpaid" | "Partial";
   saleDate: string | Date;
   notes: string;

@@ -1,5 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { useFocusEffect } from "@react-navigation/native";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -25,7 +26,12 @@ import { AppColors } from "../constants/Colors";
 import { Theme } from "../constants/Theme";
 import { useStock } from "../hooks/useStock";
 import { useUser } from "../hooks/useUser";
-import { addSale, getSales } from "../services/stockService";
+import {
+  addSale,
+  deleteSale,
+  getSales,
+  updateSale,
+} from "../services/stockService";
 import { Sale, SaleItem } from "../types/stock";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -84,9 +90,14 @@ type ViewType = "sales" | "add";
 export default function SalesScreen() {
   const insets = useSafeAreaInsets();
   const { currentUser } = useUser();
-  const { stockItems, loading: stockLoading } = useStock();
+  const {
+    stockItems,
+    stockEntries,
+    loading: stockLoading,
+    refreshData: refreshStock,
+  } = useStock();
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
-  const [buyer, setBuyer] = useState("");
+  const [buyer, setBuyer] = useState(currentUser?.name || "");
   const [saleDate, setSaleDate] = useState<Date | null>(new Date());
   const [saleTime, setSaleTime] = useState<Date | null>(new Date());
   const [paymentStatus, setPaymentStatus] = useState<
@@ -108,6 +119,21 @@ export default function SalesScreen() {
   const [loadingSales, setLoadingSales] = useState(true);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+
+  // Update buyer when currentUser changes
+  useEffect(() => {
+    if (currentUser?.name) {
+      setBuyer(currentUser.name);
+    }
+  }, [currentUser]);
+
+  // Refresh stock data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      // Refresh stock data to ensure we have the latest quantities
+      refreshStock();
+    }, [refreshStock])
+  );
 
   // Enable LayoutAnimation on Android
   React.useEffect(() => {
@@ -172,7 +198,7 @@ export default function SalesScreen() {
           id: Date.now().toString(),
           productId: "",
           productName: "",
-          sizeLabel: "",
+          packaging: "",
           quantity: "",
           unitPrice: "",
           totalPrice: 0,
@@ -213,8 +239,9 @@ export default function SalesScreen() {
       setNotes("");
       setErrors({});
     } else {
-      // Going to add view
+      // Going to add view - clear any existing edit state
       setCurrentView("add");
+      setEditSale(null); // Clear edit state for new sale
     }
   };
 
@@ -223,142 +250,11 @@ export default function SalesScreen() {
     setCurrentView("sales");
     // Reset form when going back
     setSaleItems([]);
-    setBuyer("");
+    setBuyer(currentUser?.name || "");
     setPaymentStatus("Paid");
     setNotes("");
     setErrors({});
-  };
-
-  // Add new sale item
-  const addSaleItem = () => {
-    const newItem: SaleItem = {
-      id: Date.now().toString(),
-      productId: "",
-      productName: "",
-      sizeLabel: "",
-      quantity: "",
-      unitPrice: "",
-      totalPrice: 0,
-    };
-    setSaleItems([...saleItems, newItem]);
-  };
-
-  // Remove sale item
-  const removeSaleItem = (id: string) => {
-    setSaleItems(saleItems.filter((item) => item.id !== id));
-  };
-
-  // Update sale item
-  const updateSaleItem = (id: string, updates: Partial<SaleItem>) => {
-    setSaleItems(
-      saleItems.map((item) => (item.id === id ? { ...item, ...updates } : item))
-    );
-  };
-
-  // Validate form
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!buyer.trim()) {
-      newErrors.buyer = "Buyer name is required";
-    }
-
-    if (saleItems.length === 0) {
-      newErrors.items = "At least one product is required";
-    }
-
-    saleItems.forEach((item, index) => {
-      if (!item.productName) {
-        newErrors[`item${index}Product`] = "Product is required";
-      }
-      if (
-        !item.quantity ||
-        isNaN(Number(item.quantity)) ||
-        Number(item.quantity) <= 0
-      ) {
-        newErrors[`item${index}Quantity`] =
-          "Valid quantity (greater than 0) is required";
-      }
-      if (
-        !item.unitPrice ||
-        isNaN(Number(item.unitPrice)) ||
-        Number(item.unitPrice) < 0
-      ) {
-        newErrors[`item${index}Price`] =
-          "Valid price (0 or greater) is required";
-      }
-    });
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  // Handle form submission
-  const handleSubmit = async () => {
-    if (!validateForm()) {
-      // Scroll to top to show errors
-      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-      return;
-    }
-
-    setShowConfirm(true);
-  };
-
-  // Confirm and save sale
-  const confirmSale = async () => {
-    try {
-      setSubmitting(true);
-
-      // Combine date and time into a single ISO string
-      let combinedDateTime = new Date();
-      if (saleDate && saleTime) {
-        combinedDateTime = new Date(saleDate);
-        combinedDateTime.setHours(saleTime.getHours());
-        combinedDateTime.setMinutes(saleTime.getMinutes());
-        combinedDateTime.setSeconds(0);
-        combinedDateTime.setMilliseconds(0);
-      }
-
-      // Prepare sale data
-      const saleData = {
-        buyer,
-        addedBy: currentUser?.id || "unknown-user",
-        paymentStatus,
-        saleDate: combinedDateTime.toISOString(),
-        notes,
-        items: saleItems.map((item) => ({
-          ...item,
-          totalPrice: Number(item.quantity) * Number(item.unitPrice),
-        })),
-        totalAmount: saleItems.reduce(
-          (sum, item) => sum + Number(item.quantity) * Number(item.unitPrice),
-          0
-        ),
-        discount: discount ? parseFloat(discount) : 0,
-        tax: tax ? parseFloat(tax) : 0,
-      };
-
-      // Save to Firebase
-      await addSale(saleData, currentUser?.id || "unknown-user");
-
-      // Reset form and go back to sales view
-      setSaleItems([]);
-      setBuyer("");
-      setPaymentStatus("Paid");
-      setNotes("");
-      setShowConfirm(false);
-      setCurrentView("sales");
-
-      // Refresh sales data
-      loadSalesData();
-
-      Alert.alert("Success", "Sale recorded successfully");
-    } catch (error) {
-      console.error("Error recording sale:", error);
-      Alert.alert("Error", "Failed to record sale");
-    } finally {
-      setSubmitting(false);
-    }
+    setEditSale(null); // Clear edit state
   };
 
   // --- Edit logic ---
@@ -410,6 +306,38 @@ export default function SalesScreen() {
       speed: 30,
       bounciness: 8,
     }).start();
+  };
+
+  // Handle delete sale
+  const handleDelete = (sale: SaleEntry) => {
+    Alert.alert(
+      "Delete Sale",
+      "Are you sure you want to delete this sale? This action cannot be undone.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setLoadingSales(true);
+              await deleteSale(sale.id || "");
+              // Refresh sales data after deletion
+              await loadSalesData();
+              Alert.alert("Success", "Sale deleted successfully");
+            } catch (error) {
+              console.error("Error deleting sale:", error);
+              Alert.alert("Error", "Failed to delete sale");
+            } finally {
+              setLoadingSales(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Render sale card
@@ -476,7 +404,7 @@ export default function SalesScreen() {
                         {saleItem.productName}
                       </Text>
                       <Text style={styles.saleItemDetails}>
-                        {saleItem.sizeLabel + " • Qty: " + saleItem.quantity}
+                        {saleItem.packaging + " • Qty: " + saleItem.quantity}
                       </Text>
                     </View>
                     <View style={styles.saleItemPrice}>
@@ -503,7 +431,12 @@ export default function SalesScreen() {
               <View style={styles.saleCardFooter}>
                 <View style={styles.saleCardFooterLeft}>
                   <Text style={styles.saleCardFooterText}>
-                    By: {item.addedBy}
+                    By:{" "}
+                    {item.addedByName ||
+                      (currentUser?.id === item.addedBy
+                        ? currentUser.name
+                        : item.addedBy) ||
+                      "Unknown User"}
                   </Text>
                 </View>
                 <View style={styles.saleCardFooterRight}>
@@ -550,7 +483,7 @@ export default function SalesScreen() {
                       paddingVertical: 10,
                       paddingHorizontal: 22,
                     }}
-                    onPress={() => {}}
+                    onPress={() => handleDelete(item)}
                     accessibilityLabel="Delete bill"
                   >
                     <Text
@@ -600,31 +533,7 @@ export default function SalesScreen() {
   const renderContent = () => {
     switch (currentView) {
       case "add":
-        return (
-          <SaleForm
-            onSave={(data) => {
-              // Add logic
-              const newEntry: SaleEntry = {
-                id: Date.now().toString(),
-                buyer: data.buyer,
-                addedBy: "Gopal - Sales Manager",
-                paymentStatus: data.paymentStatus,
-                saleDate: new Date().toISOString(), // always a string
-                notes: data.notes || "",
-                items: data.items,
-                totalAmount: data.totalAmount,
-              };
-              setSaleEntries([...saleEntries, newEntry]);
-              setCurrentView("sales");
-              setBuyer("");
-              setPaymentStatus("Paid");
-              setNotes("");
-              setSaleItems([]);
-              setErrors({});
-            }}
-            onCancel={() => setCurrentView("sales")}
-          />
-        );
+        return renderAddSale();
       default:
         return (
           <FlatList
@@ -656,371 +565,7 @@ export default function SalesScreen() {
   };
 
   // Implement renderSaleForm for both add and edit
-  function SaleForm({
-    initialItems = [],
-    initialBuyer = "",
-    initialPaymentStatus = "Paid",
-    initialNotes = "",
-    onSave,
-    onCancel,
-  }: {
-    initialItems?: SaleItem[];
-    initialBuyer?: string;
-    initialPaymentStatus?: "Paid" | "Unpaid" | "Partial";
-    initialNotes?: string;
-    onSave: (data: any) => void;
-    onCancel: () => void;
-  }) {
-    const [formSaleItems, setFormSaleItems] =
-      useState<SaleItem[]>(initialItems);
-    const [formBuyer, setFormBuyer] = useState(initialBuyer);
-    const [formPaymentStatus, setFormPaymentStatus] = useState<
-      "Paid" | "Unpaid" | "Partial"
-    >(initialPaymentStatus);
-    const [formNotes, setFormNotes] = useState(initialNotes);
-    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-    const [formSubmitting, setFormSubmitting] = useState(false);
-
-    // Validation
-    const validate = () => {
-      const newErrors: Record<string, string> = {};
-      if (!formBuyer.trim()) newErrors.buyer = "Buyer is required";
-      if (formSaleItems.length === 0)
-        newErrors.items = "At least one product is required";
-      formSaleItems.forEach((item, idx) => {
-        if (!item.productName)
-          newErrors[`item${idx}Product`] = "Product is required";
-        if (!item.sizeLabel) newErrors[`item${idx}Size`] = "Size is required";
-        if (
-          !item.quantity ||
-          isNaN(Number(item.quantity)) ||
-          Number(item.quantity) <= 0
-        )
-          newErrors[`item${idx}Quantity`] = "Valid quantity required";
-        if (
-          !item.unitPrice ||
-          isNaN(Number(item.unitPrice)) ||
-          Number(item.unitPrice) < 0
-        )
-          newErrors[`item${idx}Price`] = "Valid price required";
-      });
-      setFormErrors(newErrors);
-      return Object.keys(newErrors).length === 0;
-    };
-
-    // Add new sale item
-    const handleAddItem = () => {
-      setFormSaleItems([
-        ...formSaleItems,
-        {
-          id: Date.now().toString(),
-          productId: "",
-          productName: "",
-          sizeLabel: "",
-          quantity: "",
-          unitPrice: "",
-          totalPrice: 0,
-        },
-      ]);
-    };
-
-    // Remove sale item
-    const handleRemoveItem = (id: string) => {
-      setFormSaleItems(formSaleItems.filter((item) => item.id !== id));
-    };
-
-    // Update sale item
-    const handleUpdateItem = (id: string, updates: Partial<SaleItem>) => {
-      setFormSaleItems(
-        formSaleItems.map((item) =>
-          item.id === id ? { ...item, ...updates } : item
-        )
-      );
-    };
-
-    // Calculate total
-    const totalAmount = formSaleItems.reduce(
-      (sum, item) =>
-        sum + (Number(item.unitPrice) * Number(item.quantity) || 0),
-      0
-    );
-
-    // Handle save
-    const handleSave = async () => {
-      if (!validate()) return;
-      setFormSubmitting(true);
-      // Calculate totalPrice for each item
-      const itemsWithTotal = formSaleItems.map((item) => ({
-        ...item,
-        totalPrice: Number(item.unitPrice) * Number(item.quantity),
-      }));
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      onSave({
-        buyer: formBuyer,
-        paymentStatus: formPaymentStatus,
-        notes: formNotes,
-        items: itemsWithTotal,
-        totalAmount: itemsWithTotal.reduce((sum, i) => sum + i.totalPrice, 0),
-      });
-      setFormSubmitting(false);
-    };
-
-    // Handle delete with confirmation
-    // Remove all delete logic from SaleForm (no delete button, no onDelete prop)
-
-    return (
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
-        <Text style={{ fontSize: 18, fontWeight: "bold", marginBottom: 12 }}>
-          Sale Details
-        </Text>
-        <TextInput
-          style={{
-            borderWidth: 1,
-            borderColor: formErrors.buyer ? "#e53935" : "#ccc",
-            borderRadius: 8,
-            padding: 10,
-            marginBottom: 8,
-          }}
-          placeholder="Buyer Name"
-          value={formBuyer}
-          onChangeText={setFormBuyer}
-          accessibilityLabel="Buyer Name"
-        />
-        {formErrors.buyer && (
-          <Text style={{ color: "#e53935", marginBottom: 8 }}>
-            {formErrors.buyer}
-          </Text>
-        )}
-        <Text style={{ fontWeight: "bold", marginTop: 8 }}>Payment Status</Text>
-        <View style={{ flexDirection: "row", marginBottom: 8 }}>
-          {["Paid", "Unpaid", "Partial"].map((status) => (
-            <TouchableOpacity
-              key={status}
-              onPress={() => setFormPaymentStatus(status as any)}
-              style={{
-                backgroundColor:
-                  formPaymentStatus === status ? "#43a047" : "#eee",
-                paddingVertical: 8,
-                paddingHorizontal: 16,
-                borderRadius: 16,
-                marginRight: 8,
-              }}
-              accessibilityLabel={`Set payment status to ${status}`}
-            >
-              <Text
-                style={{
-                  color: formPaymentStatus === status ? "#fff" : "#222",
-                }}
-              >
-                {status}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <TextInput
-          style={{
-            borderWidth: 1,
-            borderColor: "#ccc",
-            borderRadius: 8,
-            padding: 10,
-            marginBottom: 8,
-          }}
-          placeholder="Notes (optional)"
-          value={formNotes}
-          onChangeText={setFormNotes}
-          accessibilityLabel="Sale Notes"
-        />
-        <Text style={{ fontWeight: "bold", marginTop: 8, marginBottom: 4 }}>
-          Sale Items
-        </Text>
-        {formErrors.items && (
-          <Text style={{ color: "#e53935", marginBottom: 8 }}>
-            {formErrors.items}
-          </Text>
-        )}
-        {formSaleItems.map((item, idx) => (
-          <View
-            key={item.id}
-            style={{
-              borderWidth: 1,
-              borderColor: "#ccc",
-              borderRadius: 8,
-              padding: 10,
-              marginBottom: 12,
-            }}
-          >
-            <Text style={{ fontWeight: "bold", marginBottom: 4 }}>
-              Product #{idx + 1}
-            </Text>
-            <TextInput
-              style={{
-                borderWidth: 1,
-                borderColor: formErrors[`item${idx}Product`]
-                  ? "#e53935"
-                  : "#ccc",
-                borderRadius: 6,
-                padding: 8,
-                marginBottom: 4,
-              }}
-              placeholder="Product Name"
-              value={item.productName}
-              onChangeText={(text) =>
-                handleUpdateItem(item.id, { productName: text })
-              }
-              accessibilityLabel={`Product Name for item ${idx + 1}`}
-            />
-            {formErrors[`item${idx}Product`] && (
-              <Text style={{ color: "#e53935" }}>
-                {formErrors[`item${idx}Product`]}
-              </Text>
-            )}
-            <TextInput
-              style={{
-                borderWidth: 1,
-                borderColor: formErrors[`item${idx}Size`] ? "#e53935" : "#ccc",
-                borderRadius: 6,
-                padding: 8,
-                marginBottom: 4,
-              }}
-              placeholder="Size/Packaging"
-              value={item.sizeLabel}
-              onChangeText={(text) =>
-                handleUpdateItem(item.id, { sizeLabel: text })
-              }
-              accessibilityLabel={`Size for item ${idx + 1}`}
-            />
-            {formErrors[`item${idx}Size`] && (
-              <Text style={{ color: "#e53935" }}>
-                {formErrors[`item${idx}Size`]}
-              </Text>
-            )}
-            <TextInput
-              style={{
-                borderWidth: 1,
-                borderColor: formErrors[`item${idx}Quantity`]
-                  ? "#e53935"
-                  : "#ccc",
-                borderRadius: 6,
-                padding: 8,
-                marginBottom: 4,
-              }}
-              placeholder="Quantity"
-              value={item.quantity}
-              onChangeText={(text) =>
-                handleUpdateItem(item.id, { quantity: text })
-              }
-              keyboardType="numeric"
-              accessibilityLabel={`Quantity for item ${idx + 1}`}
-            />
-            {formErrors[`item${idx}Quantity`] && (
-              <Text style={{ color: "#e53935" }}>
-                {formErrors[`item${idx}Quantity`]}
-              </Text>
-            )}
-            <TextInput
-              style={{
-                borderWidth: 1,
-                borderColor: formErrors[`item${idx}Price`] ? "#e53935" : "#ccc",
-                borderRadius: 6,
-                padding: 8,
-                marginBottom: 4,
-              }}
-              placeholder="Unit Price"
-              value={item.unitPrice}
-              onChangeText={(text) =>
-                handleUpdateItem(item.id, { unitPrice: text })
-              }
-              keyboardType="numeric"
-              accessibilityLabel={`Unit Price for item ${idx + 1}`}
-            />
-            {formErrors[`item${idx}Price`] && (
-              <Text style={{ color: "#e53935" }}>
-                {formErrors[`item${idx}Price`]}
-              </Text>
-            )}
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginTop: 4,
-              }}
-            >
-              <Text style={{ fontWeight: "bold" }}>
-                Total: ₹{Number(item.unitPrice) * Number(item.quantity) || 0}
-              </Text>
-              <TouchableOpacity
-                onPress={() => handleRemoveItem(item.id)}
-                style={{
-                  backgroundColor: "#e53935",
-                  padding: 6,
-                  borderRadius: 6,
-                }}
-                accessibilityLabel={`Remove item ${idx + 1}`}
-              >
-                <MaterialIcons name="delete" size={18} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))}
-        <TouchableOpacity
-          onPress={handleAddItem}
-          style={{
-            backgroundColor: "#43a047",
-            padding: 12,
-            borderRadius: 8,
-            marginBottom: 16,
-            alignItems: "center",
-          }}
-          accessibilityLabel="Add new sale item"
-        >
-          <Text style={{ color: "#fff", fontWeight: "bold" }}>+ Add Item</Text>
-        </TouchableOpacity>
-        <Text style={{ fontWeight: "bold", fontSize: 16, marginBottom: 8 }}>
-          Total Amount: ₹
-          {formSaleItems.reduce(
-            (sum, i) => sum + (Number(i.unitPrice) * Number(i.quantity) || 0),
-            0
-          )}
-        </Text>
-        <TouchableOpacity
-          onPress={handleSave}
-          style={{
-            backgroundColor: "#43a047",
-            padding: 16,
-            borderRadius: 8,
-            marginBottom: 12,
-            alignItems: "center",
-            opacity: formSubmitting ? 0.7 : 1,
-          }}
-          disabled={formSubmitting}
-          accessibilityLabel="Save sale"
-        >
-          <Text style={{ color: "#fff", fontWeight: "600", fontSize: 16 }}>
-            {formSubmitting ? "Saving..." : "Save Sale"}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={onCancel}
-          style={{
-            backgroundColor: "#ccc",
-            padding: 16,
-            borderRadius: 8,
-            marginBottom: 12,
-            alignItems: "center",
-          }}
-          accessibilityLabel="Cancel"
-        >
-          <Text style={{ color: "#222", fontWeight: "bold", fontSize: 16 }}>
-            Cancel
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-    );
-  }
-
-  // In renderSaleCard, when a card is pressed in editMode, set currentView to 'edit' and setEditingCard(item)
-  // (Stray onPress handler removed)
+  // Old SaleForm component removed - now using renderAddSale() with proper Firebase integration
 
   const handlePlusPressIn = () => {
     Animated.spring(plusScale, {
@@ -1066,17 +611,42 @@ export default function SalesScreen() {
 
     // Convert stock items to format needed by SaleItemInput
     const availableStockItems = stockItems.map((item) => {
-      // Find the first size for this product (simplified approach)
-      const firstSupplier = item.suppliers[0];
-      const firstSize = firstSupplier?.sizes[0];
+      // Get all available packaging options for this product
+      const packagingOptions: {
+        packaging: string;
+        price: number;
+        quantity: number;
+      }[] = [];
+
+      item.suppliers.forEach((supplierGroup) => {
+        supplierGroup.sizes.forEach((sizeGroup) => {
+          // Find the matching stock entry for sell price
+          const stockEntry = stockEntries.find(
+            (e: any) =>
+              e.productId === item.product.id &&
+              e.supplierId === supplierGroup.supplier.id &&
+              e.packagingId === sizeGroup.size.id
+          );
+
+          packagingOptions.push({
+            packaging: sizeGroup.size.label,
+            price: stockEntry?.sellPrice || 0,
+            quantity: sizeGroup.quantity,
+          });
+        });
+      });
+
+      // Get the first packaging option as default
+      const firstPackaging = packagingOptions[0];
 
       return {
         id: item.id,
         name: item.product.name,
-        size: firstSize ? firstSize.size.label : "",
-        price: 0, // Default price - will be set by user
-        inStock: item.totalQuantity > 0, // Only show items with stock
-        availableQuantity: item.totalQuantity, // Add available quantity
+        packaging: firstPackaging ? firstPackaging.packaging : "",
+        price: firstPackaging ? firstPackaging.price : 0,
+        inStock: item.totalQuantity > 0,
+        availableQuantity: item.totalQuantity,
+        packagingOptions: packagingOptions, // Add all packaging options
         suppliers: item.suppliers.map((s) => ({
           id: s.supplier.id,
           name: s.supplier.name,
@@ -1087,7 +657,6 @@ export default function SalesScreen() {
     // --- Validation ---
     const validate = () => {
       const newErrors: Record<string, string> = {};
-      if (!buyer.trim()) newErrors.buyer = "Buyer is required";
       if (!saleDate) newErrors.date = "Date is required";
       if (saleItems.length === 0)
         newErrors.items = "At least one product is required";
@@ -1097,7 +666,8 @@ export default function SalesScreen() {
         // Basic validation
         if (!item.productName)
           newErrors[`item${idx}Product`] = "Product is required";
-        if (!item.sizeLabel) newErrors[`item${idx}Size`] = "Size is required";
+        if (!item.packaging)
+          newErrors[`item${idx}Packaging`] = "Packaging is required";
         if (
           !item.quantity ||
           isNaN(Number(item.quantity)) ||
@@ -1133,18 +703,16 @@ export default function SalesScreen() {
 
     // --- Handlers ---
     const handleAddItem = () => {
-      setSaleItems([
-        ...saleItems,
-        {
-          id: Date.now().toString(),
-          productId: "",
-          productName: "",
-          sizeLabel: "",
-          quantity: "",
-          unitPrice: "",
-          totalPrice: 0,
-        },
-      ]);
+      const newItem: SaleItem = {
+        id: Date.now().toString(),
+        productId: "",
+        productName: "",
+        packaging: "",
+        quantity: "",
+        unitPrice: "",
+        totalPrice: 0,
+      };
+      setSaleItems([...saleItems, newItem]);
     };
 
     const handleRemoveItem = (id: string) => {
@@ -1196,25 +764,28 @@ export default function SalesScreen() {
             (sum, item) => sum + item.totalPrice,
             0
           ),
-          discount: discount ? parseFloat(discount) : 0,
-          tax: tax ? parseFloat(tax) : 0,
         };
 
         // Save to Firebase
-        if (editSale) {
-          // Update existing sale (not implemented in this example)
-          // await updateSale(editSale.id, saleData);
-          Alert.alert(
-            "Not Implemented",
-            "Updating sales is not implemented yet"
+        if (editSale && editSale.id) {
+          // Update existing sale
+          await updateSale(
+            editSale.id,
+            saleData,
+            currentUser?.id || "unknown-user",
+            currentUser?.name || "Unknown User"
           );
         } else {
           // Add new sale
-          await addSale(saleData, currentUser?.id || "unknown-user");
+          await addSale(
+            saleData,
+            currentUser?.id || "unknown-user",
+            currentUser?.name || "Unknown User"
+          );
         }
 
         // Reset form and refresh data
-        setBuyer("");
+        setBuyer(currentUser?.name || "");
         setSaleDate(new Date());
         setPaymentStatus("Paid");
         setNotes("");
@@ -1229,6 +800,10 @@ export default function SalesScreen() {
 
         // Refresh sales data
         loadSalesData();
+
+        // Refresh stock data to reflect updated quantities
+        // This will trigger a re-render of the stock items with updated quantities
+        refreshStock();
 
         Alert.alert(
           "Success",
@@ -1279,7 +854,7 @@ export default function SalesScreen() {
                   { fontSize: Theme.typography.fontSize.lg },
                 ]}
               >
-                New Sale
+                {editSale ? "Edit Sale" : "New Sale"}
               </Text>
             </View>
             {/* Green + box removed when in new sale page */}
@@ -1289,7 +864,7 @@ export default function SalesScreen() {
         {/* Form Content */}
         <KeyboardAwareScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ padding: 12, paddingBottom: 120 }} // Added extra padding at bottom
+          contentContainerStyle={{ padding: 12, paddingBottom: 20 }}
           enableOnAndroid
           extraScrollHeight={100}
           keyboardShouldPersistTaps="handled"
@@ -1312,9 +887,7 @@ export default function SalesScreen() {
                 backgroundColor: Theme.colors.surface,
                 borderRadius: 16,
                 borderWidth: 1,
-                borderColor: errors.buyer
-                  ? AppColors.error
-                  : Theme.colors.border,
+                borderColor: Theme.colors.border,
                 paddingHorizontal: 12,
                 paddingVertical: 10,
                 shadowColor: "#000",
@@ -1337,21 +910,12 @@ export default function SalesScreen() {
                   padding: 0,
                   backgroundColor: "transparent",
                 }}
-                placeholder="Buyer Name"
                 value={buyer}
                 onChangeText={setBuyer}
-                accessibilityLabel="Buyer Name"
-                returnKeyType="next"
+                placeholder="Enter buyer name"
                 placeholderTextColor={Theme.colors.textMuted}
               />
             </View>
-            {errors.buyer && (
-              <Text
-                style={{ color: AppColors.error, fontSize: 12, marginTop: 2 }}
-              >
-                {errors.buyer}
-              </Text>
-            )}
           </View>
 
           {/* Date and Time Fields (side by side) */}
@@ -1626,9 +1190,14 @@ export default function SalesScreen() {
                       price: errors[`item${index}Price`],
                       supplier: errors[`item${index}Supplier`],
                     }}
-                    initiallyExpanded={index === 0} // First item is always expanded
+                    initiallyExpanded={
+                      editSale
+                        ? true
+                        : index === 0 || index === saleItems.length - 1
+                    } // All items expanded when editing, otherwise first and last items
                   />
                 ))}
+
                 <TouchableOpacity
                   style={{
                     flexDirection: "row",
@@ -1641,6 +1210,7 @@ export default function SalesScreen() {
                     borderRadius: 16,
                     paddingVertical: 12,
                     marginTop: 8,
+                    marginBottom: 16,
                   }}
                   onPress={handleAddItem}
                   accessibilityLabel="Add another item"
@@ -1660,26 +1230,36 @@ export default function SalesScreen() {
                     Add Another Item
                   </Text>
                 </TouchableOpacity>
+
+                {/* Total Bill Section - Added before Add Another Item button */}
+                <View style={styles.totalBillContainer}>
+                  <View style={styles.totalBillRow}>
+                    <Text style={styles.grandTotalLabel}>TOTAL</Text>
+                    <Text style={styles.grandTotalValue}>
+                      ₹{grandTotal.toFixed(2)}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Save Button - Moved inside the container */}
+                <TouchableOpacity
+                  style={styles.inlineSaveButton}
+                  onPress={handleSave}
+                  disabled={submitting}
+                  accessibilityLabel="Save sale"
+                >
+                  {submitting ? (
+                    <Text style={styles.saveButtonText}>Saving...</Text>
+                  ) : (
+                    <Text style={styles.saveButtonText}>
+                      {editSale ? "Update Sale" : "Save Sale"}
+                    </Text>
+                  )}
+                </TouchableOpacity>
               </>
             )}
           </View>
         </KeyboardAwareScrollView>
-
-        {/* Save Button - Fixed at bottom above nav bar */}
-        <View style={styles.saveButtonContainer}>
-          <TouchableOpacity
-            style={styles.saveButton}
-            onPress={handleSave}
-            disabled={submitting}
-            accessibilityLabel="Save sale"
-          >
-            {submitting ? (
-              <Text style={styles.saveButtonText}>Saving...</Text>
-            ) : (
-              <Text style={styles.saveButtonText}>Save Sale</Text>
-            )}
-          </TouchableOpacity>
-        </View>
 
         {/* Confirmation Modal */}
         {showConfirm && (
@@ -1713,10 +1293,11 @@ export default function SalesScreen() {
                   textAlign: "center",
                 }}
               >
-                Confirm Sale
+                {editSale ? "Confirm Edit" : "Confirm Sale"}
               </Text>
               <Text style={{ marginBottom: 16, textAlign: "center" }}>
-                Are you sure you want to record this sale?
+                Are you sure you want to {editSale ? "update" : "record"} this
+                sale?
               </Text>
               <View
                 style={{
@@ -1750,7 +1331,11 @@ export default function SalesScreen() {
                   disabled={submitting}
                 >
                   <Text style={{ color: Theme.colors.white }}>
-                    {submitting ? "Saving..." : "Confirm"}
+                    {submitting
+                      ? "Saving..."
+                      : editSale
+                      ? "Update Sale"
+                      : "Confirm"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -2477,5 +2062,69 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: "transparent",
     zIndex: 100,
+  },
+
+  // New styles for total bill section
+  totalBillContainer: {
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius["2xl"],
+    padding: 16,
+    marginTop: 16,
+    marginBottom: 16,
+    ...Theme.shadows.md,
+  },
+  totalBillRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  totalBillLabel: {
+    fontSize: 15,
+    color: Theme.colors.textSecondary,
+    fontWeight: "500",
+  },
+  totalBillValue: {
+    fontSize: 15,
+    color: Theme.colors.text,
+    fontWeight: "600",
+  },
+  totalBillInput: {
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    width: 100,
+    textAlign: "right",
+    fontSize: 15,
+    color: Theme.colors.text,
+  },
+  totalBillDivider: {
+    height: 1,
+    backgroundColor: Theme.colors.border,
+    marginVertical: 8,
+  },
+  grandTotalLabel: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: Theme.colors.text,
+  },
+  grandTotalValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Theme.colors.primary,
+  },
+  inlineSaveButton: {
+    backgroundColor: Theme.colors.primary,
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: "center",
+    marginBottom: 32,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
 });

@@ -39,7 +39,10 @@ export function CreatableDropdown({
   const [searchText, setSearchText] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
-  const selectedOption = options.find((opt) => opt.id === value);
+  // Fix: Check for both id and label to determine the selected option
+  const selectedOption = options.find(
+    (opt) => opt.id === value || opt.label === value
+  );
 
   const filteredOptions = options.filter((option) =>
     option.label.toLowerCase().includes(searchText.toLowerCase())

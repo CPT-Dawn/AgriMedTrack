@@ -13,6 +13,7 @@ import {
   BackHandler,
   FlatList,
   Platform,
+  RefreshControl,
   StatusBar,
   StyleSheet,
   Text,
@@ -50,10 +51,12 @@ export default function StockScreen() {
     clearError,
     stockEntries,
     batchLogs,
+    refreshData,
   } = useStock();
   const { currentUser } = useUser();
 
   const [search, setSearch] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   // const router = useRouter();
   const [expandedLogs, setExpandedLogs] = useState<Record<string, boolean>>({});
   const searchInputRef = useRef<TextInput>(null);
@@ -73,6 +76,26 @@ export default function StockScreen() {
     "stock"
   );
   const [editBatch, setEditBatch] = useState<StockBatch | null>(null);
+
+  // Handle pull-to-refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refreshData();
+    } catch (error) {
+      console.error("Error refreshing stock data:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshData]);
+
+  // Auto-refresh when returning to stock view
+  useEffect(() => {
+    if (currentView === "stock") {
+      // Refresh data when returning to stock view
+      refreshData();
+    }
+  }, [currentView, refreshData]);
 
   // Use the new batch logs directly instead of deriving them from activities
   const paginatedBatchLogs = useMemo(() => {
@@ -272,10 +295,8 @@ export default function StockScreen() {
                   productName: item.productName,
                   supplierId: "",
                   supplierName: item.supplierName,
-                  sizeId: "",
-                  sizeLabel: item.sizeName,
-                  sizeValue: "",
-                  unit: "",
+                  packagingId: "",
+                  packaging: item.sizeName,
                   quantity: item.quantity.toString(),
                   sellPrice: "",
                 })),
@@ -332,6 +353,14 @@ export default function StockScreen() {
             maxToRenderPerBatch={10}
             windowSize={10}
             removeClippedSubviews={Platform.OS === "android"}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[Theme.colors.primary]}
+                tintColor={Theme.colors.primary}
+              />
+            }
             ListEmptyComponent={() => (
               <View style={styles.emptyState}>
                 <MaterialIcons
@@ -437,7 +466,23 @@ export default function StockScreen() {
               autoCapitalize="none"
               accessibilityLabel="Search products"
             />
-            {/* Mic icon removed */}
+            <TouchableOpacity
+              onPress={onRefresh}
+              disabled={refreshing}
+              style={styles.refreshButton}
+              accessibilityLabel="Refresh stock data"
+            >
+              <MaterialIcons
+                name="refresh"
+                size={20}
+                color={
+                  refreshing ? Theme.colors.textMuted : Theme.colors.primary
+                }
+                style={{
+                  transform: [{ rotate: refreshing ? "180deg" : "0deg" }],
+                }}
+              />
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -524,6 +569,10 @@ const styles = StyleSheet.create({
     fontSize: Theme.typography.fontSize.base,
     color: Theme.colors.text,
     padding: 0,
+  },
+  refreshButton: {
+    padding: 4,
+    marginLeft: 8,
   },
   listContainer: {
     paddingTop: Theme.spacing.md,

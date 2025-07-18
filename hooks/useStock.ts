@@ -50,11 +50,11 @@ export function useStock() {
 
           if (supplierEntries.length === 0) return null;
 
-          // Group by size
-          const sizeGroups = sizes
+          // Group by packaging (was size)
+          const packagingGroups = sizes
             .map((size) => {
               const sizeEntries = supplierEntries.filter(
-                (entry) => entry.sizeId === size.id
+                (entry) => entry.packagingId === size.id
               );
 
               if (sizeEntries.length === 0) return null;
@@ -68,7 +68,10 @@ export function useStock() {
               )[0];
 
               return {
-                size,
+                size: {
+                  id: size.id,
+                  label: size.label,
+                },
                 quantity: totalQuantity,
                 lastUpdated: lastEntry.updatedAt,
                 updatedBy: lastEntry.updatedBy,
@@ -76,11 +79,11 @@ export function useStock() {
             })
             .filter((item): item is NonNullable<typeof item> => item !== null);
 
-          if (sizeGroups.length === 0) return null;
+          if (packagingGroups.length === 0) return null;
 
           return {
             supplier,
-            sizes: sizeGroups,
+            sizes: packagingGroups,
           };
         })
         .filter((item): item is NonNullable<typeof item> => item !== null);
@@ -240,10 +243,10 @@ export function useStock() {
       try {
         setError(null);
         setLoading(true);
-        
+
         // Delete the batch from Firestore
         await deleteBatch(batchId);
-        
+
         // Refresh data to update the UI
         await loadData();
       } catch (err) {

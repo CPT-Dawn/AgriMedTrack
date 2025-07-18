@@ -27,7 +27,7 @@ export interface SaleItemInputProps {
     id: string;
     productId: string;
     productName: string;
-    sizeLabel: string;
+    packaging: string;
     quantity: string;
     unitPrice: string;
     totalPrice: number;
@@ -38,11 +38,12 @@ export interface SaleItemInputProps {
   stockItems: {
     id: string;
     name: string;
-    size: string;
+    packaging: string;
     price: number;
     inStock: boolean;
     suppliers?: { id: string; name: string }[];
-    availableQuantity?: number; // Add available quantity
+    availableQuantity?: number;
+    packagingOptions?: { packaging: string; price: number; quantity: number }[];
   }[];
   onUpdate: (updates: Partial<SaleItemInputProps["item"]>) => void;
   onRemove: () => void;
@@ -100,19 +101,29 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
       const productSuppliers = selectedStockItem.suppliers || [];
       setSuppliers(productSuppliers);
 
+      // Set available packaging options
+      const packagingOptions = selectedStockItem.packagingOptions || [];
+      setAvailableSizes(
+        packagingOptions.map((p) => ({ id: p.packaging, label: p.packaging }))
+      );
+
       // Set available quantity
       const quantity = selectedStockItem.availableQuantity || 0;
       setAvailableQuantity(quantity);
 
+      // Set default packaging and price
+      const defaultPackaging = packagingOptions[0];
+      const defaultPackagingLabel = defaultPackaging
+        ? defaultPackaging.packaging
+        : "";
+      const defaultPrice = defaultPackaging ? defaultPackaging.price : 0;
+
       onUpdate({
         productId: option.id,
         productName: option.label,
-        sizeLabel: selectedStockItem.size,
-        unitPrice: selectedStockItem.price.toString(),
-        totalPrice: calcTotal(
-          item.quantity,
-          selectedStockItem.price.toString()
-        ),
+        packaging: defaultPackagingLabel,
+        unitPrice: defaultPrice.toString(),
+        totalPrice: calcTotal(item.quantity, defaultPrice.toString()),
       });
       setNoStockMessage("");
 
@@ -131,9 +142,28 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
 
   // Size select
   const handleSizeSelect = (option: { id: string; label: string }) => {
-    onUpdate({
-      sizeLabel: option.label,
-    });
+    const selectedStockItem = stockItems.find(
+      (stock) => stock.id === item.productId
+    );
+
+    if (selectedStockItem && selectedStockItem.packagingOptions) {
+      // Find the selected packaging option to get its price
+      const selectedPackaging = selectedStockItem.packagingOptions.find(
+        (p) => p.packaging === option.label
+      );
+
+      const newPrice = selectedPackaging ? selectedPackaging.price : 0;
+
+      onUpdate({
+        packaging: option.label,
+        unitPrice: newPrice.toString(),
+        totalPrice: calcTotal(item.quantity, newPrice.toString()),
+      });
+    } else {
+      onUpdate({
+        packaging: option.label,
+      });
+    }
   };
 
   // Handle product creation attempt - check if it's in stock
@@ -222,7 +252,7 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
             </Text>
             {item.productName && (
               <Text style={styles.subtitle}>
-                {item.sizeLabel ? `${item.sizeLabel} • ` : ""}
+                {item.packaging ? `${item.packaging} • ` : ""}
                 Qty: {item.quantity || "0"} • ₹{item.totalPrice.toFixed(2)}
               </Text>
             )}
@@ -302,14 +332,19 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
           {/* Size Dropdown/Display */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Packaging Size</Text>
-            {item.sizeLabel ? (
-              <View style={styles.sizeDisplay}>
-                <Text style={styles.sizeText}>{item.sizeLabel}</Text>
-              </View>
+            {availableSizes.length > 0 ? (
+              <CreatableDropdown
+                options={availableSizes}
+                value={item.packaging}
+                placeholder="Select packaging"
+                onSelect={handleSizeSelect}
+                onCreate={async (label) => ({ id: label, label })}
+                aria-label={`Packaging size dropdown for item ${index + 1}`}
+              />
             ) : (
               <View style={styles.sizeDisplay}>
                 <Text style={[styles.sizeText, { color: colors.textMuted }]}>
-                  Select a product first
+                  No packaging options available for this product
                 </Text>
               </View>
             )}

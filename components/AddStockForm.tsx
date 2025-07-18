@@ -1,7 +1,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as ImagePicker from "expo-image-picker";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -48,12 +48,10 @@ interface AddStockFormProps {
   ) => Promise<void>;
   products: { id: string; name: string }[];
   suppliers: { id: string; name: string }[];
-  sizes: { id: string; label: string; unit: string }[];
+  sizes: { id: string; label: string }[];
   getOrCreateProduct: (name: string) => Promise<{ id: string; name: string }>;
   getOrCreateSupplier: (name: string) => Promise<{ id: string; name: string }>;
-  getOrCreateSize: (
-    label: string
-  ) => Promise<{ id: string; label: string; unit: string }>;
+  getOrCreateSize: (label: string) => Promise<{ id: string; label: string }>;
   initialData?: BatchEntryFormData;
 }
 
@@ -74,10 +72,8 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
     productName: "",
     supplierId: "",
     supplierName: "",
-    sizeId: "",
-    sizeLabel: "",
-    sizeValue: "",
-    unit: "",
+    packagingId: "",
+    packaging: "",
     quantity: "",
     sellPrice: "",
   });
@@ -88,10 +84,8 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
         productName: "",
         supplierId: "",
         supplierName: "",
-        sizeId: "",
-        sizeLabel: "",
-        sizeValue: "",
-        unit: "",
+        packagingId: "",
+        packaging: "",
         quantity: "",
         sellPrice: "",
       },
@@ -112,53 +106,6 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
   const [stockTime, setStockTime] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-
-  // Extract unique size values and units from sizes
-  const [sizeValues, setSizeValues] = useState<{ id: string; label: string }[]>(
-    []
-  );
-  const [unitValues, setUnitValues] = useState<{ id: string; label: string }[]>(
-    []
-  );
-
-  // Extract size values and units from the packaging sizes on component mount
-  useEffect(() => {
-    // Extract unique size values and units
-    const extractedSizeValues = new Set<string>();
-    const extractedUnits = new Set<string>();
-
-    sizes.forEach((size) => {
-      // Try to split the label into value and unit
-      const match = size.label.match(/^([\d.]+)\s*([a-zA-Z]+)$/);
-      if (match) {
-        extractedSizeValues.add(match[1]);
-        extractedUnits.add(match[2]);
-      } else if (!isNaN(parseFloat(size.label))) {
-        // If it's just a number
-        extractedSizeValues.add(size.label);
-      } else {
-        // If it's just a unit
-        extractedUnits.add(size.label);
-      }
-
-      // Also add the unit from the size object if it exists
-      if (size.unit) {
-        extractedUnits.add(size.unit);
-      }
-    });
-
-    // Convert to array of objects for the dropdown
-    const sizeValueArray = Array.from(extractedSizeValues)
-      .sort((a, b) => parseFloat(a) - parseFloat(b))
-      .map((value) => ({ id: value, label: value }));
-
-    const unitArray = Array.from(extractedUnits)
-      .sort()
-      .map((unit) => ({ id: unit, label: unit }));
-
-    setSizeValues(sizeValueArray);
-    setUnitValues(unitArray);
-  }, [sizes]);
 
   const handleImagePicker = async () => {
     const permissionResult =
@@ -202,9 +149,7 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
       newErrors.productName = "Product name is required";
     if (!form.supplierName.trim())
       newErrors.supplierName = "Supplier name is required";
-    if (!form.sizeValue.trim() || isNaN(parseFloat(form.sizeValue)))
-      newErrors.sizeValue = "Valid size value is required";
-    if (!form.unit.trim()) newErrors.unit = "Unit is required";
+    if (!form.packaging.trim()) newErrors.packaging = "Packaging is required";
     if (!form.quantity.trim() || isNaN(parseInt(form.quantity))) {
       newErrors.quantity = "Valid quantity is required";
     }
@@ -219,10 +164,8 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
       productName: "",
       supplierId: "",
       supplierName: "",
-      sizeId: "",
-      sizeLabel: "",
-      sizeValue: "",
-      unit: "",
+      packagingId: "",
+      packaging: "",
       quantity: "",
       sellPrice: "",
     });
@@ -237,10 +180,8 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
         productName: "",
         supplierId: "",
         supplierName: "",
-        sizeId: "",
-        sizeLabel: "",
-        sizeValue: "",
-        unit: "",
+        packagingId: "",
+        packaging: "",
         quantity: "",
         sellPrice: "",
       },
@@ -261,83 +202,6 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
     );
   };
 
-  // Handle size value selection
-  const handleSizeValueSelect = (
-    index: number,
-    option: { id: string; label: string }
-  ) => {
-    updateProduct(index, { sizeValue: option.label });
-    updateCombinedSizeLabel(index, option.label, items[index].unit);
-  };
-
-  // Handle unit selection
-  const handleUnitSelect = (
-    index: number,
-    option: { id: string; label: string }
-  ) => {
-    updateProduct(index, { unit: option.label });
-    updateCombinedSizeLabel(index, items[index].sizeValue, option.label);
-  };
-
-  // Update the combined size label
-  const updateCombinedSizeLabel = (
-    index: number,
-    sizeValue: string,
-    unit: string
-  ) => {
-    if (sizeValue && unit) {
-      const combinedLabel = `${sizeValue} ${unit}`;
-      updateProduct(index, {
-        sizeLabel: combinedLabel,
-        // We'll find or create the size ID when submitting
-        sizeId: "",
-      });
-    }
-  };
-
-  // Add a new function to create a size with separate value and unit
-  const getOrCreateSizeWithValueAndUnit = async (
-    index: number,
-    sizeValue: string,
-    unit: string
-  ): Promise<void> => {
-    try {
-      // Create the combined label
-      const combinedLabel = `${sizeValue} ${unit}`;
-
-      // Check if this size already exists
-      const existingSize = sizes.find(
-        (s) => s.label.toLowerCase() === combinedLabel.toLowerCase()
-      );
-
-      if (existingSize) {
-        // Use existing size
-        updateProduct(index, {
-          sizeId: existingSize.id,
-          sizeLabel: existingSize.label,
-          sizeValue,
-          unit,
-        });
-        return;
-      }
-
-      // Create a new size with the separate value and unit
-      const newSize = await getOrCreateSize(combinedLabel);
-
-      // Update the product with the new size
-      updateProduct(index, {
-        sizeId: newSize.id,
-        sizeLabel: newSize.label,
-        sizeValue,
-        unit,
-      });
-    } catch (error) {
-      console.error("Error creating size:", error);
-      Alert.alert("Error", "Failed to create new size");
-    }
-  };
-
-  // Update the handleSubmit function to ensure size and unit are properly combined
   const handleSubmit = async () => {
     // Validate all items
     let valid = true;
@@ -346,16 +210,10 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
 
-      // Ensure sizeLabel is set for each item
-      if (item.sizeValue && item.unit && !item.sizeLabel) {
-        item.sizeLabel = `${item.sizeValue} ${item.unit}`;
-      }
-
       if (
         !item.productName.trim() ||
         !item.supplierName.trim() ||
-        !item.sizeValue.trim() ||
-        !item.unit.trim() ||
+        !item.packaging.trim() ||
         !item.quantity.trim() ||
         isNaN(parseInt(item.quantity))
       ) {
@@ -377,11 +235,19 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
     try {
       setSubmitting(true);
 
-      // Process each item to ensure size IDs are set
+      // Process each item to ensure packaging IDs are set
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        if (item.sizeValue && item.unit && !item.sizeId) {
-          await getOrCreateSizeWithValueAndUnit(i, item.sizeValue, item.unit);
+        if (item.packaging && !item.packagingId) {
+          try {
+            const newSize = await getOrCreateSize(item.packaging);
+            updateProduct(i, {
+              packagingId: newSize.id,
+              packaging: newSize.label,
+            });
+          } catch (error) {
+            console.error("Error creating packaging:", error);
+          }
         }
       }
 
@@ -398,10 +264,8 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
           productName: "",
           supplierId: "",
           supplierName: "",
-          sizeId: "",
-          sizeLabel: "",
-          sizeValue: "",
-          unit: "",
+          packagingId: "",
+          packaging: "",
           quantity: "",
           sellPrice: "",
         },
@@ -423,16 +287,10 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
 
-      // Ensure sizeLabel is set for each item
-      if (item.sizeValue && item.unit && !item.sizeLabel) {
-        item.sizeLabel = `${item.sizeValue} ${item.unit}`;
-      }
-
       if (
         !item.productName.trim() ||
         !item.supplierName.trim() ||
-        !item.sizeValue.trim() ||
-        !item.unit.trim() ||
+        !item.packaging.trim() ||
         !item.quantity.trim() ||
         isNaN(parseInt(item.quantity))
       ) {
@@ -454,11 +312,19 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
     try {
       setSubmitting(true);
 
-      // Process each item to ensure size IDs are set
+      // Process each item to ensure packaging IDs are set
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        if (item.sizeValue && item.unit && !item.sizeId) {
-          await getOrCreateSizeWithValueAndUnit(i, item.sizeValue, item.unit);
+        if (item.packaging && !item.packagingId) {
+          try {
+            const newSize = await getOrCreateSize(item.packaging);
+            updateProduct(i, {
+              packagingId: newSize.id,
+              packaging: newSize.label,
+            });
+          } catch (error) {
+            console.error("Error creating packaging:", error);
+          }
         }
       }
 
@@ -477,10 +343,8 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
           productName: "",
           supplierId: "",
           supplierName: "",
-          sizeId: "",
-          sizeLabel: "",
-          sizeValue: "",
-          unit: "",
+          packagingId: "",
+          packaging: "",
           quantity: "",
           sellPrice: "",
         },
@@ -498,8 +362,7 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
   const isFormValid =
     form.productName.trim() &&
     form.supplierName.trim() &&
-    form.sizeValue.trim() &&
-    form.unit.trim() &&
+    form.packaging.trim() &&
     form.quantity.trim() &&
     !isNaN(parseInt(form.quantity));
 
@@ -618,76 +481,10 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
           </View>
         </View>
 
-        {/* Replace the Size Value and Unit fields with CreatableDropdown */}
-        <View style={styles.inputRow}>
-          <View style={[styles.inputGroup, styles.flex1]}>
-            <Text style={styles.inputLabel}>
-              Size <Text style={styles.requiredAsterisk}>*</Text>
-            </Text>
-            <View style={styles.inputWrapper}>
-              <MaterialIcons
-                name="straighten"
-                size={20}
-                color={Theme.colors.textSecondary}
-                style={styles.inputIcon}
-              />
-              <View style={styles.dropdownWrapper}>
-                <CreatableDropdown
-                  options={sizeValues}
-                  value={item.sizeValue}
-                  placeholder="Select or create size"
-                  onSelect={(option) => handleSizeValueSelect(index, option)}
-                  onCreate={async (newValue) => {
-                    if (isNaN(parseFloat(newValue))) {
-                      Alert.alert(
-                        "Invalid Size",
-                        "Size value must be a number"
-                      );
-                      throw new Error("Invalid size value");
-                    }
-                    updateProduct(index, { sizeValue: newValue });
-                    updateCombinedSizeLabel(index, newValue, item.unit);
-                    return { id: newValue, label: newValue };
-                  }}
-                  createLabel="Create size"
-                />
-              </View>
-            </View>
-          </View>
-
-          <View style={[styles.inputGroup, styles.flex1]}>
-            <Text style={styles.inputLabel}>
-              Unit <Text style={styles.requiredAsterisk}>*</Text>
-            </Text>
-            <View style={styles.inputWrapper}>
-              <MaterialIcons
-                name="category"
-                size={20}
-                color={Theme.colors.textSecondary}
-                style={styles.inputIcon}
-              />
-              <View style={styles.dropdownWrapper}>
-                <CreatableDropdown
-                  options={unitValues}
-                  value={item.unit}
-                  placeholder="Select or create unit"
-                  onSelect={(option) => handleUnitSelect(index, option)}
-                  onCreate={async (newUnit) => {
-                    updateProduct(index, { unit: newUnit });
-                    updateCombinedSizeLabel(index, item.sizeValue, newUnit);
-                    return { id: newUnit, label: newUnit };
-                  }}
-                  createLabel="Create unit"
-                />
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Packaging Size - Full width but hidden, used for compatibility */}
-        <View style={[styles.inputGroup, { display: "none" }]}>
+        {/* Packaging - Full Width */}
+        <View style={styles.inputGroup}>
           <Text style={styles.inputLabel}>
-            Packaging Size <Text style={styles.requiredAsterisk}>*</Text>
+            Packaging <Text style={styles.requiredAsterisk}>*</Text>
           </Text>
           <View style={styles.inputWrapper}>
             <MaterialIcons
@@ -699,27 +496,28 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
             <View style={styles.dropdownWrapper}>
               <CreatableDropdown
                 options={sizes.map((s) => ({ id: s.id, label: s.label }))}
-                value={item.sizeId}
-                placeholder="Select size"
+                value={item.packagingId}
+                placeholder="Select or create packaging"
                 onSelect={(option) =>
                   updateProduct(index, {
-                    sizeId: option.id,
-                    sizeLabel: option.label,
+                    packagingId: option.id,
+                    packaging: option.label,
                   })
                 }
                 onCreate={async (newLabel: string) => {
                   try {
                     const newSize = await getOrCreateSize(newLabel);
                     updateProduct(index, {
-                      sizeId: newSize.id,
-                      sizeLabel: newSize.label,
+                      packagingId: newSize.id,
+                      packaging: newSize.label,
                     });
                     return { id: newSize.id, label: newSize.label };
                   } catch (error) {
-                    Alert.alert("Error", "Failed to create new size");
+                    Alert.alert("Error", "Failed to create new packaging");
                     throw error;
                   }
                 }}
+                createLabel="Create packaging"
               />
             </View>
           </View>
