@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -21,6 +22,7 @@ export default function HomeScreen() {
   const { currentUser, logout } = useUser();
   const router = useRouter();
   const [greeting, setGreeting] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const {
     products,
     stockEntries,
@@ -30,13 +32,29 @@ export default function HomeScreen() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [salesLoading, setSalesLoading] = useState(true);
 
-  // Fetch sales on mount
+  // Fetch sales data
+  const fetchSales = async () => {
+    try {
+      setSalesLoading(true);
+      const salesData = await getSales();
+      setSales(salesData);
+    } catch (error) {
+      console.error("Error fetching sales:", error);
+    } finally {
+      setSalesLoading(false);
+    }
+  };
+
+  // Initial fetch and refresh handler
   useEffect(() => {
-    setSalesLoading(true);
-    getSales()
-      .then((data) => setSales(data))
-      .finally(() => setSalesLoading(false));
+    fetchSales();
   }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchSales();
+    setRefreshing(false);
+  };
 
   // Update greeting based on time
   useEffect(() => {
@@ -52,7 +70,7 @@ export default function HomeScreen() {
         timeGreeting = "Good Evening";
       }
 
-      setGreeting(`${timeGreeting}, ${currentUser?.name || "User"} 👋`);
+      setGreeting(`${timeGreeting}, ${currentUser?.name || "User"}`);
     };
 
     updateGreeting();
@@ -106,32 +124,19 @@ export default function HomeScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            // First, clear AsyncStorage directly to ensure it's done
             await AsyncStorage.multiRemove([
               "selectedUser",
               "hasCompletedOnboarding",
             ]);
-
-            console.log("AsyncStorage cleared");
-
-            // Then call the logout function which will update state
             await logout();
-
-            // Force navigation to root
-            console.log("Navigating to root");
             router.replace("/");
-
-            // Force app reload as a fallback
             setTimeout(() => {
               if (typeof window !== "undefined") {
-                console.log("Reloading app");
                 window.location.reload();
               }
             }, 300);
           } catch (error) {
             console.error("Error during logout:", error);
-
-            // Even if there's an error, try to navigate back to login
             router.replace("/");
           }
         },
@@ -139,10 +144,54 @@ export default function HomeScreen() {
     ]);
   };
 
+  const formatCurrency = (amount: number) => {
+    return `₹${amount.toLocaleString()}`;
+  };
+
+  const getTimeAgo = (date: Date) => {
+    const now = new Date();
+    const diffInMinutes = Math.floor(
+      (now.getTime() - date.getTime()) / (1000 * 60)
+    );
+
+    if (diffInMinutes < 1) return "Just now";
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+
+    return date.toLocaleDateString();
+  };
+
+  const getSaleSummary = (sale: Sale) => {
+    const itemCount = sale.items?.length || 0;
+    const totalAmount = sale.totalAmount || 0;
+
+    if (itemCount === 0) return `Sale of ${formatCurrency(totalAmount)}`;
+    if (itemCount === 1)
+      return `${sale.items[0].productName} - ${formatCurrency(totalAmount)}`;
+    return `${itemCount} items - ${formatCurrency(totalAmount)}`;
+  };
+
+  const getStockActivitySummary = (activity: any) => {
+    const quantity = activity.quantity || 0;
+    const productName = activity.productName || "Unknown Product";
+    const sizeName = activity.sizeName || "";
+
+    return `${quantity} ${sizeName} of ${productName}`;
+  };
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-      {/* Header with current user */}
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={Theme.colors.background}
+      />
+
+      {/* Clean Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.userSection}>
@@ -153,67 +202,115 @@ export default function HomeScreen() {
             </View>
             <View style={styles.userInfo}>
               <Text style={styles.greeting}>{greeting}</Text>
-              <Text style={styles.subtitle}>.</Text>
+              <Text style={styles.subtitle}>Welcome to AgriMedTrack</Text>
             </View>
           </View>
         </View>
       </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         {/* Summary Cards */}
         <View style={styles.summarySection}>
           <Text style={styles.sectionTitle}>Overview</Text>
           <View style={styles.summaryGrid}>
-            <View style={styles.summaryCardWrapper}>
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryTitle}>Pending Payment</Text>
-                <Text style={styles.summaryValue}>
-                  {isLoading ? "..." : `₹${pendingAmount.toLocaleString()}`}
-                </Text>
+            <View style={styles.summaryCard}>
+              <View style={styles.cardHeader}>
+                <MaterialIcons
+                  name="pending"
+                  size={20}
+                  color={Theme.colors.error}
+                />
+                <Text style={styles.cardLabel}>Pending</Text>
               </View>
+              <Text style={styles.cardValue}>
+                {isLoading ? "..." : formatCurrency(pendingAmount)}
+              </Text>
             </View>
-            <View style={styles.summaryCardWrapper}>
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryTitle}>Month&apos;s Sale</Text>
-                <Text style={styles.summaryValue}>
-                  {isLoading ? "..." : `₹${totalSalesAmount.toLocaleString()}`}
-                </Text>
+
+            <View style={styles.summaryCard}>
+              <View style={styles.cardHeader}>
+                <MaterialIcons
+                  name="trending-up"
+                  size={20}
+                  color={Theme.colors.success}
+                />
+                <Text style={styles.cardLabel}>This Month</Text>
               </View>
+              <Text style={styles.cardValue}>
+                {isLoading ? "..." : formatCurrency(totalSalesAmount)}
+              </Text>
             </View>
           </View>
         </View>
-        {/* Recent Activities */}
+
+        {/* Recent Sales */}
         <View style={styles.activitiesSection}>
-          <Text style={styles.sectionTitle}>Recent Sales</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Sales</Text>
+            <TouchableOpacity style={styles.viewAllButton}>
+              <Text style={styles.viewAllText}>View All</Text>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.activitiesList}>
             {isLoading ? (
-              <Text>Loading...</Text>
+              <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>Loading recent sales...</Text>
+              </View>
             ) : recentSales.length === 0 ? (
-              <Text>No recent sales</Text>
+              <View style={styles.emptyState}>
+                <MaterialIcons
+                  name="receipt"
+                  size={32}
+                  color={Theme.colors.textMuted}
+                />
+                <Text style={styles.emptyStateText}>No recent sales</Text>
+              </View>
             ) : (
               recentSales.map((sale) => (
-                <View key={sale.id} style={styles.activityItemWrapper}>
-                  <View style={styles.activityItem}>
-                    <View style={styles.activityAvatar}>
-                      <MaterialIcons name="receipt" size={24} color="#4CAF50" />
-                    </View>
-                    <View style={styles.activityContent}>
-                      <Text style={styles.activityText}>
-                        <Text style={styles.activityUserName}>
-                          {sale.buyer}
-                        </Text>{" "}
-                        bought for{" "}
-                        <Text style={styles.activityDetails}>
-                          ₹{sale.totalAmount}
-                        </Text>
-                      </Text>
-                      <Text style={styles.activityTime}>
-                        {sale.saleDate
-                          ? new Date(sale.saleDate).toLocaleString()
-                          : ""}
+                <View key={sale.id} style={styles.activityItem}>
+                  <View style={styles.activityIcon}>
+                    <MaterialIcons
+                      name="receipt"
+                      size={20}
+                      color={Theme.colors.success}
+                    />
+                  </View>
+                  <View style={styles.activityContent}>
+                    <Text style={styles.activityTitle}>
+                      {sale.buyer || "Anonymous Customer"}
+                    </Text>
+                    <Text style={styles.activityDescription}>
+                      {getSaleSummary(sale)}
+                    </Text>
+                    <Text style={styles.activityTime}>
+                      {sale.saleDate ? getTimeAgo(new Date(sale.saleDate)) : ""}
+                    </Text>
+                  </View>
+                  <View style={styles.activityAmount}>
+                    <Text style={styles.amountText}>
+                      {formatCurrency(sale.totalAmount || 0)}
+                    </Text>
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        {
+                          backgroundColor:
+                            sale.paymentStatus === "Paid"
+                              ? Theme.colors.success
+                              : Theme.colors.warning,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.statusText}>
+                        {sale.paymentStatus}
                       </Text>
                     </View>
                   </View>
@@ -222,46 +319,68 @@ export default function HomeScreen() {
             )}
           </View>
         </View>
+
+        {/* Recent Stock Entries */}
         <View style={styles.activitiesSection}>
-          <Text style={styles.sectionTitle}>Recent Stock Entries</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Stock Entries</Text>
+            <TouchableOpacity style={styles.viewAllButton}>
+              <Text style={styles.viewAllText}>View All</Text>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.activitiesList}>
             {isLoading ? (
-              <Text>Loading...</Text>
+              <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>Loading stock entries...</Text>
+              </View>
             ) : recentStockAdds.length === 0 ? (
-              <Text>No recent stock entries</Text>
+              <View style={styles.emptyState}>
+                <MaterialIcons
+                  name="inventory"
+                  size={32}
+                  color={Theme.colors.textMuted}
+                />
+                <Text style={styles.emptyStateText}>
+                  No recent stock entries
+                </Text>
+              </View>
             ) : (
               recentStockAdds.map((activity) => (
-                <View key={activity.id} style={styles.activityItemWrapper}>
-                  <View style={styles.activityItem}>
-                    <View style={styles.activityAvatar}>
-                      <MaterialIcons name="add" size={24} color="#2196F3" />
-                    </View>
-                    <View style={styles.activityContent}>
-                      <Text style={styles.activityText}>
-                        <Text style={styles.activityUserName}>
-                          {activity.updatedByName || activity.updatedBy}
-                        </Text>{" "}
-                        added{" "}
-                        <Text style={styles.activityDetails}>
-                          {activity.quantity} {activity.sizeName}
-                        </Text>{" "}
-                        of{" "}
-                        <Text style={styles.activityDetails}>
-                          {activity.productName}
-                        </Text>
-                      </Text>
-                      <Text style={styles.activityTime}>
-                        {activity.timestamp
-                          ? new Date(activity.timestamp).toLocaleString()
-                          : ""}
-                      </Text>
-                    </View>
+                <View key={activity.id} style={styles.activityItem}>
+                  <View style={styles.activityIcon}>
+                    <MaterialIcons
+                      name="add"
+                      size={20}
+                      color={Theme.colors.primary}
+                    />
+                  </View>
+                  <View style={styles.activityContent}>
+                    <Text style={styles.activityTitle}>
+                      {activity.updatedByName ||
+                        activity.updatedBy ||
+                        "Unknown User"}
+                    </Text>
+                    <Text style={styles.activityDescription}>
+                      {getStockActivitySummary(activity)}
+                    </Text>
+                    <Text style={styles.activityTime}>
+                      {activity.timestamp
+                        ? getTimeAgo(new Date(activity.timestamp))
+                        : ""}
+                    </Text>
+                  </View>
+                  <View style={styles.activityAmount}>
+                    <Text style={styles.quantityText}>
+                      {activity.quantity || 0}
+                    </Text>
                   </View>
                 </View>
               ))
             )}
           </View>
         </View>
+
         {/* Logout Button */}
         <View style={styles.logoutContainer}>
           <TouchableOpacity
@@ -269,7 +388,7 @@ export default function HomeScreen() {
             onPress={handleLogout}
             activeOpacity={0.8}
           >
-            <MaterialIcons name="logout" size={20} color="#EF4444" />
+            <MaterialIcons name="logout" size={20} color={Theme.colors.error} />
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
         </View>
@@ -284,10 +403,12 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.background,
   },
   header: {
-    paddingHorizontal: Theme.spacing.xl,
-    paddingTop: Theme.spacing.xl,
-    paddingBottom: Theme.spacing.lg,
-    marginBottom: Theme.spacing.md,
+    paddingTop: 20,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    backgroundColor: Theme.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
   },
   headerContent: {
     flexDirection: "row",
@@ -296,171 +417,202 @@ const styles = StyleSheet.create({
   userSection: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
   },
   userAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: Theme.colors.primary,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: Theme.spacing.md,
-    shadowColor: Theme.colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    marginRight: 16,
+    ...Theme.shadows.sm,
   },
   userAvatarText: {
-    fontSize: Theme.typography.fontSize["2xl"],
+    fontSize: 20,
+    color: "white",
   },
   userInfo: {
     flex: 1,
   },
   greeting: {
-    fontSize: Theme.typography.fontSize.xl,
-    fontWeight: Theme.typography.fontWeight.semibold,
+    fontSize: 20,
+    fontWeight: "600",
     color: Theme.colors.text,
     marginBottom: 2,
   },
   subtitle: {
-    fontSize: Theme.typography.fontSize.sm,
+    fontSize: 14,
     color: Theme.colors.textMuted,
-    marginTop: 2,
+    fontWeight: "400",
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 60,
+    paddingBottom: 40,
   },
   summarySection: {
-    paddingHorizontal: Theme.spacing.xl,
-    marginBottom: Theme.spacing["2xl"],
+    paddingHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 30,
   },
-  sectionTitle: {
-    fontSize: Theme.typography.fontSize.lg,
-    fontWeight: Theme.typography.fontWeight.semibold,
-    color: Theme.colors.text,
-    marginBottom: Theme.spacing.lg,
-  },
-  summaryGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Theme.spacing.md,
-  },
-  summaryCardWrapper: {
-    width: "48%",
-  },
-  summaryCard: {
-    backgroundColor: Theme.colors.surface,
-    borderRadius: Theme.borderRadius["2xl"],
-    padding: Theme.spacing.lg,
-    ...Theme.shadows.md,
-  },
-  summaryCardHeader: {
+  sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: Theme.spacing.md,
+    marginBottom: 16,
   },
-  trendBadge: {
-    borderRadius: Theme.borderRadius.xl,
-    paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: 4,
-  },
-  trendText: {
-    fontSize: Theme.typography.fontSize.xs,
-    fontWeight: Theme.typography.fontWeight.semibold,
-  },
-  summaryValue: {
-    fontSize: Theme.typography.fontSize["2xl"],
-    fontWeight: Theme.typography.fontWeight.bold,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
     color: Theme.colors.text,
-    marginBottom: 4,
   },
-  summaryTitle: {
-    fontSize: Theme.typography.fontSize.xs,
+  viewAllButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  viewAllText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: Theme.colors.primary,
+  },
+  summaryGrid: {
+    flexDirection: "row",
+    gap: 16,
+  },
+  summaryCard: {
+    flex: 1,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    ...Theme.shadows.sm,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  cardLabel: {
+    fontSize: 12,
+    fontWeight: "500",
     color: Theme.colors.textMuted,
-    fontWeight: Theme.typography.fontWeight.medium,
+    marginLeft: 6,
+  },
+  cardValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: Theme.colors.text,
   },
   activitiesSection: {
-    paddingHorizontal: Theme.spacing.xl,
-    marginBottom: Theme.spacing["2xl"],
+    paddingHorizontal: 20,
+    marginBottom: 30,
   },
   activitiesList: {
-    gap: Theme.spacing.md,
-  },
-  activityItemWrapper: {
-    backgroundColor: Theme.colors.surface,
-    borderRadius: Theme.borderRadius.xl,
-    padding: Theme.spacing.lg,
-    ...Theme.shadows.sm,
+    gap: 12,
   },
   activityItem: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: Theme.colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    ...Theme.shadows.sm,
   },
-  activityAvatar: {
+  activityIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Theme.colors.surfacePressed,
+    backgroundColor: Theme.colors.surfaceSecondary,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: Theme.spacing.md,
-  },
-  activityAvatarText: {
-    fontSize: Theme.typography.fontSize.base,
+    marginRight: 12,
   },
   activityContent: {
     flex: 1,
   },
-  activityText: {
-    fontSize: Theme.typography.fontSize.sm,
+  activityTitle: {
+    fontSize: 14,
+    fontWeight: "600",
     color: Theme.colors.text,
-    lineHeight: 20,
+    marginBottom: 2,
   },
-  activityUserName: {
-    fontWeight: Theme.typography.fontWeight.semibold,
-  },
-  activityDetails: {
-    fontWeight: Theme.typography.fontWeight.medium,
+  activityDescription: {
+    fontSize: 13,
+    color: Theme.colors.textSecondary,
+    marginBottom: 4,
   },
   activityTime: {
-    fontSize: Theme.typography.fontSize.xs,
+    fontSize: 12,
     color: Theme.colors.textMuted,
-    marginTop: 2,
   },
-  activityIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: "center",
+  activityAmount: {
+    alignItems: "flex-end",
+  },
+  amountText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Theme.colors.text,
+    marginBottom: 4,
+  },
+  quantityText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Theme.colors.primary,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: "500",
+    color: "white",
+    textTransform: "uppercase",
+  },
+  loadingContainer: {
+    padding: 40,
     alignItems: "center",
   },
+  loadingText: {
+    fontSize: 14,
+    color: Theme.colors.textMuted,
+    fontWeight: "500",
+  },
+  emptyState: {
+    padding: 40,
+    alignItems: "center",
+    backgroundColor: Theme.colors.surface,
+    borderRadius: 12,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: Theme.colors.textMuted,
+    marginTop: 8,
+  },
   logoutContainer: {
-    paddingHorizontal: Theme.spacing.xl,
-    paddingTop: Theme.spacing.xl,
-    paddingBottom: Theme.spacing.xl,
-    marginTop: Theme.spacing.xl,
-    borderTopWidth: 1,
-    borderTopColor: Theme.colors.border,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
   },
   logoutButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FEF2F2",
-    borderRadius: Theme.borderRadius.xl,
-    paddingVertical: Theme.spacing.lg,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: 12,
+    paddingVertical: 16,
     borderWidth: 1,
-    borderColor: "#FECACA",
+    borderColor: Theme.colors.border,
+    ...Theme.shadows.sm,
   },
   logoutText: {
-    color: "#EF4444",
-    fontSize: Theme.typography.fontSize.base,
-    fontWeight: Theme.typography.fontWeight.semibold,
-    marginLeft: Theme.spacing.sm,
+    color: Theme.colors.error,
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
   },
 });

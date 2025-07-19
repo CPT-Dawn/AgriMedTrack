@@ -1,7 +1,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as ImagePicker from "expo-image-picker";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -70,6 +70,13 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
   const [stockTime, setStockTime] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+
+  // Handle initialData changes for editing
+  useEffect(() => {
+    if (initialData?.items) {
+      setItems(initialData.items);
+    }
+  }, [initialData]);
 
   const handleImagePicker = async () => {
     const permissionResult =
@@ -192,20 +199,26 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
       };
 
       await onSubmit(batchData);
-      setItems([
-        {
-          productId: "",
-          productName: "",
-          supplierId: "",
-          supplierName: "",
-          packagingId: "",
-          packaging: "",
-          quantity: "",
-          sellPrice: "",
-        },
-      ]);
-      setBillImage(null);
-      Alert.alert("Success", "Stock entry added successfully");
+
+      // Only reset form if not in edit mode (no initialData)
+      if (!initialData) {
+        setItems([
+          {
+            productId: "",
+            productName: "",
+            supplierId: "",
+            supplierName: "",
+            packagingId: "",
+            packaging: "",
+            quantity: "",
+            sellPrice: "",
+          },
+        ]);
+        setBillImage(null);
+        Alert.alert("Success", "Stock entry added successfully");
+      } else {
+        Alert.alert("Success", "Stock entry updated successfully");
+      }
     } catch {
       Alert.alert("Error", "Failed to add stock entry");
     } finally {

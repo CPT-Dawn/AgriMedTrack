@@ -7,15 +7,18 @@ import {
   deleteBatch,
   getPackagingSizes,
   getProducts,
+  getSales,
   getStockActivities,
   getStockBatches,
   getStockEntries,
   getSuppliers,
+  updateStockBatch,
 } from "../services/stockService";
 import {
   BatchEntryFormData,
   PackagingSize,
   Product,
+  Sale,
   StockActivity,
   StockBatch,
   StockEntry,
@@ -31,6 +34,7 @@ export function useStock() {
   const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
   const [activities, setActivities] = useState<StockActivity[]>([]);
   const [batchLogs, setBatchLogs] = useState<StockBatch[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -116,6 +120,7 @@ export function useStock() {
         entriesData,
         activitiesData,
         batchesData,
+        salesData,
       ] = await Promise.all([
         getProducts(),
         getSuppliers(),
@@ -123,6 +128,7 @@ export function useStock() {
         getStockEntries(),
         getStockActivities(),
         getStockBatches(),
+        getSales(),
       ]);
 
       setProducts(productsData);
@@ -131,6 +137,7 @@ export function useStock() {
       setStockEntries(entriesData);
       setActivities(activitiesData);
       setBatchLogs(batchesData);
+      setSales(salesData);
     } catch (err) {
       console.error("Error loading stock data:", err);
       setError("Failed to load stock data");
@@ -260,6 +267,33 @@ export function useStock() {
     [loadData]
   );
 
+  // Update stock batch
+  const updateStockBatchEntry = useCallback(
+    async (
+      batchId: string,
+      formData: BatchEntryFormData,
+      userId: string = "current-user"
+    ): Promise<void> => {
+      try {
+        setError(null);
+        setLoading(true);
+
+        // Update the batch in Firestore
+        await updateStockBatch(batchId, formData, userId);
+
+        // Refresh data to update the UI
+        await loadData();
+      } catch (err) {
+        console.error("Error updating batch:", err);
+        setError("Failed to update batch");
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loadData]
+  );
+
   // Clear error
   const clearError = useCallback(() => {
     setError(null);
@@ -279,6 +313,7 @@ export function useStock() {
     stockItems,
     activities,
     batchLogs,
+    sales,
 
     // State
     loading,
@@ -287,6 +322,7 @@ export function useStock() {
     // Actions
     addStockEntry,
     deleteStockBatch,
+    updateStockBatchEntry,
     refreshData: loadData,
     clearError: clearError,
 

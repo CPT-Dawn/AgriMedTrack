@@ -92,7 +92,7 @@ export default function SalesScreen() {
     refreshData: refreshStock,
   } = useStock();
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
-  const [buyer, setBuyer] = useState(currentUser?.name || "");
+  const [buyer, setBuyer] = useState("");
   const [saleDate, setSaleDate] = useState<Date | null>(new Date());
   const [saleTime, setSaleTime] = useState<Date | null>(new Date());
   const [paymentStatus, setPaymentStatus] = useState<
@@ -114,12 +114,7 @@ export default function SalesScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Update buyer when currentUser changes
-  useEffect(() => {
-    if (currentUser?.name) {
-      setBuyer(currentUser.name);
-    }
-  }, [currentUser]);
+
 
   // Refresh stock data when screen comes into focus
   useFocusEffect(
@@ -149,12 +144,12 @@ export default function SalesScreen() {
     setCurrentView("sales");
     // Reset form when going back
     setSaleItems([]);
-    setBuyer(currentUser?.name || "");
+    setBuyer("");
     setPaymentStatus("Paid");
     setNotes("");
     setErrors({});
     setEditSale(null); // Clear edit state
-  }, [currentUser?.name]);
+  }, []);
 
   // Load sales data from Firebase
   const loadSalesData = async () => {
@@ -258,7 +253,7 @@ export default function SalesScreen() {
           totalPrice: 0,
         },
       ]);
-      setBuyer(currentUser?.name || "");
+      setBuyer("");
       setPaymentStatus("Paid");
       setNotes("");
       setErrors({});

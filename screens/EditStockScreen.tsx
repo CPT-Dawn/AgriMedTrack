@@ -1,23 +1,29 @@
-import { useNavigation, useRoute } from "@react-navigation/native";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo } from "react";
-import { Text, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { AddStockForm } from "../components/AddStockForm";
+import { Theme } from "../constants/Theme";
 import { useStock } from "../hooks/useStock";
 
 export default function EditStockScreen() {
-  const route = useRoute();
-  const navigation = useNavigation();
+  const router = useRouter();
+  const params = useLocalSearchParams();
   // Debug log for route params
-  console.log("EditStockScreen route.params:", route.params);
-  const batchRaw = route.params && (route.params as any).batch;
+  console.log("EditStockScreen params:", params);
+  const batchRaw = params.batch ? JSON.parse(params.batch as string) : null;
   // Convert addedAt back to Date if it's a string
-  const batch = batchRaw && {
-    ...batchRaw,
-    addedAt:
-      typeof batchRaw.addedAt === "string"
-        ? new Date(batchRaw.addedAt)
-        : batchRaw.addedAt,
-  };
+  const batch = useMemo(() => {
+    if (!batchRaw) return null;
+    return {
+      ...batchRaw,
+      addedAt:
+        typeof batchRaw.addedAt === "string"
+          ? new Date(batchRaw.addedAt)
+          : batchRaw.addedAt,
+    };
+  }, [batchRaw]);
   const {
     products,
     suppliers,
@@ -25,30 +31,15 @@ export default function EditStockScreen() {
     getOrCreateProduct,
     getOrCreateSupplier,
     getOrCreateSize,
-    addStockEntry,
+    updateStockBatchEntry,
   } = useStock();
 
-  if (!batch) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <Text style={{ color: "red", fontSize: 18, margin: 16 }}>
-          Error: No batch data provided to Edit Stock page.
-        </Text>
-        <Text style={{ color: "gray", fontSize: 14 }}>
-          Check navigation and ensure batch param is passed.
-        </Text>
-      </View>
-    );
-  }
-
-  // Handler for editing stock (should update the batch)
-  const handleEditStock = async (formData: any) => {
-    await addStockEntry(formData, batch.addedBy); // You may want to implement a dedicated updateBatch function
-    navigation.goBack();
-  };
-
-  // Prepare initialData and warnings using useMemo
+  // Prepare initialData and warnings using useMemo - moved before early return
   const { initialData, collectedWarnings } = useMemo(() => {
+    if (!batch) {
+      return { initialData: undefined, collectedWarnings: [] };
+    }
+
     const localWarnings: string[] = [];
     const findIdByName = (
       arr: { id: string; name?: string; label?: string }[],
@@ -71,6 +62,7 @@ export default function EditStockScreen() {
       }
       return match ? match.id : "";
     };
+
     return {
       initialData: {
         addedBy: batch.addedBy,
@@ -94,38 +86,106 @@ export default function EditStockScreen() {
     };
   }, [batch, products, suppliers, sizes]);
 
-  return (
-    <View style={{ flex: 1 }}>
-      <Text style={{ fontSize: 22, fontWeight: "bold", margin: 16 }}>
-        Edit Stock
-      </Text>
-      {collectedWarnings.length > 0 && (
+  if (!batch) {
+    return (
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: Theme.colors.background }}
+      >
         <View
+          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+        >
+          <Text style={{ color: "red", fontSize: 18, margin: 16 }}>
+            Error: No batch data provided to Edit Stock page.
+          </Text>
+          <Text style={{ color: "gray", fontSize: 14 }}>
+            Check navigation and ensure batch param is passed.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Handler for editing stock (should update the batch)
+  const handleEditStock = async (formData: any) => {
+    try {
+      // Use the proper update function for existing batches
+      await updateStockBatchEntry(batch.id, formData, batch.addedBy);
+      router.back();
+    } catch (error) {
+      console.error("Error updating stock:", error);
+      // You might want to show an error message to the user here
+    }
+  };
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: Theme.colors.background }}>
+      {/* Header */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: Theme.colors.border,
+          backgroundColor: Theme.colors.surface,
+        }}
+      >
+        <TouchableOpacity
+          onPress={() => router.back()}
           style={{
-            backgroundColor: "#fff3cd",
-            padding: 12,
-            marginHorizontal: 16,
-            borderRadius: 8,
-            marginBottom: 8,
+            padding: 8,
+            marginRight: 12,
           }}
         >
-          {collectedWarnings.map((w, i) => (
-            <Text key={i} style={{ color: "#856404", fontSize: 14 }}>
-              {w}
-            </Text>
-          ))}
-        </View>
-      )}
-      <AddStockForm
-        onSubmit={handleEditStock}
-        products={products}
-        suppliers={suppliers}
-        sizes={sizes}
-        getOrCreateProduct={getOrCreateProduct}
-        getOrCreateSupplier={getOrCreateSupplier}
-        getOrCreateSize={getOrCreateSize}
-        initialData={initialData}
-      />
-    </View>
+          <MaterialIcons
+            name="arrow-back"
+            size={24}
+            color={Theme.colors.text}
+          />
+        </TouchableOpacity>
+        <Text
+          style={{
+            fontSize: 20,
+            fontWeight: "bold",
+            color: Theme.colors.text,
+          }}
+        >
+          Edit Stock
+        </Text>
+      </View>
+
+      {/* Content */}
+      <View style={{ flex: 1 }}>
+        {collectedWarnings.length > 0 && (
+          <View
+            style={{
+              backgroundColor: "#fff3cd",
+              padding: 12,
+              marginHorizontal: 16,
+              borderRadius: 8,
+              marginBottom: 8,
+              marginTop: 16,
+            }}
+          >
+            {collectedWarnings.map((w, i) => (
+              <Text key={i} style={{ color: "#856404", fontSize: 14 }}>
+                {w}
+              </Text>
+            ))}
+          </View>
+        )}
+        <AddStockForm
+          onSubmit={handleEditStock}
+          products={products}
+          suppliers={suppliers}
+          sizes={sizes}
+          getOrCreateProduct={getOrCreateProduct}
+          getOrCreateSupplier={getOrCreateSupplier}
+          getOrCreateSize={getOrCreateSize}
+          initialData={initialData}
+        />
+      </View>
+    </SafeAreaView>
   );
 }

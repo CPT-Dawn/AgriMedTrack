@@ -1,3 +1,4 @@
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { memo, useEffect, useMemo, useRef } from "react";
 import {
   Animated,
@@ -11,13 +12,14 @@ import {
   View,
 } from "react-native";
 import { Theme } from "../constants/Theme";
-import { StockActivity, StockBatch, StockItem } from "../types/stock";
-import { BatchActivityLog } from "./BatchActivityLog";
+import { Sale, StockActivity, StockBatch, StockItem } from "../types/stock";
+import { ActivitySummary } from "./ActivitySummary";
 
 interface StockCardProps {
   item: StockItem;
   stockEntries: any[];
   productActivities: StockActivity[];
+  sales: Sale[];
   isLogExpanded: boolean;
   onToggleLog: (productId: string) => void;
   onHighlightProduct?: (productId: string) => void;
@@ -37,6 +39,7 @@ const StockCardComponent: React.FC<StockCardProps> = ({
   item,
   stockEntries,
   productActivities,
+  sales,
   isLogExpanded,
   onToggleLog,
   onHighlightProduct,
@@ -95,55 +98,7 @@ const StockCardComponent: React.FC<StockCardProps> = ({
     return Theme.colors.success;
   };
 
-  // Group activities by batch
-  const activityBatches = useMemo(() => {
-    // First, group activities by batchId
-    const batchMap = new Map<string, StockActivity[]>();
 
-    // Handle activities without batchId (legacy data)
-    const unbatchedActivities: StockActivity[] = [];
-
-    productActivities.forEach((activity) => {
-      if (activity.batchId) {
-        if (!batchMap.has(activity.batchId)) {
-          batchMap.set(activity.batchId, []);
-        }
-        batchMap.get(activity.batchId)?.push(activity);
-      } else {
-        unbatchedActivities.push(activity);
-      }
-    });
-
-    // Convert to StockBatch objects
-    const batches: StockBatch[] = [];
-
-    // Add batched activities
-    batchMap.forEach((activities, batchId) => {
-      if (activities.length > 0) {
-        batches.push({
-          id: batchId,
-          addedBy: activities[0].updatedBy,
-          addedByName: activities[0].updatedByName,
-          addedAt: activities[0].timestamp,
-          items: activities,
-        });
-      }
-    });
-
-    // Add individual unbatched activities as single-item batches
-    unbatchedActivities.forEach((activity) => {
-      batches.push({
-        id: activity.id,
-        addedBy: activity.updatedBy,
-        addedByName: activity.updatedByName,
-        addedAt: activity.timestamp,
-        items: [activity],
-      });
-    });
-
-    // Sort batches by date (newest first)
-    return batches.sort((a, b) => b.addedAt.getTime() - a.addedAt.getTime());
-  }, [productActivities]);
 
   // Wiggle animation
   const wiggleAnim = useRef(new Animated.Value(0)).current;
@@ -252,7 +207,21 @@ const StockCardComponent: React.FC<StockCardProps> = ({
       >
         {/* Card header and content */}
         <View style={styles.headerRow}>
-          <Text style={styles.productName}>{item.product.name}</Text>
+          <View style={styles.productInfo}>
+            <Text style={styles.productName}>{item.product.name}</Text>
+            {productActivities.length > 0 && (
+              <View style={styles.activityIndicator}>
+                <MaterialIcons
+                  name="history"
+                  size={12}
+                  color={Theme.colors.primary}
+                />
+                <Text style={styles.activityIndicatorText}>
+                  Recent activity
+                </Text>
+              </View>
+            )}
+          </View>
           <View style={styles.quantityContainer}>
             <View
               style={[
@@ -326,12 +295,10 @@ const StockCardComponent: React.FC<StockCardProps> = ({
           ]}
         >
           {isLogExpanded && (
-            <BatchActivityLog
-              batches={activityBatches}
-              isExpanded={true}
-              onToggle={() => onToggleLog(item.id)}
-              onItemPress={onHighlightProduct}
-              hideHeader={true}
+            <ActivitySummary
+              productId={item.product.id}
+              productActivities={productActivities}
+              sales={sales}
             />
           )}
         </Animated.View>
@@ -358,12 +325,25 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: Theme.spacing.md,
   },
+  productInfo: {
+    flex: 1,
+    marginRight: Theme.spacing.sm,
+  },
   productName: {
     fontSize: Theme.typography.fontSize.lg,
     fontWeight: Theme.typography.fontWeight.bold,
     color: Theme.colors.text,
-    flex: 1,
-    marginRight: Theme.spacing.sm,
+  },
+  activityIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Theme.spacing.xs,
+    marginTop: Theme.spacing.xs,
+  },
+  activityIndicatorText: {
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.primary,
+    fontWeight: Theme.typography.fontWeight.medium,
   },
   quantityContainer: {
     flexDirection: "row",

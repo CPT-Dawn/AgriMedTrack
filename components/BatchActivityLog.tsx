@@ -1,4 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -13,7 +14,6 @@ import {
   UIManager,
   View,
 } from "react-native";
-import { AppColors } from "../constants/Colors";
 import { Theme } from "../constants/Theme";
 import { StockBatch } from "../types/stock";
 
@@ -34,8 +34,8 @@ interface BatchActivityLogProps {
   onDeleteBatch?: (batchId: string) => void;
   loading?: boolean;
   onLoadMore?: () => void;
-  hideCount?: boolean; // Add this new prop to control whether to show the count
-  hideHeader?: boolean; // Add this new prop to control whether to show the header
+  hideCount?: boolean;
+  hideHeader?: boolean;
 }
 
 export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
@@ -47,46 +47,93 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
   onDeleteBatch,
   loading = false,
   onLoadMore,
-  hideCount = false, // Add this new prop to control whether to show the count
-  hideHeader = false, // Add this new prop to control whether to show the header
+  hideCount = false,
+  hideHeader = false,
 }) => {
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const loadingRotateAnim = useRef(new Animated.Value(0)).current;
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
   const [cardScale] = useState<{ [id: string]: Animated.Value }>({});
+  const [cardOpacity] = useState<{ [id: string]: Animated.Value }>({});
 
   // Configure layout animation
   const configureLayoutAnimation = () => {
     LayoutAnimation.configureNext({
-      duration: 200,
+      duration: 300,
       update: {
         type: LayoutAnimation.Types.easeInEaseOut,
       },
     });
   };
 
-  // Format date for display
+  // Format date for display with relative time
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const now = new Date();
+    const diffInHours = Math.floor(
+      (now.getTime() - date.getTime()) / (1000 * 60 * 60)
+    );
+
+    if (diffInHours < 1) {
+      return "Just now";
+    } else if (diffInHours < 24) {
+      return `${diffInHours}h ago`;
+    } else {
+      const diffInDays = Math.floor(diffInHours / 24);
+      return `${diffInDays}d ago`;
+    }
   };
 
-  // Animate chevron rotation
+  // Animate header elements
   useEffect(() => {
-    Animated.timing(rotateAnim, {
-      toValue: isExpanded ? 1 : 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
+    Animated.parallel([
+      Animated.timing(rotateAnim, {
+        toValue: isExpanded ? 1 : 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: isExpanded ? 1 : 0,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: isExpanded ? 0 : 50,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
     if (Platform.OS === "ios") {
       configureLayoutAnimation();
     }
-  }, [isExpanded, rotateAnim]);
+  }, [isExpanded, rotateAnim, fadeAnim, slideAnim]);
+
+  // Animate loading spinner
+  useEffect(() => {
+    if (loading) {
+      Animated.loop(
+        Animated.timing(loadingRotateAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        })
+      ).start();
+    } else {
+      loadingRotateAnim.setValue(0);
+    }
+  }, [loading, loadingRotateAnim]);
+
+  // Animate batch cards entrance when batches change
+  useEffect(() => {
+    if (batches.length > 0) {
+      batches.forEach((batch, index) => {
+        animateCardEntrance(batch.id, index * 100);
+      });
+    }
+  }, [batches]);
 
   // Handle toggle with animation
   const handleToggle = () => {
@@ -101,6 +148,11 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
     outputRange: ["0deg", "180deg"],
   });
 
+  const loadingRotate = loadingRotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+
   // --- Card animation helpers ---
   const getCardScale = (id: string) => {
     if (!cardScale[id]) {
@@ -109,12 +161,19 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
     return cardScale[id];
   };
 
+  const getCardOpacity = (id: string) => {
+    if (!cardOpacity[id]) {
+      cardOpacity[id] = new Animated.Value(0);
+    }
+    return cardOpacity[id];
+  };
+
   const animateCardPressIn = (id: string) => {
     Animated.spring(getCardScale(id), {
-      toValue: 0.97,
+      toValue: 0.98,
       useNativeDriver: true,
-      speed: 30,
-      bounciness: 8,
+      speed: 50,
+      bounciness: 10,
     }).start();
   };
 
@@ -122,17 +181,51 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
     Animated.spring(getCardScale(id), {
       toValue: 1,
       useNativeDriver: true,
-      speed: 30,
-      bounciness: 8,
+      speed: 50,
+      bounciness: 10,
     }).start();
   };
 
-  // Render a batch item
-  const renderBatchItem = ({ item: batch }: { item: StockBatch }) => {
+  // Animate card entrance
+  const animateCardEntrance = (id: string, delay: number = 0) => {
+    Animated.sequence([
+      Animated.delay(delay),
+      Animated.parallel([
+        Animated.timing(getCardOpacity(id), {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.spring(getCardScale(id), {
+          toValue: 1,
+          useNativeDriver: true,
+          speed: 50,
+          bounciness: 10,
+        }),
+      ]),
+    ]).start();
+  };
+
+  // Render a batch item with enhanced design
+  const renderBatchItem = ({
+    item: batch,
+    index,
+  }: {
+    item: StockBatch;
+    index: number;
+  }) => {
     const expanded = expandedBatchId === batch.id;
     const scale = getCardScale(batch.id);
+    const opacity = getCardOpacity(batch.id);
+
     return (
-      <Animated.View style={{ transform: [{ scale }], marginBottom: 12 }}>
+      <Animated.View
+        style={{
+          transform: [{ scale }],
+          opacity,
+          marginBottom: Theme.spacing.lg,
+        }}
+      >
         <TouchableOpacity
           activeOpacity={0.95}
           onPress={() => {
@@ -146,162 +239,216 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
           accessibilityLabel={expanded ? "Collapse batch" : "Expand batch"}
         >
           <View style={styles.batchCard}>
-            <View style={styles.batchHeader}>
+            {/* Enhanced header with gradient background */}
+            <LinearGradient
+              colors={[
+                Theme.colors.primary + "10",
+                Theme.colors.primary + "05",
+              ]}
+              style={styles.batchHeader}
+            >
               <View style={styles.batchHeaderContent}>
-                {/* User avatar */}
-                <View style={styles.userAvatar}>
-                  {batch.addedByAvatar ? (
-                    <Image
-                      source={{ uri: batch.addedByAvatar }}
-                      style={styles.avatarImage}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <Text style={styles.userInitial}>
-                      {(batch.addedByName || "User").charAt(0).toUpperCase()}
-                    </Text>
-                  )}
+                {/* Enhanced user avatar */}
+                <View style={styles.userAvatarContainer}>
+                  <View style={styles.userAvatar}>
+                    {batch.addedByAvatar ? (
+                      <Image
+                        source={{ uri: batch.addedByAvatar }}
+                        style={styles.avatarImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Text style={styles.userInitial}>
+                        {(batch.addedByName || "User").charAt(0).toUpperCase()}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.onlineIndicator} />
                 </View>
+
                 <View style={styles.batchHeaderText}>
                   <Text style={styles.batchTitle}>
                     {batch.addedByName || "User"}
                   </Text>
+                  <Text style={styles.batchSubtitle}>
+                    Added {batch.items.length} item
+                    {batch.items.length !== 1 ? "s" : ""}
+                  </Text>
                 </View>
               </View>
 
-              {/* Date and time in top right */}
-              <Text style={styles.batchDate}>{formatDate(batch.addedAt)}</Text>
-            </View>
-
-            {/* Table-like layout for entries */}
-            <View style={styles.entriesTable}>
-              {/* Table header */}
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, styles.productCell]}>
-                  Product
-                </Text>
-                <Text style={[styles.tableHeaderCell, styles.supplierCell]}>
-                  Supplier
-                </Text>
-                <Text style={[styles.tableHeaderCell, styles.sizeCell]}>
-                  Size
-                </Text>
-                <Text style={[styles.tableHeaderCell, styles.qtyCell]}>
-                  Qty
+              {/* Enhanced date display */}
+              <View style={styles.dateContainer}>
+                <MaterialIcons
+                  name="schedule"
+                  size={14}
+                  color={Theme.colors.textMuted}
+                />
+                <Text style={styles.batchDate}>
+                  {formatDate(batch.addedAt)}
                 </Text>
               </View>
+            </LinearGradient>
 
-              {/* Table rows */}
-              {batch.items.map((item, index) => (
+            {/* Enhanced table layout */}
+            <View style={styles.entriesTable}>
+              {/* Enhanced table header */}
+              <View style={styles.tableHeader}>
+                <View style={styles.tableHeaderCell}>
+                  <MaterialIcons
+                    name="inventory"
+                    size={14}
+                    color={Theme.colors.primary}
+                  />
+                  <Text style={styles.tableHeaderText}>Product</Text>
+                </View>
+                <View style={styles.tableHeaderCell}>
+                  <MaterialIcons
+                    name="business"
+                    size={14}
+                    color={Theme.colors.primary}
+                  />
+                  <Text style={styles.tableHeaderText}>Supplier</Text>
+                </View>
+                <View style={styles.tableHeaderCell}>
+                  <MaterialIcons
+                    name="straighten"
+                    size={14}
+                    color={Theme.colors.primary}
+                  />
+                  <Text style={styles.tableHeaderText}>Size</Text>
+                </View>
+                <View style={styles.tableHeaderCell}>
+                  <MaterialIcons
+                    name="shopping-cart"
+                    size={14}
+                    color={Theme.colors.primary}
+                  />
+                  <Text style={styles.tableHeaderText}>Qty</Text>
+                </View>
+              </View>
+
+              {/* Enhanced table rows */}
+              {batch.items.map((item, itemIndex) => (
                 <TouchableOpacity
-                  key={item.id || index}
+                  key={item.id || itemIndex}
                   style={[
                     styles.tableRow,
-                    index < batch.items.length - 1 && styles.tableRowDivider,
+                    itemIndex < batch.items.length - 1 &&
+                      styles.tableRowDivider,
                   ]}
                   onPress={() => onItemPress && onItemPress(item.stockEntryId)}
                   activeOpacity={onItemPress ? 0.7 : 1}
                 >
-                  <Text
-                    style={[styles.tableCell, styles.productCell]}
-                    numberOfLines={1}
-                  >
-                    {item.productName}
-                  </Text>
-                  <Text
-                    style={[styles.tableCell, styles.supplierCell]}
-                    numberOfLines={1}
-                  >
-                    {item.supplierName}
-                  </Text>
-                  <Text
-                    style={[styles.tableCell, styles.sizeCell]}
-                    numberOfLines={1}
-                  >
-                    {item.sizeName}
-                  </Text>
-                  <Text style={[styles.tableCell, styles.qtyCell]}>
-                    {item.quantity}
-                  </Text>
+                  <View style={styles.tableCell}>
+                    <Text style={styles.productName} numberOfLines={1}>
+                      {item.productName}
+                    </Text>
+                  </View>
+                  <View style={styles.tableCell}>
+                    <Text style={styles.supplierName} numberOfLines={1}>
+                      {item.supplierName}
+                    </Text>
+                  </View>
+                  <View style={styles.tableCell}>
+                    <Text style={styles.sizeName} numberOfLines={1}>
+                      {item.sizeName}
+                    </Text>
+                  </View>
+                  <View style={styles.tableCell}>
+                    <View style={styles.quantityBadge}>
+                      <Text style={styles.quantityText}>{item.quantity}</Text>
+                    </View>
+                  </View>
                 </TouchableOpacity>
               ))}
             </View>
 
-            {/* Items count */}
+            {/* Enhanced items count */}
             <View style={styles.batchTotal}>
-              <Text style={styles.batchTotalLabel}>Items:</Text>
-              <Text style={styles.batchTotalValue}>{batch.items.length}</Text>
+              <View style={styles.totalBadge}>
+                <MaterialIcons
+                  name="list"
+                  size={16}
+                  color={Theme.colors.primary}
+                />
+                <Text style={styles.batchTotalValue}>
+                  {batch.items.length} items
+                </Text>
+              </View>
             </View>
 
-            {/* Bill image thumbnail if available */}
+            {/* Enhanced bill image thumbnail */}
             {batch.billUrl && (
               <TouchableOpacity
                 style={styles.billPreviewFooter}
                 onPress={() => batch.billUrl && setImagePreview(batch.billUrl)}
                 accessibilityLabel="View bill image"
               >
-                <MaterialIcons
-                  name="receipt"
-                  size={16}
-                  color={AppColors.primary}
-                />
-                <Text style={styles.billText}>View Bill</Text>
+                <LinearGradient
+                  colors={[
+                    Theme.colors.primary + "15",
+                    Theme.colors.primary + "05",
+                  ]}
+                  style={styles.billButton}
+                >
+                  <MaterialIcons
+                    name="receipt"
+                    size={16}
+                    color={Theme.colors.primary}
+                  />
+                  <Text style={styles.billText}>View Bill</Text>
+                </LinearGradient>
               </TouchableOpacity>
             )}
 
-            {/* Expanded actions */}
+            {/* Enhanced expanded actions */}
             {expanded && (
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "flex-end",
-                  gap: 12,
-                  marginTop: 18,
-                  paddingHorizontal: 16,
-                  paddingBottom: 16,
-                }}
+              <Animated.View
+                style={[
+                  styles.expandedActions,
+                  {
+                    opacity: fadeAnim,
+                    transform: [{ translateY: slideAnim }],
+                  },
+                ]}
               >
                 <TouchableOpacity
-                  style={{
-                    backgroundColor: Theme.colors.primary,
-                    borderRadius: 8,
-                    paddingVertical: 10,
-                    paddingHorizontal: 22,
-                  }}
+                  style={styles.editButton}
                   onPress={() => onEditBatch && onEditBatch(batch)}
                   accessibilityLabel="Edit batch"
                 >
-                  <Text
-                    style={{
-                      color: Theme.colors.white,
-                      fontWeight: "600",
-                      fontSize: 15,
-                    }}
+                  <LinearGradient
+                    colors={[Theme.colors.primary, Theme.colors.primaryHover]}
+                    style={styles.buttonGradient}
                   >
-                    Edit
-                  </Text>
+                    <MaterialIcons
+                      name="edit"
+                      size={16}
+                      color={Theme.colors.white}
+                    />
+                    <Text style={styles.buttonText}>Edit</Text>
+                  </LinearGradient>
                 </TouchableOpacity>
+
                 <TouchableOpacity
-                  style={{
-                    backgroundColor: AppColors.error,
-                    borderRadius: 8,
-                    paddingVertical: 10,
-                    paddingHorizontal: 22,
-                  }}
+                  style={styles.deleteButton}
                   onPress={() => onDeleteBatch && onDeleteBatch(batch.id)}
                   accessibilityLabel="Delete batch"
                 >
-                  <Text
-                    style={{
-                      color: Theme.colors.white,
-                      fontWeight: "600",
-                      fontSize: 15,
-                    }}
+                  <LinearGradient
+                    colors={[Theme.colors.error, "#B91C1C"]}
+                    style={styles.buttonGradient}
                   >
-                    Delete
-                  </Text>
+                    <MaterialIcons
+                      name="delete"
+                      size={16}
+                      color={Theme.colors.white}
+                    />
+                    <Text style={styles.buttonText}>Delete</Text>
+                  </LinearGradient>
                 </TouchableOpacity>
-              </View>
+              </Animated.View>
             )}
           </View>
         </TouchableOpacity>
@@ -315,42 +462,66 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
         <TouchableOpacity
           style={[styles.header, isExpanded ? styles.headerExpanded : null]}
           onPress={handleToggle}
-          activeOpacity={0.7}
+          activeOpacity={0.8}
           accessibilityRole="button"
           accessibilityLabel={
             isExpanded ? "Collapse activity log" : "Expand activity log"
           }
         >
-          <View style={styles.headerContent}>
-            <MaterialIcons
-              name="history"
-              size={18}
-              color={isExpanded ? AppColors.primary : "#666"}
-              style={styles.headerIcon}
-            />
-            <Text
-              style={[styles.title, isExpanded ? styles.titleExpanded : null]}
-            >
-              Activity Log{" "}
-              {!hideCount && batches.length > 0 ? `(${batches.length})` : ""}
-            </Text>
-          </View>
-          <View style={styles.toggleButtonContainer}>
-            <Animated.View
-              style={[styles.toggleButton, { transform: [{ rotate }] }]}
-            >
-              <MaterialIcons
-                name="keyboard-arrow-down"
-                size={20}
-                color={isExpanded ? AppColors.primary : "#666"}
-              />
-            </Animated.View>
-          </View>
+          <LinearGradient
+            colors={
+              isExpanded
+                ? [Theme.colors.primary + "15", Theme.colors.primary + "05"]
+                : [Theme.colors.surface, Theme.colors.surface]
+            }
+            style={styles.headerGradient}
+          >
+            <View style={styles.headerContent}>
+              <View style={styles.headerIconContainer}>
+                <MaterialIcons
+                  name="history"
+                  size={20}
+                  color={
+                    isExpanded ? Theme.colors.primary : Theme.colors.textMuted
+                  }
+                />
+              </View>
+              <Text
+                style={[styles.title, isExpanded ? styles.titleExpanded : null]}
+              >
+                Activity Log{" "}
+                {!hideCount && batches.length > 0 ? (
+                  <Text style={styles.countBadge}>({batches.length})</Text>
+                ) : null}
+              </Text>
+            </View>
+            <View style={styles.toggleButtonContainer}>
+              <Animated.View
+                style={[styles.toggleButton, { transform: [{ rotate }] }]}
+              >
+                <MaterialIcons
+                  name="keyboard-arrow-down"
+                  size={24}
+                  color={
+                    isExpanded ? Theme.colors.primary : Theme.colors.textMuted
+                  }
+                />
+              </Animated.View>
+            </View>
+          </LinearGradient>
         </TouchableOpacity>
       )}
 
       {isExpanded && (
-        <View style={styles.content}>
+        <Animated.View
+          style={[
+            styles.content,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
           {batches.length > 0 ? (
             <FlatList
               data={batches}
@@ -363,20 +534,40 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
               ListFooterComponent={
                 loading ? (
                   <View style={styles.loadingFooter}>
+                    <Animated.View
+                      style={[
+                        styles.loadingSpinner,
+                        { transform: [{ rotate: loadingRotate }] },
+                      ]}
+                    >
+                      <MaterialIcons
+                        name="refresh"
+                        size={20}
+                        color={Theme.colors.primary}
+                      />
+                    </Animated.View>
                     <Text style={styles.loadingText}>Loading more...</Text>
                   </View>
                 ) : null
               }
             />
           ) : (
-            <Text style={styles.emptyText}>
-              No activity recorded for this product
-            </Text>
+            <View style={styles.emptyState}>
+              <MaterialIcons
+                name="inbox"
+                size={48}
+                color={Theme.colors.textMuted}
+              />
+              <Text style={styles.emptyText}>No activity recorded yet</Text>
+              <Text style={styles.emptySubtext}>
+                Stock activities will appear here
+              </Text>
+            </View>
           )}
-        </View>
+        </Animated.View>
       )}
 
-      {/* Image Preview Modal */}
+      {/* Enhanced Image Preview Modal */}
       <Modal
         visible={!!imagePreview}
         transparent={true}
@@ -388,7 +579,7 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
             style={styles.modalCloseButton}
             onPress={() => setImagePreview(null)}
           >
-            <MaterialIcons name="close" size={24} color="#FFF" />
+            <MaterialIcons name="close" size={24} color={Theme.colors.white} />
           </TouchableOpacity>
           {imagePreview && (
             <Image
@@ -405,240 +596,328 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 0,
-    backgroundColor: Theme.colors.background,
-    flex: 1,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius.xl,
+    overflow: "hidden",
+    marginHorizontal: Theme.spacing.sm,
+    marginVertical: Theme.spacing.sm,
+    ...Theme.shadows.md,
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-    minHeight: 48,
-    borderRadius: 8,
+    borderRadius: Theme.borderRadius.xl,
+    overflow: "hidden",
   },
   headerExpanded: {
-    backgroundColor: "rgba(2, 136, 209, 0.05)",
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  headerGradient: {
+    padding: Theme.spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   headerContent: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
   },
-  headerIcon: {
-    marginRight: 8,
+  headerIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Theme.colors.primary + "15",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: Theme.spacing.md,
   },
   title: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#666",
+    fontSize: Theme.typography.fontSize.lg,
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.textMuted,
   },
   titleExpanded: {
-    color: AppColors.primary,
-    fontWeight: "600",
+    color: Theme.colors.text,
+  },
+  countBadge: {
+    color: Theme.colors.primary,
+    fontWeight: Theme.typography.fontWeight.bold,
   },
   toggleButtonContainer: {
-    width: 28,
-    height: 28,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Theme.colors.surface,
+    justifyContent: "center",
+    alignItems: "center",
+    ...Theme.shadows.sm,
+  },
+  toggleButton: {
     justifyContent: "center",
     alignItems: "center",
   },
-  toggleButton: {
-    padding: 4,
-  },
   content: {
-    backgroundColor: "transparent",
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    borderRadius: 8,
-    marginTop: 4,
-    marginBottom: 8,
+    paddingHorizontal: Theme.spacing.lg,
+    paddingBottom: Theme.spacing.lg,
   },
   batchList: {
-    paddingBottom: 8,
+    paddingTop: Theme.spacing.md,
   },
   batchCard: {
     backgroundColor: Theme.colors.surface,
-    borderRadius: Theme.borderRadius["2xl"],
-    marginHorizontal: Theme.spacing.lg,
-    marginBottom: Theme.spacing["2xl"],
-    ...Theme.shadows.sm,
+    borderRadius: Theme.borderRadius.xl,
     overflow: "hidden",
+    ...Theme.shadows.sm,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
   },
   batchHeader: {
+    padding: Theme.spacing.lg,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F0F0F0",
+    justifyContent: "space-between",
   },
   batchHeaderContent: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
+  },
+  userAvatarContainer: {
+    position: "relative",
+    marginRight: Theme.spacing.md,
   },
   userAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: AppColors.primary,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Theme.colors.primary + "20",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 10,
-    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: Theme.colors.surface,
   },
   avatarImage: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   userInitial: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: Theme.typography.fontSize.lg,
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.primary,
+  },
+  onlineIndicator: {
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Theme.colors.success,
+    borderWidth: 2,
+    borderColor: Theme.colors.surface,
   },
   batchHeaderText: {
-    justifyContent: "center",
+    flex: 1,
   },
   batchTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#333",
+    fontSize: Theme.typography.fontSize.base,
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.text,
+    marginBottom: 2,
+  },
+  batchSubtitle: {
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.textMuted,
+  },
+  dateContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Theme.spacing.xs,
   },
   batchDate: {
-    fontSize: 12,
-    color: "#777",
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.textMuted,
+    fontWeight: Theme.typography.fontWeight.medium,
   },
   entriesTable: {
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingHorizontal: Theme.spacing.lg,
+    paddingBottom: Theme.spacing.lg,
   },
   tableHeader: {
     flexDirection: "row",
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+    paddingVertical: Theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "#EEEEEE",
+    borderBottomColor: Theme.colors.border,
+    marginBottom: Theme.spacing.sm,
   },
   tableHeaderCell: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#666",
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Theme.spacing.xs,
+  },
+  tableHeaderText: {
+    fontSize: Theme.typography.fontSize.xs,
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.primary,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   tableRow: {
     flexDirection: "row",
-    paddingVertical: 10,
-    paddingHorizontal: 4,
+    paddingVertical: Theme.spacing.md,
     alignItems: "center",
   },
   tableRowDivider: {
     borderBottomWidth: 1,
-    borderBottomColor: "#F5F5F5",
+    borderBottomColor: Theme.colors.divider,
   },
   tableCell: {
-    fontSize: 13,
-    color: "#333",
-  },
-  productCell: {
-    flex: 2,
-    paddingRight: 4,
-  },
-  supplierCell: {
-    flex: 1.8,
-    paddingRight: 4,
-  },
-  sizeCell: {
-    flex: 1.2,
-    paddingRight: 4,
-  },
-  priceCell: {
-    flex: 0.8,
-    textAlign: "right",
-    paddingRight: 4,
-  },
-  qtyCell: {
-    flex: 0.6,
-    textAlign: "right",
-    paddingRight: 4,
-  },
-  totalCell: {
     flex: 1,
-    textAlign: "right",
-    fontWeight: "600",
-    color: AppColors.primary,
+    paddingHorizontal: Theme.spacing.xs,
+  },
+  productName: {
+    fontSize: Theme.typography.fontSize.sm,
+    fontWeight: Theme.typography.fontWeight.semibold,
+    color: Theme.colors.text,
+  },
+  supplierName: {
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.textMuted,
+  },
+  sizeName: {
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.textMuted,
+  },
+  quantityBadge: {
+    backgroundColor: Theme.colors.primary + "15",
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
+    borderRadius: Theme.borderRadius.md,
+    alignSelf: "flex-start",
+  },
+  quantityText: {
+    fontSize: Theme.typography.fontSize.sm,
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.primary,
   },
   batchTotal: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#EEEEEE",
-    backgroundColor: "rgba(2, 136, 209, 0.05)",
+    paddingHorizontal: Theme.spacing.lg,
+    paddingBottom: Theme.spacing.md,
   },
-  batchTotalLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#555",
-    marginRight: 8,
+  totalBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Theme.spacing.xs,
+    alignSelf: "flex-start",
+    backgroundColor: Theme.colors.secondary + "15",
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
+    borderRadius: Theme.borderRadius.lg,
   },
   batchTotalValue: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: AppColors.primary,
+    fontSize: Theme.typography.fontSize.sm,
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.secondary,
   },
   billPreviewFooter: {
+    paddingHorizontal: Theme.spacing.lg,
+    paddingBottom: Theme.spacing.md,
+  },
+  billButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8,
-    backgroundColor: "#F9F9F9",
-    borderTopWidth: 1,
-    borderTopColor: "#EEEEEE",
+    gap: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.md,
+    borderRadius: Theme.borderRadius.lg,
   },
   billText: {
-    fontSize: 12,
-    color: AppColors.primary,
-    marginLeft: 4,
-    fontWeight: "500",
+    fontSize: Theme.typography.fontSize.sm,
+    fontWeight: Theme.typography.fontWeight.medium,
+    color: Theme.colors.primary,
   },
-  emptyText: {
-    fontSize: 13,
-    color: "#757575",
-    fontStyle: "italic",
-    textAlign: "center",
-    paddingVertical: 16,
+  expandedActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.lg,
+    paddingBottom: Theme.spacing.lg,
+  },
+  editButton: {
+    borderRadius: Theme.borderRadius.lg,
+    overflow: "hidden",
+    ...Theme.shadows.sm,
+  },
+  deleteButton: {
+    borderRadius: Theme.borderRadius.lg,
+    overflow: "hidden",
+    ...Theme.shadows.sm,
+  },
+  buttonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Theme.spacing.xs,
+    paddingHorizontal: Theme.spacing.lg,
+    paddingVertical: Theme.spacing.md,
+  },
+  buttonText: {
+    fontSize: Theme.typography.fontSize.sm,
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.white,
   },
   loadingFooter: {
-    padding: 16,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Theme.spacing.xl,
+    gap: Theme.spacing.md,
+  },
+  loadingSpinner: {
+    transform: [{ rotate: "0deg" }],
   },
   loadingText: {
-    fontSize: 13,
-    color: "#757575",
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.textMuted,
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: Theme.spacing["4xl"],
+    gap: Theme.spacing.md,
+  },
+  emptyText: {
+    fontSize: Theme.typography.fontSize.lg,
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.textMuted,
+    textAlign: "center",
+  },
+  emptySubtext: {
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.textMuted,
+    textAlign: "center",
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.9)",
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
     justifyContent: "center",
     alignItems: "center",
   },
   modalCloseButton: {
     position: "absolute",
-    top: 40,
+    top: 60,
     right: 20,
-    zIndex: 10,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    zIndex: 1,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
   },
   fullImage: {
     width: "90%",
     height: "80%",
+    borderRadius: Theme.borderRadius.lg,
   },
 });

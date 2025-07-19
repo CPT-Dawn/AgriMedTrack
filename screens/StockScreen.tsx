@@ -1,6 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -30,12 +29,7 @@ import {
   StockItem,
 } from "../types/stock";
 
-// Define the stack param list for type safety
-// (You may need to move this to a types file if used elsewhere)
-type StockStackParamList = {
-  StockMain: undefined;
-  EditStock: { batch: StockBatch };
-};
+// No longer needed with Expo Router
 
 export default function StockScreen() {
   const {
@@ -54,11 +48,11 @@ export default function StockScreen() {
     clearError,
     stockEntries,
     batchLogs,
+    sales,
     refreshData,
   } = useStock();
   const { currentUser } = useUser();
-  const navigation =
-    useNavigation<NativeStackNavigationProp<StockStackParamList>>();
+  const router = useRouter();
 
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -205,7 +199,10 @@ export default function StockScreen() {
           ? batch.addedAt.toISOString()
           : batch.addedAt,
     };
-    navigation.navigate("EditStock", { batch: safeBatch as any });
+    router.push({
+      pathname: "/edit-stock",
+      params: { batch: JSON.stringify(safeBatch) },
+    });
   };
 
   // Handle delete batch
@@ -254,6 +251,7 @@ export default function StockScreen() {
           item={item}
           stockEntries={stockEntries}
           productActivities={productActivities}
+          sales={sales}
           isLogExpanded={isLogExpanded}
           onToggleLog={toggleLogExpansion}
           onHighlightProduct={handleHighlightProduct}
@@ -261,7 +259,7 @@ export default function StockScreen() {
         />
       );
     },
-    [activities, expandedLogs, stockEntries, toggleLogExpansion]
+    [activities, expandedLogs, stockEntries, sales, toggleLogExpansion]
   );
 
   // Render all activity logs
@@ -276,8 +274,8 @@ export default function StockScreen() {
         onDeleteBatch={handleDeleteBatch}
         loading={loadingMoreLogs}
         onLoadMore={handleLoadMoreLogs}
-        hideCount={true}
-        hideHeader={true}
+        hideCount={false}
+        hideHeader={false}
       />
     );
   };

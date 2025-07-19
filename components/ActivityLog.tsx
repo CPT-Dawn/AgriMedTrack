@@ -1,4 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef } from "react";
 import {
   Animated,
@@ -10,7 +11,7 @@ import {
   UIManager,
   View,
 } from "react-native";
-import { AppColors } from "../constants/Colors";
+import { Theme } from "../constants/Theme";
 import { StockActivity } from "../types/stock";
 
 // Enable layout animations on Android
@@ -35,39 +36,60 @@ export const ActivityLog: React.FC<ActivityLogProps> = ({
   productId,
 }) => {
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
 
   // Configure layout animation
   const configureLayoutAnimation = () => {
     LayoutAnimation.configureNext({
-      duration: 200,
+      duration: 300,
       update: {
         type: LayoutAnimation.Types.easeInEaseOut,
       },
     });
   };
 
-  // Format date for display
+  // Format date for display with relative time
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const now = new Date();
+    const diffInHours = Math.floor(
+      (now.getTime() - date.getTime()) / (1000 * 60 * 60)
+    );
+
+    if (diffInHours < 1) {
+      return "Just now";
+    } else if (diffInHours < 24) {
+      return `${diffInHours}h ago`;
+    } else {
+      const diffInDays = Math.floor(diffInHours / 24);
+      return `${diffInDays}d ago`;
+    }
   };
 
-  // Animate chevron rotation
+  // Animate header elements
   useEffect(() => {
-    Animated.timing(rotateAnim, {
-      toValue: isExpanded ? 1 : 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
+    Animated.parallel([
+      Animated.timing(rotateAnim, {
+        toValue: isExpanded ? 1 : 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: isExpanded ? 1 : 0,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: isExpanded ? 0 : 50,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
     if (Platform.OS === "ios") {
       configureLayoutAnimation();
     }
-  }, [isExpanded, rotateAnim]);
+  }, [isExpanded, rotateAnim, fadeAnim, slideAnim]);
 
   // Handle toggle with animation
   const handleToggle = () => {
@@ -102,15 +124,31 @@ export const ActivityLog: React.FC<ActivityLogProps> = ({
   const getActivityColor = (action: string) => {
     switch (action) {
       case "added":
-        return AppColors.success;
+        return Theme.colors.success;
       case "updated":
-        return AppColors.primary;
+        return Theme.colors.primary;
       case "removed":
-        return AppColors.error;
+        return Theme.colors.error;
       case "sold":
-        return AppColors.secondary;
+        return Theme.colors.secondary;
       default:
-        return AppColors.primary;
+        return Theme.colors.primary;
+    }
+  };
+
+  // Get activity title based on action
+  const getActivityTitle = (action: string) => {
+    switch (action) {
+      case "added":
+        return "Stock Added";
+      case "updated":
+        return "Stock Updated";
+      case "removed":
+        return "Stock Removed";
+      case "sold":
+        return "Stock Sold";
+      default:
+        return "Activity";
     }
   };
 
@@ -119,81 +157,179 @@ export const ActivityLog: React.FC<ActivityLogProps> = ({
       <TouchableOpacity
         style={[styles.header, isExpanded ? styles.headerExpanded : null]}
         onPress={handleToggle}
-        activeOpacity={0.7}
+        activeOpacity={0.8}
         accessibilityRole="button"
         accessibilityLabel={
           isExpanded ? "Collapse activity log" : "Expand activity log"
         }
       >
-        <View style={styles.headerContent}>
-          <MaterialIcons
-            name="history"
-            size={18}
-            color={isExpanded ? AppColors.primary : "#666"}
-            style={styles.headerIcon}
-          />
-          <Text
-            style={[styles.title, isExpanded ? styles.titleExpanded : null]}
-          >
-            Activity Log {activities.length > 0 ? `(${activities.length})` : ""}
-          </Text>
-        </View>
-        <View style={styles.toggleButtonContainer}>
-          <Animated.View
-            style={[styles.toggleButton, { transform: [{ rotate }] }]}
-          >
-            <MaterialIcons
-              name="keyboard-arrow-down"
-              size={20}
-              color={isExpanded ? AppColors.primary : "#666"}
-            />
-          </Animated.View>
-        </View>
+        <LinearGradient
+          colors={
+            isExpanded
+              ? [Theme.colors.primary + "15", Theme.colors.primary + "05"]
+              : [Theme.colors.surface, Theme.colors.surface]
+          }
+          style={styles.headerGradient}
+        >
+          <View style={styles.headerContent}>
+            <View style={styles.headerIconContainer}>
+              <MaterialIcons
+                name="history"
+                size={20}
+                color={
+                  isExpanded ? Theme.colors.primary : Theme.colors.textMuted
+                }
+              />
+            </View>
+            <Text
+              style={[styles.title, isExpanded ? styles.titleExpanded : null]}
+            >
+              Activity Log{" "}
+              {activities.length > 0 ? (
+                <Text style={styles.countBadge}>({activities.length})</Text>
+              ) : null}
+            </Text>
+          </View>
+          <View style={styles.toggleButtonContainer}>
+            <Animated.View
+              style={[styles.toggleButton, { transform: [{ rotate }] }]}
+            >
+              <MaterialIcons
+                name="keyboard-arrow-down"
+                size={24}
+                color={
+                  isExpanded ? Theme.colors.primary : Theme.colors.textMuted
+                }
+              />
+            </Animated.View>
+          </View>
+        </LinearGradient>
       </TouchableOpacity>
 
       {isExpanded && (
-        <View style={styles.content}>
+        <Animated.View
+          style={[
+            styles.content,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
           {activities.length > 0 ? (
             activities.map((activity, index) => (
-              <View key={activity.id || index} style={styles.activityItem}>
-                <View
-                  style={[
-                    styles.avatar,
-                    {
-                      backgroundColor: `${getActivityColor(activity.action)}15`,
-                    },
+              <Animated.View
+                key={activity.id || index}
+                style={[
+                  styles.activityCard,
+                  {
+                    opacity: fadeAnim,
+                    transform: [{ translateY: slideAnim }],
+                  },
+                ]}
+              >
+                <LinearGradient
+                  colors={[
+                    getActivityColor(activity.action) + "10",
+                    getActivityColor(activity.action) + "05",
                   ]}
+                  style={styles.activityHeader}
                 >
-                  <MaterialIcons
-                    name={getActivityIcon(activity.action)}
-                    size={16}
-                    color={getActivityColor(activity.action)}
-                  />
-                </View>
-                <View style={styles.activityInfo}>
-                  <Text style={styles.actionText}>
-                    <Text
+                  <View style={styles.activityHeaderContent}>
+                    <View
                       style={[
-                        styles.actionType,
-                        { color: getActivityColor(activity.action) },
+                        styles.activityIconContainer,
+                        {
+                          backgroundColor:
+                            getActivityColor(activity.action) + "15",
+                        },
                       ]}
                     >
-                      {activity.action}
-                    </Text>{" "}
-                    {activity.quantity} {activity.sizeName}
-                  </Text>
-                  <Text style={styles.timestamp}>
-                    {formatDate(activity.timestamp)}
-                  </Text>
+                      <MaterialIcons
+                        name={getActivityIcon(activity.action)}
+                        size={18}
+                        color={getActivityColor(activity.action)}
+                      />
+                    </View>
+                    <View style={styles.activityHeaderText}>
+                      <Text
+                        style={[
+                          styles.activityTitle,
+                          { color: getActivityColor(activity.action) },
+                        ]}
+                      >
+                        {getActivityTitle(activity.action)}
+                      </Text>
+                      <Text style={styles.activitySubtitle}>
+                        {activity.quantity} {activity.sizeName}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.dateContainer}>
+                    <MaterialIcons
+                      name="schedule"
+                      size={14}
+                      color={Theme.colors.textMuted}
+                    />
+                    <Text style={styles.activityDate}>
+                      {formatDate(activity.timestamp)}
+                    </Text>
+                  </View>
+                </LinearGradient>
+
+                <View style={styles.activityDetails}>
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailItem}>
+                      <MaterialIcons
+                        name="inventory"
+                        size={14}
+                        color={Theme.colors.textMuted}
+                      />
+                      <Text style={styles.detailText}>
+                        {activity.productName}
+                      </Text>
+                    </View>
+                    <View style={styles.detailItem}>
+                      <MaterialIcons
+                        name="business"
+                        size={14}
+                        color={Theme.colors.textMuted}
+                      />
+                      <Text style={styles.detailText}>
+                        {activity.supplierName}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {activity.updatedByName && (
+                    <View style={styles.userRow}>
+                      <MaterialIcons
+                        name="person"
+                        size={12}
+                        color={Theme.colors.secondary}
+                      />
+                      <Text style={styles.userText}>
+                        by {activity.updatedByName}
+                      </Text>
+                    </View>
+                  )}
                 </View>
-              </View>
+              </Animated.View>
             ))
           ) : (
-            <Text style={styles.emptyText}>
-              No activity recorded for this product
-            </Text>
+            <View style={styles.emptyState}>
+              <MaterialIcons
+                name="inbox"
+                size={48}
+                color={Theme.colors.textMuted}
+              />
+              <Text style={styles.emptyText}>No activity recorded yet</Text>
+              <Text style={styles.emptySubtext}>
+                Product activities will appear here
+              </Text>
+            </View>
           )}
-        </View>
+        </Animated.View>
       )}
     </View>
   );
@@ -201,90 +337,164 @@ export const ActivityLog: React.FC<ActivityLogProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 0,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius.xl,
+    overflow: "hidden",
+    marginHorizontal: Theme.spacing.sm,
+    marginVertical: Theme.spacing.sm,
+    ...Theme.shadows.md,
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-    minHeight: 48,
-    borderRadius: 8,
+    borderRadius: Theme.borderRadius.xl,
+    overflow: "hidden",
   },
   headerExpanded: {
-    backgroundColor: "rgba(2, 136, 209, 0.05)",
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  headerGradient: {
+    padding: Theme.spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   headerContent: {
     flexDirection: "row",
     alignItems: "center",
-  },
-  headerIcon: {
-    marginRight: 8,
-  },
-  title: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#666",
-  },
-  titleExpanded: {
-    color: AppColors.primary,
-    fontWeight: "600",
-  },
-  toggleButtonContainer: {
-    width: 28,
-    height: 28,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  toggleButton: {
-    padding: 4,
-  },
-  content: {
-    backgroundColor: "rgba(2, 136, 209, 0.03)",
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    borderRadius: 8,
-    marginTop: 4,
-    marginBottom: 8,
-    borderLeftWidth: 2,
-    borderLeftColor: AppColors.primary,
-  },
-  activityItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  activityInfo: {
     flex: 1,
   },
-  actionText: {
-    fontSize: 14,
-    color: AppColors.text,
+  headerIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Theme.colors.primary + "15",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: Theme.spacing.md,
   },
-  actionType: {
-    fontWeight: "500",
-    textTransform: "capitalize",
+  title: {
+    fontSize: Theme.typography.fontSize.lg,
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.textMuted,
   },
-  timestamp: {
-    fontSize: 12,
-    color: "#757575",
-    marginTop: 2,
+  titleExpanded: {
+    color: Theme.colors.text,
+  },
+  countBadge: {
+    color: Theme.colors.primary,
+    fontWeight: Theme.typography.fontWeight.bold,
+  },
+  toggleButtonContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Theme.colors.surface,
+    justifyContent: "center",
+    alignItems: "center",
+    ...Theme.shadows.sm,
+  },
+  toggleButton: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  content: {
+    paddingHorizontal: Theme.spacing.lg,
+    paddingBottom: Theme.spacing.lg,
+  },
+  activityCard: {
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius.xl,
+    overflow: "hidden",
+    marginBottom: Theme.spacing.md,
+    ...Theme.shadows.sm,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  activityHeader: {
+    padding: Theme.spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  activityHeaderContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  activityIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: Theme.spacing.md,
+  },
+  activityHeaderText: {
+    flex: 1,
+  },
+  activityTitle: {
+    fontSize: Theme.typography.fontSize.base,
+    fontWeight: Theme.typography.fontWeight.bold,
+    marginBottom: 2,
+  },
+  activitySubtitle: {
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.textMuted,
+  },
+  dateContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Theme.spacing.xs,
+  },
+  activityDate: {
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.textMuted,
+    fontWeight: Theme.typography.fontWeight.medium,
+  },
+  activityDetails: {
+    padding: Theme.spacing.lg,
+    gap: Theme.spacing.md,
+  },
+  detailRow: {
+    flexDirection: "row",
+    gap: Theme.spacing.lg,
+  },
+  detailItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Theme.spacing.xs,
+    flex: 1,
+  },
+  detailText: {
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.textMuted,
+    fontWeight: Theme.typography.fontWeight.medium,
+  },
+  userRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Theme.spacing.xs,
+  },
+  userText: {
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.secondary,
+    fontStyle: "italic",
+    fontWeight: Theme.typography.fontWeight.medium,
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: Theme.spacing["4xl"],
+    gap: Theme.spacing.md,
   },
   emptyText: {
-    fontSize: 13,
-    color: "#757575",
-    fontStyle: "italic",
+    fontSize: Theme.typography.fontSize.lg,
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.textMuted,
     textAlign: "center",
-    paddingVertical: 8,
+  },
+  emptySubtext: {
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.textMuted,
+    textAlign: "center",
   },
 });

@@ -353,6 +353,136 @@ export const deleteBatch = async (batchId: string): Promise<void> => {
   }
 };
 
+export const updateStockBatch = async (
+  batchId: string,
+  formData: BatchEntryFormData,
+  userId: string = "current-user"
+): Promise<void> => {
+  try {
+    // Get user information
+    let userName = "User";
+    let userAvatar = "";
+
+    // Try to get user information if we have a valid userId
+    if (userId && userId !== "unknown-user" && userId !== "current-user") {
+      try {
+        const userDoc = await getDoc(doc(db, "users", userId));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          userName = userData.name || "User";
+          userAvatar = userData.avatar || "";
+        }
+      } catch (userError) {
+        console.error("Error fetching user data:", userError);
+      }
+    }
+
+    // 1. Delete existing batch data (entries and activities)
+    const entriesSnapshot = await getDocs(
+      query(stockEntriesCollection, where("batchId", "==", batchId))
+    );
+    const activitiesSnapshot = await getDocs(
+      query(stockActivitiesCollection, where("batchId", "==", batchId))
+    );
+
+    // Delete existing entries and activities
+    const entryDeletePromises = entriesSnapshot.docs.map((doc) =>
+      deleteDoc(doc.ref)
+    );
+    const activityDeletePromises = activitiesSnapshot.docs.map((doc) =>
+      deleteDoc(doc.ref)
+    );
+    await Promise.all([...entryDeletePromises, ...activityDeletePromises]);
+
+    // 2. Update batch document with new data
+    const batchRef = doc(db, "stockBatches", batchId);
+    const batchUpdateData: any = {
+      updatedBy: userId,
+      updatedByName: userName,
+      updatedAt: serverTimestamp(),
+    };
+
+    // Update bill image if provided
+    if (formData.billImage) {
+      const fileName = `bill_${Date.now()}.jpg`;
+      const billUrl = await uploadImage(
+        formData.billImage.uri,
+        "bills",
+        fileName
+      );
+      batchUpdateData.billUrl = billUrl;
+      batchUpdateData.billThumbnail = billUrl;
+    }
+
+    await updateDoc(batchRef, batchUpdateData);
+
+    // 3. Create new stock entries and activities
+    for (const item of formData.items) {
+      let productId = item.productId;
+      let supplierId = item.supplierId;
+      let packagingId = item.packagingId;
+
+      if (!productId) {
+        const product = await createProduct(item.productName);
+        productId = product.id;
+      }
+      if (!supplierId) {
+        const supplier = await createSupplier(item.supplierName);
+        supplierId = supplier.id;
+      }
+      if (!packagingId) {
+        const packaging = await createPackagingSize(item.packaging);
+        packagingId = packaging.id;
+      }
+
+      // Create new stock entry
+      const stockEntryData = {
+        productId,
+        supplierId,
+        packagingId,
+        packaging: item.packaging,
+        quantity: parseInt(item.quantity),
+        buyPrice: item.buyPrice ? parseFloat(item.buyPrice) : null,
+        sellPrice: item.sellPrice ? parseFloat(item.sellPrice) : null,
+        notes: item.notes || "",
+        batchId,
+        updatedBy: userId,
+        updatedByName: userName,
+        updatedByAvatar: userAvatar || "",
+        updatedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+      };
+      const stockEntryRef = await addDoc(
+        stockEntriesCollection,
+        stockEntryData
+      );
+
+      // Create activity log for update
+      const activityData = {
+        action: "updated",
+        stockEntryId: stockEntryRef.id,
+        productName: item.productName,
+        supplierName: item.supplierName,
+        sizeName: item.packaging,
+        quantity: parseInt(item.quantity),
+        buyPrice: item.buyPrice ? parseFloat(item.buyPrice) : null,
+        sellPrice: item.sellPrice ? parseFloat(item.sellPrice) : null,
+        batchId,
+        updatedBy: userId,
+        updatedByName: userName,
+        updatedByAvatar: userAvatar || "",
+        timestamp: serverTimestamp(),
+      };
+      await addDoc(stockActivitiesCollection, activityData);
+    }
+
+    console.log(`Batch ${batchId} updated successfully`);
+  } catch (error) {
+    console.error("Error updating stock batch:", error);
+    throw error;
+  }
+};
+
 // ===== ADD STOCK ENTRY =====
 
 export const addStockEntryBatch = async (
