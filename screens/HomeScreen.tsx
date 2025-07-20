@@ -103,7 +103,7 @@ export default function HomeScreen() {
   );
 
   // Recent sales (last 3)
-  const recentSales = sales.slice(0, 3);
+  const recentSales = sales.slice(0, 2);
   // Recent stock activities (last 3 'added')
   const recentStockAdds = activities
     .filter((a) => a.action === "added")
@@ -112,7 +112,7 @@ export default function HomeScreen() {
       const tB = b.timestamp instanceof Date ? b.timestamp.getTime() : 0;
       return tB - tA;
     })
-    .slice(0, 3);
+    .slice(0, 2);
 
   // --- Loading State ---
   const isLoading = stockLoading || salesLoading;
@@ -507,6 +507,7 @@ const styles = StyleSheet.create({
   summaryGrid: {
     flexDirection: "row",
     gap: 16,
+    marginTop: 16,
   },
   summaryCard: {
     flex: 1,
@@ -621,7 +622,6 @@ const styles = StyleSheet.create({
   },
   logoutContainer: {
     paddingHorizontal: 20,
-    paddingTop: 20,
     paddingBottom: 40,
   },
   logoutButton: {
