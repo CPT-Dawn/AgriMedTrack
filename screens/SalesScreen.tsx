@@ -303,7 +303,6 @@ export default function SalesScreen() {
     setSaleDate(dateObj);
     setSaleTime(timeObj);
     setPaymentStatus(sale.paymentStatus);
-    setNotes(sale.notes || "");
     // Ensure all dropdown fields are set for each sale item
     setSaleItems(
       sale.items.map((item) => {
@@ -447,23 +446,51 @@ export default function SalesScreen() {
           >
             {/* Card header matching StockCard style */}
             <View style={styles.headerRow}>
-              <View style={styles.saleInfo}>
+              <View style={styles.headerLeft}>
                 <Text style={styles.saleTitle}>
                   {item.buyer || "Anonymous Buyer"}
                 </Text>
-              </View>
-              <View
-                style={[
-                  styles.paymentStatusBadge,
-                  item.paymentStatus === "Paid" && styles.paymentStatusPaid,
-                  item.paymentStatus === "Partial" &&
-                    styles.paymentStatusPartial,
-                  item.paymentStatus === "Unpaid" && styles.paymentStatusUnpaid,
-                ]}
-              >
-                <Text style={styles.paymentStatusBadgeText}>
-                  {item.paymentStatus}
+                <Text style={styles.saleDateTimeRow}>
+                  {(() => {
+                    let dateObj =
+                      typeof item.saleDate === "string"
+                        ? new Date(item.saleDate)
+                        : item.saleDate;
+                    const dateStr = dateObj.toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    });
+                    const timeStr = dateObj.toLocaleTimeString("en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: true,
+                    });
+                    return (
+                      <>
+                        <Text style={styles.saleDateText}>{dateStr}</Text>
+                        <Text style={styles.saleDateDot}> • </Text>
+                        <Text style={styles.saleTimeText}>{timeStr}</Text>
+                      </>
+                    );
+                  })()}
                 </Text>
+              </View>
+              <View style={styles.headerRight}>
+                <View
+                  style={[
+                    styles.paymentStatusBadge,
+                    item.paymentStatus === "Paid" && styles.paymentStatusPaid,
+                    item.paymentStatus === "Partial" &&
+                      styles.paymentStatusPartial,
+                    item.paymentStatus === "Unpaid" &&
+                      styles.paymentStatusUnpaid,
+                  ]}
+                >
+                  <Text style={styles.paymentStatusBadgeText}>
+                    {item.paymentStatus}
+                  </Text>
+                </View>
               </View>
             </View>
 
@@ -517,11 +544,7 @@ export default function SalesScreen() {
                       : item.addedBy) ||
                     "Unknown User"}
                 </Text>
-                {item.notes && (
-                  <Text style={styles.cardFooterNotes} numberOfLines={2}>
-                    {item.notes}
-                  </Text>
-                )}
+                {/* Removed notes display as notes field no longer exists */}
               </View>
               <View style={styles.saleCardFooterRight}>
                 <Text style={styles.saleCardTotalAmount}>
@@ -806,7 +829,6 @@ export default function SalesScreen() {
           addedBy: currentUser?.id || "unknown-user",
           paymentStatus,
           saleDate: combinedDateTime,
-          notes,
           items: itemsWithTotal,
           totalAmount: itemsWithTotal.reduce(
             (sum, item) => sum + item.totalPrice,
@@ -1142,40 +1164,6 @@ export default function SalesScreen() {
               ))}
             </View>
           </View>
-
-          {/* Notes Field - Only show for Partial payment */}
-          {paymentStatus === "Partial" && (
-            <View style={{ marginBottom: 16 }}>
-              <Text
-                style={{
-                  fontWeight: "600",
-                  marginBottom: 4,
-                  color: Theme.colors.text,
-                }}
-              >
-                Notes (Required for partial payment)
-              </Text>
-              <TextInput
-                style={{
-                  backgroundColor: Theme.colors.surface,
-                  borderRadius: 16,
-                  borderWidth: 1,
-                  borderColor: Theme.colors.border,
-                  padding: 12,
-                  fontSize: 16,
-                  color: Theme.colors.text,
-                  minHeight: 80,
-                  textAlignVertical: "top",
-                  ...Theme.shadows.sm,
-                }}
-                placeholder="Add payment details"
-                value={notes}
-                onChangeText={setNotes}
-                multiline
-                placeholderTextColor={Theme.colors.textMuted}
-              />
-            </View>
-          )}
 
           {/* Sale Items */}
           <View style={{ marginBottom: 16 }}>
@@ -1897,9 +1885,19 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "center", // Center payment status with left column
     justifyContent: "space-between",
     marginBottom: Theme.spacing.md,
+  },
+  headerLeft: {
+    flex: 1,
+    flexDirection: "column",
+    justifyContent: "center",
+  },
+  headerRight: {
+    alignItems: "flex-end",
+    justifyContent: "center",
+    minWidth: 110,
   },
   saleInfo: {
     flex: 1,
@@ -2392,5 +2390,24 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
+  },
+  saleDateTimeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  saleDateText: {
+    fontSize: 12,
+    color: Theme.colors.textMuted,
+  },
+  saleDateDot: {
+    fontWeight: "bold",
+    fontSize: 13,
+    color: Theme.colors.textMuted,
+    marginHorizontal: 2,
+  },
+  saleTimeText: {
+    fontSize: 12,
+    color: Theme.colors.textMuted,
   },
 });

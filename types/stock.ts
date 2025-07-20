@@ -123,7 +123,6 @@ export interface Sale {
   addedByName?: string;
   paymentStatus: "Paid" | "Unpaid" | "Partial";
   saleDate: string | Date;
-  notes: string;
   items: SaleItem[];
   totalAmount: number;
   discount?: number;
