@@ -20,11 +20,11 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
 
   // Get recent activities for this product (up to 3)
   const recentActivities = useMemo(() => {
-    const activities: Array<{
+    const activities: {
       type: "stock" | "sale";
       data: StockActivity | Sale;
       timestamp: Date;
-    }> = [];
+    }[] = [];
 
     // Add stock activities
     productActivities.forEach((activity) => {
@@ -125,11 +125,11 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
 
   const renderStockActivity = (activity: StockActivity, index: number) => {
     return (
-      <View 
-        key={`stock-${activity.id}-${index}`} 
+      <View
+        key={`stock-${activity.id}-${index}`}
         style={[
           styles.activityItem,
-          index % 2 === 1 && styles.activityItemAlternate
+          index % 2 === 1 && styles.activityItemAlternate,
         ]}
       >
         <View style={styles.activityHeader}>
@@ -146,7 +146,12 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
             />
           </View>
           <View style={styles.headerContent}>
-            <Text style={[styles.activityType, { color: getActivityColor("stock") }]}>
+            <Text
+              style={[
+                styles.activityType,
+                { color: getActivityColor("stock") },
+              ]}
+            >
               {getActivityTitle("stock")}
             </Text>
             <Text style={styles.activityTime}>
@@ -202,11 +207,11 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
     if (!saleItem) return null;
 
     return (
-      <View 
-        key={`sale-${sale.id}-${index}`} 
+      <View
+        key={`sale-${sale.id}-${index}`}
         style={[
           styles.activityItem,
-          index % 2 === 1 && styles.activityItemAlternate
+          index % 2 === 1 && styles.activityItemAlternate,
         ]}
       >
         <View style={styles.activityHeader}>
@@ -223,7 +228,9 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
             />
           </View>
           <View style={styles.headerContent}>
-            <Text style={[styles.activityType, { color: getActivityColor("sale") }]}>
+            <Text
+              style={[styles.activityType, { color: getActivityColor("sale") }]}
+            >
               {getActivityTitle("sale")}
             </Text>
             <Text style={styles.activityTime}>
@@ -284,9 +291,12 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
       ]}
     >
       <View style={styles.header}>
-        <Text style={styles.sectionTitle}>Recent Activity</Text>
+        <View>
+          <Text style={styles.sectionTitle}>Recent Activity</Text>
+        </View>
         <Text style={styles.activityCount}>
-          {recentActivities.length} {recentActivities.length === 1 ? 'activity' : 'activities'}
+          {recentActivities.length}{" "}
+          {recentActivities.length === 1 ? "activity" : "activities"}
         </Text>
       </View>
 
@@ -344,6 +354,13 @@ const styles = StyleSheet.create({
     fontWeight: Theme.typography.fontWeight.semibold,
     color: Theme.colors.text,
   },
+  sectionSubtitle: {
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.textMuted,
+    fontStyle: "italic",
+    marginTop: 2,
+    marginBottom: 2,
+  },
   activityCount: {
     fontSize: Theme.typography.fontSize.xs,
     color: Theme.colors.textMuted,
@@ -395,7 +412,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Theme.colors.border,
     minWidth: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   quantityText: {
     fontSize: Theme.typography.fontSize.sm,
