@@ -1,7 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { collection, getFirestore, Timestamp } from "firebase/firestore";
-import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCwdZmaX1SUbGdo-MmpabGMOUjdT7IvVzg",
@@ -17,9 +16,6 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize Firestore
 export const db = getFirestore(app);
-
-// Initialize Storage
-export const storage = getStorage(app);
 
 // Initialize Auth
 export const auth = getAuth(app);
@@ -42,32 +38,6 @@ export const convertTimestampToDate = (timestamp: Timestamp): Date => {
 // Helper function to convert JS Date to Firestore timestamp
 export const convertDateToTimestamp = (date: Date): Timestamp => {
   return Timestamp.fromDate(date);
-};
-
-// Helper function to upload an image to Firebase Storage
-export const uploadImage = async (
-  uri: string,
-  path: string,
-  fileName: string
-): Promise<string> => {
-  try {
-    // Fetch the image
-    const response = await fetch(uri);
-    const blob = await response.blob();
-
-    // Create storage reference
-    const storageRef = ref(storage, `${path}/${fileName}`);
-
-    // Upload image
-    await uploadBytes(storageRef, blob);
-
-    // Get download URL
-    const downloadURL = await getDownloadURL(storageRef);
-    return downloadURL;
-  } catch (error) {
-    console.error("Error uploading image:", error);
-    throw error;
-  }
 };
 
 // For development - uncomment these lines to use emulators

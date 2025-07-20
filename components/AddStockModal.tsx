@@ -1,11 +1,9 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Animated,
-  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -51,54 +49,26 @@ export const AddStockModal: React.FC<AddStockModalProps> = ({
     packagingId: "",
     packaging: "",
     quantity: "",
-    notes: "",
-    buyPrice: "",
     sellPrice: "",
+    notes: "",
   });
-
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [billImage, setBillImage] = useState<{
-    uri: string;
-    name: string;
-    type: string;
-  } | null>(null);
 
-  const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
 
-  // Reset form when modal is closed
-  useEffect(() => {
-    if (!visible) {
-      setForm({
-        productId: "",
-        productName: "",
-        supplierId: "",
-        supplierName: "",
-        packagingId: "",
-        packaging: "",
-        quantity: "",
-        notes: "",
-        buyPrice: "",
-        sellPrice: "",
-      });
-      setErrors({});
-      setBillImage(null);
-    }
-  }, [visible]);
-
-  // Animate modal opening and closing
   useEffect(() => {
     if (visible) {
       Animated.parallel([
-        Animated.timing(slideAnim, {
+        Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 200,
           useNativeDriver: true,
         }),
-        Animated.timing(fadeAnim, {
+        Animated.timing(slideAnim, {
           toValue: 1,
-          duration: 200,
+          duration: 300,
           useNativeDriver: true,
         }),
       ]).start();
@@ -106,7 +76,7 @@ export const AddStockModal: React.FC<AddStockModalProps> = ({
       Animated.parallel([
         Animated.timing(slideAnim, {
           toValue: 0,
-          duration: 150,
+          duration: 200,
           useNativeDriver: true,
         }),
         Animated.timing(fadeAnim, {
@@ -117,46 +87,6 @@ export const AddStockModal: React.FC<AddStockModalProps> = ({
       ]).start();
     }
   }, [visible, fadeAnim, slideAnim]);
-
-  const handleImagePicker = async () => {
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permissionResult.granted) {
-      Alert.alert(
-        "Permission Required",
-        "Please grant camera roll permissions to upload a bill image."
-      );
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      const asset = result.assets[0];
-      const fileName = asset.uri.split("/").pop() || "bill_image.jpg";
-
-      setBillImage({
-        uri: asset.uri,
-        name: fileName,
-        type: "image/jpeg",
-      });
-
-      setForm((prev) => ({
-        ...prev,
-        billImage: {
-          uri: asset.uri,
-          name: fileName,
-          type: "image/jpeg",
-        },
-      }));
-    }
-  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -315,60 +245,14 @@ export const AddStockModal: React.FC<AddStockModalProps> = ({
                 )}
               </View>
 
-              {/* Buy Price */}
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Buy Price (₹)</Text>
-                <View style={styles.inputWithIcon}>
-                  <MaterialIcons
-                    name="attach-money"
-                    size={20}
-                    color={AppColors.primary}
-                    style={{ marginRight: 8 }}
-                  />
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="Enter buy price"
-                    value={form.buyPrice}
-                    onChangeText={(text) =>
-                      setForm((prev) => ({ ...prev, buyPrice: text }))
-                    }
-                    keyboardType="numeric"
-                    accessibilityLabel="Buy price in rupees"
-                  />
-                </View>
-              </View>
-
-              {/* Sell Price */}
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Sell Price (₹)</Text>
-                <View style={styles.inputWithIcon}>
-                  <MaterialIcons
-                    name="attach-money"
-                    size={20}
-                    color={AppColors.primary}
-                    style={{ marginRight: 8 }}
-                  />
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="Enter sell price"
-                    value={form.sellPrice}
-                    onChangeText={(text) =>
-                      setForm((prev) => ({ ...prev, sellPrice: text }))
-                    }
-                    keyboardType="numeric"
-                    accessibilityLabel="Sell price in rupees"
-                  />
-                </View>
-              </View>
-
               {/* Quantity */}
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Quantity</Text>
                 <View style={styles.inputWithIcon}>
                   <MaterialIcons
-                    name="inventory"
+                    name="shopping-cart"
                     size={20}
-                    color={AppColors.primary}
+                    color={AppColors.textSecondary}
                     style={{ marginRight: 8 }}
                   />
                   <TextInput
@@ -385,37 +269,6 @@ export const AddStockModal: React.FC<AddStockModalProps> = ({
                 {errors.quantity && (
                   <Text style={styles.inputError}>{errors.quantity}</Text>
                 )}
-              </View>
-
-              {/* Bill Photo */}
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Bill Photo (Optional)</Text>
-                <TouchableOpacity
-                  style={styles.imageButton}
-                  onPress={handleImagePicker}
-                  accessibilityLabel="Upload bill image"
-                >
-                  {billImage ? (
-                    <View style={styles.imageContainer}>
-                      <Image
-                        source={{ uri: billImage.uri }}
-                        style={styles.billImage}
-                      />
-                      <Text style={styles.imageText}>Change Image</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.imageContainer}>
-                      <MaterialIcons
-                        name="camera-alt"
-                        size={36}
-                        color={AppColors.primary}
-                      />
-                      <Text style={styles.imageText}>
-                        Tap to upload bill image
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
               </View>
 
               {/* Notes */}
@@ -547,46 +400,19 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginLeft: 2,
   },
-  imageButton: {
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    borderRadius: 16,
-    borderStyle: "dashed",
-    padding: 20,
-    alignItems: "center",
-    backgroundColor: "#F5F7FA",
-    minHeight: 120,
-    justifyContent: "center",
-  },
-  imageContainer: {
-    alignItems: "center",
-  },
-  billImage: {
-    width: 120,
-    height: 90,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  imageText: {
-    fontSize: 14,
-    color: AppColors.primary,
-    fontWeight: "500",
-    marginTop: 8,
-  },
   saveButton: {
     backgroundColor: AppColors.primary,
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 48,
   },
   saveButtonDisabled: {
     backgroundColor: "#CCCCCC",
   },
   saveButtonText: {
+    color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "500",
-    color: "#FFFFFF",
   },
 });

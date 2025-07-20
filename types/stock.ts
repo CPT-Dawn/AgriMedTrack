@@ -28,7 +28,6 @@ export interface StockEntry {
   quantity: number;
   buyPrice?: number;
   sellPrice?: number;
-  billImageUrl?: string;
   notes?: string;
   batchId?: string;
   updatedBy: string;
@@ -79,8 +78,6 @@ export interface StockBatch {
   addedByName?: string;
   addedByAvatar?: string;
   addedAt: Date;
-  billUrl?: string;
-  billThumbnail?: string;
   items: StockActivity[];
 }
 
@@ -95,11 +92,6 @@ export interface StockEntryFormData {
   quantity: string;
   buyPrice?: string;
   sellPrice?: string;
-  billImage?: {
-    uri: string;
-    name: string;
-    type: string;
-  };
   notes?: string;
   batchId?: string; // Optional batch ID if part of a batch
 }
@@ -107,11 +99,6 @@ export interface StockEntryFormData {
 // Batch form data
 export interface BatchEntryFormData {
   addedBy: string;
-  billImage?: {
-    uri: string;
-    name: string;
-    type: string;
-  };
   items: StockEntryFormData[];
 }
 

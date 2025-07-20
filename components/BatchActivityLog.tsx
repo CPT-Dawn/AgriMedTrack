@@ -3,9 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   FlatList,
-  Image,
   LayoutAnimation,
-  Modal,
   Platform,
   StyleSheet,
   Text,
@@ -50,7 +48,7 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
   hideHeader = false,
 }) => {
   const loadingRotateAnim = useRef(new Animated.Value(0)).current;
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
   const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
   const [cardScale] = useState<{ [id: string]: Animated.Value }>({});
   const [cardOpacity] = useState<{ [id: string]: Animated.Value }>({});
@@ -370,23 +368,6 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
                       Delete
                     </Text>
                   </TouchableOpacity>
-
-                  {batch.billUrl && (
-                    <TouchableOpacity
-                      style={styles.billButton}
-                      onPress={() =>
-                        batch.billUrl && setImagePreview(batch.billUrl)
-                      }
-                      accessibilityLabel="View bill image"
-                    >
-                      <MaterialIcons
-                        name="receipt"
-                        size={16}
-                        color={Theme.colors.primary}
-                      />
-                      <Text style={styles.billText}>Bill</Text>
-                    </TouchableOpacity>
-                  )}
                 </View>
 
                 <Text style={styles.batchDate}>
@@ -445,29 +426,7 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
         </View>
       )}
 
-      {/* Simple Image Preview Modal */}
-      <Modal
-        visible={!!imagePreview}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setImagePreview(null)}
-      >
-        <View style={styles.modalContainer}>
-          <TouchableOpacity
-            style={styles.modalCloseButton}
-            onPress={() => setImagePreview(null)}
-          >
-            <MaterialIcons name="close" size={24} color={Theme.colors.white} />
-          </TouchableOpacity>
-          {imagePreview && (
-            <Image
-              source={{ uri: imagePreview }}
-              style={styles.fullImage}
-              resizeMode="contain"
-            />
-          )}
-        </View>
-      </Modal>
+
     </View>
   );
 };
@@ -665,20 +624,7 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     color: Theme.colors.error,
   },
-  billButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Theme.spacing.xs,
-    paddingVertical: Theme.spacing.sm,
-    paddingHorizontal: Theme.spacing.md,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    borderRadius: Theme.borderRadius.md,
-  },
-  billText: {
-    fontSize: Theme.typography.fontSize.sm,
-    color: Theme.colors.primary,
-  },
+
   batchDate: {
     fontSize: Theme.typography.fontSize.sm,
     color: Theme.colors.textMuted,
@@ -714,27 +660,5 @@ const styles = StyleSheet.create({
     color: Theme.colors.textMuted,
     textAlign: "center",
   },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.85)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalCloseButton: {
-    position: "absolute",
-    top: 60,
-    right: 20,
-    zIndex: 1,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  fullImage: {
-    width: "90%",
-    height: "80%",
-    borderRadius: Theme.borderRadius.md,
-  },
+
 });

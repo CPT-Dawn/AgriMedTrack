@@ -33,7 +33,6 @@ import {
   stockBatchesCollection,
   stockEntriesCollection,
   suppliersCollection,
-  uploadImage,
 } from "./firebase";
 
 // ===== PRODUCTS =====
@@ -211,7 +210,7 @@ export const getStockEntries = async (): Promise<StockEntry[]> => {
         quantity: data.quantity,
         buyPrice: data.buyPrice,
         sellPrice: data.sellPrice,
-        billImageUrl: data.billImageUrl,
+
         notes: data.notes,
         batchId: data.batchId,
         updatedBy: data.updatedBy,
@@ -304,8 +303,7 @@ export const getStockBatches = async (): Promise<StockBatch[]> => {
           addedBy: data.addedBy,
           addedByName: data.addedByName,
           addedAt: convertTimestampToDate(data.addedAt),
-          billUrl: data.billUrl,
-          billThumbnail: data.billThumbnail,
+
           items,
         };
       })
@@ -401,18 +399,6 @@ export const updateStockBatch = async (
       updatedByName: userName,
       updatedAt: serverTimestamp(),
     };
-
-    // Update bill image if provided
-    if (formData.billImage) {
-      const fileName = `bill_${Date.now()}.jpg`;
-      const billUrl = await uploadImage(
-        formData.billImage.uri,
-        "bills",
-        fileName
-      );
-      batchUpdateData.billUrl = billUrl;
-      batchUpdateData.billThumbnail = billUrl;
-    }
 
     await updateDoc(batchRef, batchUpdateData);
 
@@ -514,8 +500,6 @@ export const addStockEntryBatch = async (
       addedByName: string;
       addedByAvatar?: string;
       addedAt: any;
-      billUrl?: string;
-      billThumbnail?: string;
     } = {
       addedBy: userId,
       addedByName: userName,
@@ -525,21 +509,6 @@ export const addStockEntryBatch = async (
     // Add avatar if available
     if (userAvatar) {
       batchData.addedByAvatar = userAvatar;
-    }
-
-    // Upload bill image if provided
-    if (formData.billImage) {
-      const fileName = `bill_${Date.now()}.jpg`;
-      const billUrl = await uploadImage(
-        formData.billImage.uri,
-        "bills",
-        fileName
-      );
-
-      // Add bill URL to batch data
-      batchData.billUrl = billUrl;
-      // In a real app, you would generate a thumbnail here
-      batchData.billThumbnail = billUrl;
     }
 
     // Add batch to Firestore

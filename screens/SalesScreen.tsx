@@ -467,22 +467,18 @@ export default function SalesScreen() {
               </View>
             </View>
 
-            {/* Table header with line total */}
+            {/* Table header with improved spacing */}
             <View style={styles.tableHeaderRow}>
               <Text style={[styles.tableHeader, styles.productHeader]}>
                 Product
               </Text>
-              <Text style={[styles.tableHeader, styles.equalHeader]}>Pack</Text>
-              <Text style={[styles.tableHeader, styles.equalHeader]}>
-                Price
-              </Text>
-              <Text style={[styles.tableHeader, styles.equalHeader]}>Qty</Text>
-              <Text style={[styles.tableHeader, styles.equalHeader]}>
+              <Text style={[styles.tableHeader, styles.qtyHeader]}>Qty</Text>
+              <Text style={[styles.tableHeader, styles.totalHeader]}>
                 Total
               </Text>
             </View>
 
-            {/* Table rows with line total */}
+            {/* Table rows with improved layout */}
             {item.items.map((saleItem: SaleItem, itemIndex: number) => (
               <View
                 key={itemIndex}
@@ -491,45 +487,43 @@ export default function SalesScreen() {
                   itemIndex % 2 === 1 ? styles.tableRowAlternate : null,
                 ]}
               >
-                <Text
-                  style={[styles.tableCell, styles.productCell]}
-                  numberOfLines={1}
-                >
-                  {saleItem.productName}
-                </Text>
-                <Text
-                  style={[styles.tableCell, styles.equalCell]}
-                  numberOfLines={1}
-                >
-                  {saleItem.packaging}
-                </Text>
-                <Text
-                  style={[styles.tableCell, styles.equalCell]}
-                  numberOfLines={1}
-                >
-                  ₹{saleItem.unitPrice}
-                </Text>
-                <Text style={[styles.tableCell, styles.equalCell]}>
+                <View style={[styles.tableCell, styles.productCell]}>
+                  <Text style={styles.productName} numberOfLines={1}>
+                    {saleItem.productName}
+                  </Text>
+                  <Text style={styles.productPack} numberOfLines={1}>
+                    {saleItem.packaging} <Text style={styles.separator}>•</Text>{" "}
+                    ₹{saleItem.unitPrice}
+                  </Text>
+                </View>
+
+                <Text style={[styles.tableCell, styles.qtyCell]}>
                   {saleItem.quantity}
                 </Text>
-                <Text style={[styles.tableCell, styles.equalCell]}>
+                <Text style={[styles.tableCell, styles.totalCell]}>
                   ₹{saleItem.totalPrice}
                 </Text>
               </View>
             ))}
 
-            {/* Card footer with user and total bill */}
+            {/* Card footer with user, notes, and total bill */}
             <View style={styles.cardFooter}>
-              <Text style={styles.cardFooterText}>
-                By:{" "}
-                {item.addedByName ||
-                  (currentUser?.id === item.addedBy
-                    ? currentUser.name
-                    : item.addedBy) ||
-                  "Unknown User"}
-              </Text>
+              <View style={styles.cardFooterLeft}>
+                <Text style={styles.cardFooterText}>
+                  By:{" "}
+                  {item.addedByName ||
+                    (currentUser?.id === item.addedBy
+                      ? currentUser.name
+                      : item.addedBy) ||
+                    "Unknown User"}
+                </Text>
+                {item.notes && (
+                  <Text style={styles.cardFooterNotes} numberOfLines={2}>
+                    {item.notes}
+                  </Text>
+                )}
+              </View>
               <View style={styles.saleCardFooterRight}>
-                <Text style={styles.saleCardTotalLabel}>Total:</Text>
                 <Text style={styles.saleCardTotalAmount}>
                   ₹{item.totalAmount}
                 </Text>
@@ -570,17 +564,6 @@ export default function SalesScreen() {
                     </Text>
                   </TouchableOpacity>
                 </View>
-
-                {item.notes && (
-                  <View style={styles.saleNotes}>
-                    <MaterialIcons
-                      name="note"
-                      size={14}
-                      color={Theme.colors.textMuted}
-                    />
-                    <Text style={styles.saleNotesText}>{item.notes}</Text>
-                  </View>
-                )}
               </View>
             )}
           </View>
@@ -1497,46 +1480,44 @@ export default function SalesScreen() {
           </View>
 
           {/* Main Content */}
-          <View style={styles.content}>
-            {loadingSales ? (
-              <View style={styles.loadingContainer}>
-                <Text style={styles.loadingText}>Loading sales...</Text>
-              </View>
-            ) : (
-              <FlatList
-                data={filteredSaleEntries}
-                renderItem={renderSaleCard}
-                keyExtractor={(item) => item.id || Date.now().toString()}
-                contentContainerStyle={styles.listContainer}
-                showsVerticalScrollIndicator={false}
-                initialNumToRender={6}
-                maxToRenderPerBatch={10}
-                windowSize={10}
-                removeClippedSubviews={Platform.OS === "android"}
-                refreshControl={
-                  <RefreshControl
-                    refreshing={refreshing}
-                    onRefresh={handleReload}
-                    colors={[Theme.colors.primary]}
-                    tintColor={Theme.colors.primary}
+          {loadingSales ? (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Loading sales...</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={filteredSaleEntries}
+              renderItem={renderSaleCard}
+              keyExtractor={(item) => item.id || Date.now().toString()}
+              contentContainerStyle={styles.listContainer}
+              showsVerticalScrollIndicator={false}
+              initialNumToRender={6}
+              maxToRenderPerBatch={10}
+              windowSize={10}
+              removeClippedSubviews={Platform.OS === "android"}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleReload}
+                  colors={[Theme.colors.primary]}
+                  tintColor={Theme.colors.primary}
+                />
+              }
+              ListEmptyComponent={() => (
+                <View style={styles.emptyState}>
+                  <MaterialIcons
+                    name="receipt"
+                    size={48}
+                    color={colors.gray[300]}
                   />
-                }
-                ListEmptyComponent={() => (
-                  <View style={styles.emptyState}>
-                    <MaterialIcons
-                      name="receipt"
-                      size={48}
-                      color={colors.gray[300]}
-                    />
-                    <Text style={styles.emptyStateText}>No sales found</Text>
-                    <Text style={styles.emptyStateSubtext}>
-                      Try a different search or tap the + button to add a sale
-                    </Text>
-                  </View>
-                )}
-              />
-            )}
-          </View>
+                  <Text style={styles.emptyStateText}>No sales found</Text>
+                  <Text style={styles.emptyStateSubtext}>
+                    Try a different search or tap the + button to add a sale
+                  </Text>
+                </View>
+              )}
+            />
+          )}
         </View>
       )}
     </View>
@@ -1966,10 +1947,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   productHeader: {
-    flex: 2.2,
+    flex: 4,
   },
-  equalHeader: {
+  qtyHeader: {
     flex: 1,
+    textAlign: "center",
+  },
+  totalHeader: {
+    flex: 1.5,
+    textAlign: "right",
   },
   tableRow: {
     flexDirection: "row",
@@ -1989,10 +1975,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   productCell: {
-    flex: 2.2,
+    flex: 4,
   },
-  equalCell: {
+  qtyCell: {
     flex: 1,
+    textAlign: "center",
+  },
+  totalCell: {
+    flex: 1.5,
+    textAlign: "right",
+  },
+  productName: {
+    fontSize: Theme.typography.fontSize.sm,
+    fontWeight: Theme.typography.fontWeight.semibold,
+    color: Theme.colors.text,
+    marginBottom: 2,
+  },
+  productPack: {
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.textMuted,
+  },
+  separator: {
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.textMuted,
   },
   expandedActions: {
     paddingTop: Theme.spacing.md,
@@ -2039,14 +2044,24 @@ const styles = StyleSheet.create({
   cardFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     paddingTop: Theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: Theme.colors.divider,
   },
+  cardFooterLeft: {
+    flex: 1,
+    marginRight: Theme.spacing.md,
+  },
   cardFooterText: {
     fontSize: Theme.typography.fontSize.sm,
     color: Theme.colors.textMuted,
+    marginBottom: Theme.spacing.xs,
+  },
+  cardFooterNotes: {
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.textMuted,
+    fontStyle: "italic",
   },
   saleCardHeader: {
     flexDirection: "row",
@@ -2230,7 +2245,7 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   listContainer: {
-    paddingTop: 12,
+    paddingTop: Theme.spacing.md,
     paddingBottom: 100,
   },
   plusBox: {
@@ -2302,10 +2317,6 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: Theme.colors.textMuted,
-  },
-  content: {
-    flex: 1,
-    padding: Theme.spacing.lg,
   },
 
   // Add fixed save button styles

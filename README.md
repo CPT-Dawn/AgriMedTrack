@@ -37,11 +37,12 @@ Then scan the QR code with Expo Go or press 'w' for web.
 
 - **FAB Button**: Circular "+" floating action button in bottom-right corner
 - **Modal Form** with:
+
   - Product dropdown with inline creation
   - Supplier/vendor dropdown with inline creation
   - Packaging size dropdown with inline creation
   - Numeric quantity input
-  - Bill photo picker (camera/gallery)
+
   - Optional notes field
   - Real-time Firebase Firestore integration
 
@@ -74,8 +75,6 @@ Text: Charcoal #263238
 - **React Native** with Expo
 - **TypeScript** for type safety
 - **Firebase Firestore** for real-time database
-- **Firebase Storage** for bill images
-- **Expo Image Picker** for camera/gallery access
 
 ## Data Model
 
@@ -94,7 +93,7 @@ stock_entries: [{
   supplierId,
   sizeId,
   quantity,
-  billImageUrl?,
+
   notes?,
   updatedBy,
   updatedAt,
@@ -228,7 +227,7 @@ utils/
 
 - Firebase integration layer
 - CRUD operations for all collections
-- Image upload handling
+
 - Real-time listeners setup
 
 ## Usage
@@ -236,8 +235,8 @@ utils/
 1. **View Stock**: Browse current inventory grouped by product
 2. **Add Stock**: Tap the + FAB to open the form modal
 3. **Create Items**: Use dropdowns to select or create products/suppliers/sizes
-4. **Upload Bills**: Tap camera icon to attach bill photos
-5. **Track Activity**: View real-time activity log at bottom
+
+4. **Track Activity**: View real-time activity log at bottom
 
 ## Development
 
@@ -253,7 +252,7 @@ utils/
 
 - Ensure Firebase configuration is correct
 - Test on both iOS and Android
-- Verify image upload functionality
+
 - Test offline behavior
 
 ## Troubleshooting
@@ -261,7 +260,7 @@ utils/
 ### Common Issues
 
 1. **Firebase Connection**: Verify config in `services/firebase.ts`
-2. **Image Upload**: Check Firebase Storage rules and permissions
+
 3. **Build Errors**: Run `npm install` and restart Expo
 
 ### Firebase Rules
