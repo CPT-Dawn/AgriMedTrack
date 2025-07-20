@@ -149,6 +149,32 @@ export default function SalesScreen() {
     setEditSale(null); // Clear edit state
   }, []);
 
+  // Format sale date for display with time within 24 hours, date for older entries
+  const formatSaleDate = (date: Date) => {
+    const now = new Date();
+    const diffInHours = Math.floor(
+      (now.getTime() - date.getTime()) / (1000 * 60 * 60)
+    );
+
+    if (diffInHours < 1) {
+      return "Just now";
+    } else if (diffInHours < 24) {
+      // Show time for entries within 24 hours
+      return date.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+    } else {
+      // Show date for entries older than 24 hours
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+  };
+
   // Load sales data from Firebase
   const loadSalesData = async () => {
     try {
@@ -375,14 +401,26 @@ export default function SalesScreen() {
     );
   };
 
-  // Render sale card
+  // Render sale card with minimalist design matching StockCard
   const renderSaleCard = ({ item }: { item: SaleEntry }) => {
     const saleDate = new Date(item.saleDate);
-    const isToday = saleDate.toDateString() === new Date().toDateString();
     const expanded = expandedSaleId === item.id;
     const scale = getCardScale(item.id || "");
+
+    // Calculate total items for this sale
+    const totalItems = item.items.reduce(
+      (sum, saleItem) => sum + parseInt(saleItem.quantity),
+      0
+    );
+
     return (
-      <Animated.View style={{ transform: [{ scale }], marginBottom: 12 }}>
+      <Animated.View
+        style={{
+          transform: [{ scale }],
+          marginBottom: Theme.spacing["2xl"],
+          marginHorizontal: Theme.spacing.lg,
+        }}
+      >
         <TouchableOpacity
           activeOpacity={0.95}
           onPress={() => {
@@ -393,28 +431,26 @@ export default function SalesScreen() {
           }}
           onPressIn={() => animateCardPressIn(item.id || "")}
           onPressOut={() => animateCardPressOut(item.id || "")}
-          accessibilityLabel={expanded ? "Collapse bill" : "Expand bill"}
+          accessibilityLabel={expanded ? "Collapse sale" : "Expand sale"}
         >
-          <View style={styles.saleCard}>
-            <View style={styles.saleCardHeader}>
-              <View style={styles.saleCardHeaderLeft}>
-                <MaterialIcons
-                  name="receipt"
-                  size={24}
-                  color={colors.primary}
-                />
-                <View style={styles.saleCardHeaderText}>
-                  <Text style={styles.saleCardTitle}>
-                    {item.buyer || "Anonymous Buyer"}
-                  </Text>
-                  <Text style={styles.saleCardSubtitle}>
-                    {isToday ? "Today" : saleDate.toLocaleDateString()} •{" "}
-                    {saleDate.toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </Text>
-                </View>
+          <View
+            style={[
+              styles.saleCard,
+              {
+                backgroundColor: expanded
+                  ? Theme.colors.surfacePressed
+                  : Theme.colors.surface,
+                shadowOpacity: expanded ? 0.18 : 0.08,
+                elevation: expanded ? 6 : 2,
+              },
+            ]}
+          >
+            {/* Card header matching StockCard style */}
+            <View style={styles.headerRow}>
+              <View style={styles.saleInfo}>
+                <Text style={styles.saleTitle}>
+                  {item.buyer || "Anonymous Buyer"}
+                </Text>
               </View>
               <View
                 style={[
@@ -430,110 +466,123 @@ export default function SalesScreen() {
                 </Text>
               </View>
             </View>
-            <View style={styles.saleCardContent}>
-              <View style={styles.saleItemsList}>
-                {item.items.map((saleItem: SaleItem, index: number) => (
-                  <View key={index} style={styles.saleItemRow}>
-                    <View style={styles.saleItemInfo}>
-                      <Text style={styles.saleItemName}>
-                        {saleItem.productName}
-                      </Text>
-                      <Text style={styles.saleItemDetails}>
-                        {saleItem.packaging + " • Qty: " + saleItem.quantity}
-                      </Text>
-                    </View>
-                    <View style={styles.saleItemPrice}>
-                      <Text style={styles.saleItemUnitPrice}>
-                        ₹{saleItem.unitPrice}
-                      </Text>
-                      <Text style={styles.saleItemTotal}>
-                        ₹{saleItem.totalPrice}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-              {item.notes && (
-                <View style={styles.saleNotes}>
-                  <MaterialIcons
-                    name="note"
-                    size={16}
-                    color={colors.gray[500]}
-                  />
-                  <Text style={styles.saleNotesText}>{item.notes}</Text>
-                </View>
-              )}
-              <View style={styles.saleCardFooter}>
-                <View style={styles.saleCardFooterLeft}>
-                  <Text style={styles.saleCardFooterText}>
-                    By:{" "}
-                    {item.addedByName ||
-                      (currentUser?.id === item.addedBy
-                        ? currentUser.name
-                        : item.addedBy) ||
-                      "Unknown User"}
-                  </Text>
-                </View>
-                <View style={styles.saleCardFooterRight}>
-                  <Text style={styles.saleCardTotalLabel}>Total:</Text>
-                  <Text style={styles.saleCardTotalAmount}>
-                    ₹{item.totalAmount}
-                  </Text>
-                </View>
-              </View>
-              {/* Expanded actions */}
-              {expanded && (
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "flex-end",
-                    gap: 12,
-                    marginTop: 18,
-                  }}
+
+            {/* Table header with line total */}
+            <View style={styles.tableHeaderRow}>
+              <Text style={[styles.tableHeader, styles.productHeader]}>
+                Product
+              </Text>
+              <Text style={[styles.tableHeader, styles.equalHeader]}>Pack</Text>
+              <Text style={[styles.tableHeader, styles.equalHeader]}>
+                Price
+              </Text>
+              <Text style={[styles.tableHeader, styles.equalHeader]}>Qty</Text>
+              <Text style={[styles.tableHeader, styles.equalHeader]}>
+                Total
+              </Text>
+            </View>
+
+            {/* Table rows with line total */}
+            {item.items.map((saleItem: SaleItem, itemIndex: number) => (
+              <View
+                key={itemIndex}
+                style={[
+                  styles.tableRow,
+                  itemIndex % 2 === 1 ? styles.tableRowAlternate : null,
+                ]}
+              >
+                <Text
+                  style={[styles.tableCell, styles.productCell]}
+                  numberOfLines={1}
                 >
+                  {saleItem.productName}
+                </Text>
+                <Text
+                  style={[styles.tableCell, styles.equalCell]}
+                  numberOfLines={1}
+                >
+                  {saleItem.packaging}
+                </Text>
+                <Text
+                  style={[styles.tableCell, styles.equalCell]}
+                  numberOfLines={1}
+                >
+                  ₹{saleItem.unitPrice}
+                </Text>
+                <Text style={[styles.tableCell, styles.equalCell]}>
+                  {saleItem.quantity}
+                </Text>
+                <Text style={[styles.tableCell, styles.equalCell]}>
+                  ₹{saleItem.totalPrice}
+                </Text>
+              </View>
+            ))}
+
+            {/* Card footer with user and total bill */}
+            <View style={styles.cardFooter}>
+              <Text style={styles.cardFooterText}>
+                By:{" "}
+                {item.addedByName ||
+                  (currentUser?.id === item.addedBy
+                    ? currentUser.name
+                    : item.addedBy) ||
+                  "Unknown User"}
+              </Text>
+              <View style={styles.saleCardFooterRight}>
+                <Text style={styles.saleCardTotalLabel}>Total:</Text>
+                <Text style={styles.saleCardTotalAmount}>
+                  ₹{item.totalAmount}
+                </Text>
+              </View>
+            </View>
+
+            {/* Expandable actions section */}
+            {expanded && (
+              <View style={styles.expandedActions}>
+                <View style={styles.actionRow}>
                   <TouchableOpacity
-                    style={{
-                      backgroundColor: Theme.colors.primary,
-                      borderRadius: 8,
-                      paddingVertical: 10,
-                      paddingHorizontal: 22,
-                    }}
+                    style={styles.actionButton}
                     onPress={() => handleEdit(item)}
-                    accessibilityLabel="Edit bill"
+                    accessibilityLabel="Edit sale"
                   >
-                    <Text
-                      style={{
-                        color: Theme.colors.white,
-                        fontWeight: "600",
-                        fontSize: 15,
-                      }}
-                    >
-                      Edit
-                    </Text>
+                    <MaterialIcons
+                      name="edit"
+                      size={16}
+                      color={Theme.colors.primary}
+                    />
+                    <Text style={styles.actionButtonText}>Edit</Text>
                   </TouchableOpacity>
+
                   <TouchableOpacity
-                    style={{
-                      backgroundColor: AppColors.error,
-                      borderRadius: 8,
-                      paddingVertical: 10,
-                      paddingHorizontal: 22,
-                    }}
+                    style={[styles.actionButton, styles.deleteButton]}
                     onPress={() => handleDelete(item)}
-                    accessibilityLabel="Delete bill"
+                    accessibilityLabel="Delete sale"
                   >
+                    <MaterialIcons
+                      name="delete"
+                      size={16}
+                      color={Theme.colors.error}
+                    />
                     <Text
-                      style={{
-                        color: Theme.colors.white,
-                        fontWeight: "600",
-                        fontSize: 15,
-                      }}
+                      style={[styles.actionButtonText, styles.deleteButtonText]}
                     >
                       Delete
                     </Text>
                   </TouchableOpacity>
                 </View>
-              )}
-            </View>
+
+                {item.notes && (
+                  <View style={styles.saleNotes}>
+                    <MaterialIcons
+                      name="note"
+                      size={14}
+                      color={Theme.colors.textMuted}
+                    />
+                    <Text style={styles.saleNotesText}>{item.notes}</Text>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
         </TouchableOpacity>
       </Animated.View>
@@ -1858,13 +1907,146 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  // Sale card styles
+  // Sale card styles matching StockCard design
   saleCard: {
     backgroundColor: Theme.colors.surface,
     borderRadius: Theme.borderRadius["2xl"],
-    marginBottom: Theme.spacing["2xl"],
     padding: Theme.spacing.lg,
-    ...Theme.shadows.lg,
+    ...Theme.shadows.sm,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Theme.spacing.md,
+  },
+  saleInfo: {
+    flex: 1,
+    marginRight: Theme.spacing.sm,
+  },
+  saleTitle: {
+    fontSize: Theme.typography.fontSize.lg,
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.text,
+  },
+  saleIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Theme.spacing.xs,
+    marginTop: Theme.spacing.xs,
+  },
+  saleIndicatorText: {
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.primary,
+    fontWeight: Theme.typography.fontWeight.medium,
+  },
+  quantityContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  totalQty: {
+    fontSize: Theme.typography.fontSize.lg,
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.primary,
+  },
+  tableHeaderRow: {
+    flexDirection: "row",
+    paddingBottom: Theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+    columnGap: Theme.spacing.sm,
+  },
+  tableHeader: {
+    flex: 1,
+    fontSize: Theme.typography.fontSize.xs,
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.secondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    paddingHorizontal: 2,
+  },
+  productHeader: {
+    flex: 2.2,
+  },
+  equalHeader: {
+    flex: 1,
+  },
+  tableRow: {
+    flexDirection: "row",
+    paddingVertical: Theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.divider,
+    alignItems: "center",
+    columnGap: Theme.spacing.sm,
+  },
+  tableRowAlternate: {
+    backgroundColor: Theme.colors.secondary + "05",
+  },
+  tableCell: {
+    flex: 1,
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.text,
+    paddingHorizontal: 2,
+  },
+  productCell: {
+    flex: 2.2,
+  },
+  equalCell: {
+    flex: 1,
+  },
+  expandedActions: {
+    paddingTop: Theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.divider,
+  },
+  actionRow: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    gap: Theme.spacing.md,
+    marginBottom: Theme.spacing.sm,
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Theme.spacing.xs,
+    paddingVertical: Theme.spacing.sm,
+    paddingHorizontal: Theme.spacing.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.borderRadius.md,
+  },
+  actionButtonText: {
+    fontSize: Theme.typography.fontSize.sm,
+    fontWeight: Theme.typography.fontWeight.medium,
+    color: Theme.colors.primary,
+  },
+  deleteButton: {
+    borderColor: Theme.colors.error + "30",
+  },
+  deleteButtonText: {
+    color: Theme.colors.error,
+  },
+  saleDetails: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Theme.spacing.sm,
+  },
+  saleDetailText: {
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.textMuted,
+  },
+  cardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: Theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.divider,
+  },
+  cardFooterText: {
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.textMuted,
   },
   saleCardHeader: {
     flexDirection: "row",
