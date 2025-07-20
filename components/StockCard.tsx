@@ -208,37 +208,8 @@ const StockCardComponent: React.FC<StockCardProps> = ({
         <View style={styles.headerRow}>
           <View style={styles.productInfo}>
             <Text style={styles.productName}>{item.product.name}</Text>
-            {productActivities.length > 0 && (
-              <View style={styles.activityIndicator}>
-                <MaterialIcons
-                  name="history"
-                  size={12}
-                  color={
-                    isLogExpanded ? Theme.colors.success : Theme.colors.primary
-                  }
-                />
-                <Text
-                  style={[
-                    styles.activityIndicatorText,
-                    {
-                      color: isLogExpanded
-                        ? Theme.colors.success
-                        : Theme.colors.primary,
-                    },
-                  ]}
-                >
-                  {isLogExpanded ? "Activity log" : "Recent activity"}
-                </Text>
-              </View>
-            )}
           </View>
           <View style={styles.quantityContainer}>
-            <View
-              style={[
-                styles.stockHealthIndicator,
-                { backgroundColor: getStockHealthColor() },
-              ]}
-            />
             <Text style={styles.totalQty}>
               {formatTotalQuantity(totalQuantity, unit)}
             </Text>
