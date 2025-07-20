@@ -482,15 +482,7 @@ export default function StockScreen() {
           <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
-
-      {/* Content based on current view */}
       {renderContent()}
-
-      {/* Floating Bubbles */}
-      {/* Left Bubble - Activity Log */}
-      {/* Removed floating bubbles */}
-      {/* Right Bubble - Add Stock */}
-      {/* Removed floating bubbles */}
     </View>
   );
 }

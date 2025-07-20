@@ -1,5 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import React, { memo, useEffect, useMemo, useRef } from "react";
+import React, { memo, useEffect, useRef } from "react";
 import {
   Animated,
   Easing,
@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { Theme } from "../constants/Theme";
-import { Sale, StockActivity, StockBatch, StockItem } from "../types/stock";
+import { Sale, StockActivity, StockItem } from "../types/stock";
 import { ActivitySummary } from "./ActivitySummary";
 
 interface StockCardProps {
@@ -98,8 +98,6 @@ const StockCardComponent: React.FC<StockCardProps> = ({
     return Theme.colors.success;
   };
 
-
-
   // Wiggle animation
   const wiggleAnim = useRef(new Animated.Value(0)).current;
 
@@ -139,11 +137,12 @@ const StockCardComponent: React.FC<StockCardProps> = ({
 
   // Expandable section style
   const expandedStyle = {
-    height: expandAnim.interpolate({
+    maxHeight: expandAnim.interpolate({
       inputRange: [0, 1],
-      outputRange: [0, 180], // 180px max height for log
+      outputRange: [0, 500], // Use maxHeight instead of fixed height
     }),
     opacity: expandAnim,
+    overflow: "hidden",
   };
 
   // Wiggle animation
@@ -214,10 +213,21 @@ const StockCardComponent: React.FC<StockCardProps> = ({
                 <MaterialIcons
                   name="history"
                   size={12}
-                  color={Theme.colors.primary}
+                  color={
+                    isLogExpanded ? Theme.colors.success : Theme.colors.primary
+                  }
                 />
-                <Text style={styles.activityIndicatorText}>
-                  Recent activity
+                <Text
+                  style={[
+                    styles.activityIndicatorText,
+                    {
+                      color: isLogExpanded
+                        ? Theme.colors.success
+                        : Theme.colors.primary,
+                    },
+                  ]}
+                >
+                  {isLogExpanded ? "Activity log" : "Recent activity"}
                 </Text>
               </View>
             )}
@@ -286,7 +296,6 @@ const StockCardComponent: React.FC<StockCardProps> = ({
         {/* Expandable Activity Log Section */}
         <Animated.View
           style={[
-            { overflow: "hidden" },
             expandedStyle,
             {
               borderBottomLeftRadius: Theme.borderRadius["2xl"],

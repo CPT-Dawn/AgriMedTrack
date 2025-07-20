@@ -17,52 +17,43 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
 }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Get the latest activity for this product
-  const latestActivity = useMemo(() => {
-    // Get latest stock activity
-    const latestStockActivity = productActivities
-      .filter((activity) => activity.productName === productId)
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
+  // Get recent activities for this product (up to 3)
+  const recentActivities = useMemo(() => {
+    const activities: Array<{
+      type: "stock" | "sale";
+      data: StockActivity | Sale;
+      timestamp: Date;
+    }> = [];
 
-    // Get latest sale activity for this product
-    const latestSale = sales
+    // Add stock activities
+    productActivities.forEach((activity) => {
+      activities.push({
+        type: "stock",
+        data: activity,
+        timestamp: activity.timestamp,
+      });
+    });
+
+    // Add sale activities
+    sales
       .filter((sale) => sale.items.some((item) => item.productId === productId))
-      .sort((a, b) => {
-        const aDate =
-          a.createdAt instanceof Date
-            ? a.createdAt
-            : new Date(a.createdAt || new Date());
-        const bDate =
-          b.createdAt instanceof Date
-            ? b.createdAt
-            : new Date(b.createdAt || new Date());
-        return bDate.getTime() - aDate.getTime();
-      })[0];
+      .forEach((sale) => {
+        const saleDate =
+          sale.createdAt instanceof Date
+            ? sale.createdAt
+            : new Date(sale.createdAt || new Date());
+        activities.push({
+          type: "sale",
+          data: sale,
+          timestamp: saleDate,
+        });
+      });
 
-    // Compare dates and return the most recent
-    if (!latestStockActivity && !latestSale) {
-      return null;
-    }
-
-    if (!latestStockActivity) {
-      return { type: "sale", data: latestSale };
-    }
-
-    if (!latestSale) {
-      return { type: "stock", data: latestStockActivity };
-    }
-
-    const saleDate =
-      latestSale.createdAt instanceof Date
-        ? latestSale.createdAt
-        : new Date(latestSale.createdAt || new Date());
-    if (latestStockActivity.timestamp > saleDate) {
-      return { type: "stock", data: latestStockActivity };
-    } else {
-      return { type: "sale", data: latestSale };
-    }
+    // Sort by timestamp (most recent first) and take top 3
+    return activities
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+      .slice(0, 3);
   }, [productId, productActivities, sales]);
 
   // Animate on mount
@@ -79,27 +70,9 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
         useNativeDriver: true,
       }),
     ]).start();
+  }, [recentActivities]);
 
-    // Start pulse animation for new activities
-    if (latestActivity) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.05,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    }
-  }, [latestActivity]);
-
-  if (!latestActivity) {
+  if (recentActivities.length === 0) {
     return (
       <Animated.View
         style={[
@@ -147,75 +120,76 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
   };
 
   const getActivityTitle = (type: string) => {
-    return type === "stock" ? "Stock Added" : "Sold";
+    return type === "stock" ? "Added" : "Sold";
   };
 
-  const renderStockActivity = (activity: StockActivity) => {
+  const renderStockActivity = (activity: StockActivity, index: number) => {
     return (
-      <View style={styles.activityContainer}>
+      <View 
+        key={`stock-${activity.id}-${index}`} 
+        style={[
+          styles.activityItem,
+          index % 2 === 1 && styles.activityItemAlternate
+        ]}
+      >
         <View style={styles.activityHeader}>
           <View
             style={[
               styles.iconContainer,
-              { backgroundColor: getActivityColor("stock") + "15" },
+              { backgroundColor: getActivityColor("stock") + "10" },
             ]}
           >
             <MaterialIcons
               name={getActivityIcon("stock")}
-              size={18}
+              size={16}
               color={getActivityColor("stock")}
             />
           </View>
           <View style={styles.headerContent}>
-            <Text
-              style={[
-                styles.activityType,
-                { color: getActivityColor("stock") },
-              ]}
-            >
+            <Text style={[styles.activityType, { color: getActivityColor("stock") }]}>
               {getActivityTitle("stock")}
             </Text>
             <Text style={styles.activityTime}>
               {formatDate(activity.timestamp)}
             </Text>
           </View>
+          <View style={styles.quantityBadge}>
+            <Text
+              style={[
+                styles.quantityText,
+                { color: getActivityColor("stock") },
+              ]}
+            >
+              +{activity.quantity}
+            </Text>
+          </View>
         </View>
 
         <View style={styles.activityDetails}>
-          <View style={styles.quantityRow}>
-            <Text style={styles.quantityBadge}>{activity.quantity} units</Text>
-            <Text style={styles.productName}>{activity.productName}</Text>
+          <View style={styles.detailRow}>
+            <MaterialIcons
+              name="business"
+              size={12}
+              color={Theme.colors.textMuted}
+            />
+            <Text style={styles.detailText}>{activity.supplierName}</Text>
           </View>
-
-          <View style={styles.metaRow}>
-            <View style={styles.metaItem}>
-              <MaterialIcons
-                name="business"
-                size={12}
-                color={Theme.colors.textMuted}
-              />
-              <Text style={styles.metaText}>{activity.supplierName}</Text>
-            </View>
-            <View style={styles.metaItem}>
-              <MaterialIcons
-                name="inventory"
-                size={12}
-                color={Theme.colors.textMuted}
-              />
-              <Text style={styles.metaText}>{activity.sizeName}</Text>
-            </View>
+          <View style={styles.detailRow}>
+            <MaterialIcons
+              name="inventory"
+              size={12}
+              color={Theme.colors.textMuted}
+            />
+            <Text style={styles.detailText}>{activity.sizeName}</Text>
           </View>
-
           {activity.updatedByName && (
-            <View style={styles.userRow}>
+            <View style={styles.detailRow}>
               <MaterialIcons
                 name="person"
                 size={12}
-                color={Theme.colors.secondary}
+                color={Theme.colors.textMuted}
               />
-              <Text style={styles.activityUser}>
-                by {activity.updatedByName}
-              </Text>
+              <Text style={styles.detailText}>{activity.updatedByName}</Text>
             </View>
           )}
         </View>
@@ -223,29 +197,33 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
     );
   };
 
-  const renderSaleActivity = (sale: Sale) => {
+  const renderSaleActivity = (sale: Sale, index: number) => {
     const saleItem = sale.items.find((item) => item.productId === productId);
     if (!saleItem) return null;
 
     return (
-      <View style={styles.activityContainer}>
+      <View 
+        key={`sale-${sale.id}-${index}`} 
+        style={[
+          styles.activityItem,
+          index % 2 === 1 && styles.activityItemAlternate
+        ]}
+      >
         <View style={styles.activityHeader}>
           <View
             style={[
               styles.iconContainer,
-              { backgroundColor: getActivityColor("sale") + "15" },
+              { backgroundColor: getActivityColor("sale") + "10" },
             ]}
           >
             <MaterialIcons
               name={getActivityIcon("sale")}
-              size={18}
+              size={16}
               color={getActivityColor("sale")}
             />
           </View>
           <View style={styles.headerContent}>
-            <Text
-              style={[styles.activityType, { color: getActivityColor("sale") }]}
-            >
+            <Text style={[styles.activityType, { color: getActivityColor("sale") }]}>
               {getActivityTitle("sale")}
             </Text>
             <Text style={styles.activityTime}>
@@ -256,42 +234,39 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
               )}
             </Text>
           </View>
+          <View style={styles.quantityBadge}>
+            <Text
+              style={[styles.quantityText, { color: getActivityColor("sale") }]}
+            >
+              -{saleItem.quantity}
+            </Text>
+          </View>
         </View>
 
         <View style={styles.activityDetails}>
-          <View style={styles.quantityRow}>
-            <Text style={styles.quantityBadge}>{saleItem.quantity} units</Text>
-            <Text style={styles.productName}>{saleItem.productName}</Text>
+          <View style={styles.detailRow}>
+            <MaterialIcons
+              name="inventory"
+              size={12}
+              color={Theme.colors.textMuted}
+            />
+            <Text style={styles.detailText}>{saleItem.packaging}</Text>
           </View>
-
-          <View style={styles.metaRow}>
-            <View style={styles.metaItem}>
-              <MaterialIcons
-                name="inventory"
-                size={12}
-                color={Theme.colors.textMuted}
-              />
-              <Text style={styles.metaText}>{saleItem.packaging}</Text>
-            </View>
-            <View style={styles.metaItem}>
-              <MaterialIcons
-                name="attach-money"
-                size={12}
-                color={Theme.colors.textMuted}
-              />
-              <Text style={styles.metaText}>₹{saleItem.unitPrice} each</Text>
-            </View>
+          <View style={styles.detailRow}>
+            <MaterialIcons
+              name="attach-money"
+              size={12}
+              color={Theme.colors.textMuted}
+            />
+            <Text style={styles.detailText}>₹{saleItem.unitPrice}</Text>
           </View>
-
-          <View style={styles.userRow}>
+          <View style={styles.detailRow}>
             <MaterialIcons
               name="person"
               size={12}
-              color={Theme.colors.secondary}
+              color={Theme.colors.textMuted}
             />
-            <Text style={styles.activityUser}>
-              to {sale.buyer || "Unknown Buyer"}
-            </Text>
+            <Text style={styles.detailText}>{sale.buyer || "Unknown"}</Text>
           </View>
         </View>
       </View>
@@ -304,13 +279,29 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
         styles.container,
         {
           opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }, { scale: pulseAnim }],
+          transform: [{ translateY: slideAnim }],
         },
       ]}
     >
-      {latestActivity.type === "stock"
-        ? renderStockActivity(latestActivity.data as StockActivity)
-        : renderSaleActivity(latestActivity.data as Sale)}
+      <View style={styles.header}>
+        <Text style={styles.sectionTitle}>Recent Activity</Text>
+        <Text style={styles.activityCount}>
+          {recentActivities.length} {recentActivities.length === 1 ? 'activity' : 'activities'}
+        </Text>
+      </View>
+
+      <View style={styles.activitiesList}>
+        {recentActivities.map((activity, index) => (
+          <View key={`${activity.type}-${index}`}>
+            {activity.type === "stock"
+              ? renderStockActivity(activity.data as StockActivity, index)
+              : renderSaleActivity(activity.data as Sale, index)}
+            {index < recentActivities.length - 1 && (
+              <View style={styles.separator} />
+            )}
+          </View>
+        ))}
+      </View>
     </Animated.View>
   );
 };
@@ -318,17 +309,13 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
 const styles = StyleSheet.create({
   container: {
     padding: Theme.spacing.lg,
+    paddingBottom: Theme.spacing.xl,
     backgroundColor: Theme.colors.surface,
     borderRadius: Theme.borderRadius.xl,
     marginTop: Theme.spacing.md,
     marginHorizontal: Theme.spacing.sm,
     borderWidth: 1,
     borderColor: Theme.colors.border,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   emptyContainer: {
     alignItems: "center",
@@ -343,8 +330,37 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontStyle: "italic",
   },
-  activityContainer: {
-    gap: Theme.spacing.md,
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Theme.spacing.md,
+    paddingBottom: Theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.divider,
+  },
+  sectionTitle: {
+    fontSize: Theme.typography.fontSize.base,
+    fontWeight: Theme.typography.fontWeight.semibold,
+    color: Theme.colors.text,
+  },
+  activityCount: {
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.textMuted,
+    fontWeight: Theme.typography.fontWeight.medium,
+  },
+  activitiesList: {
+    gap: Theme.spacing.sm,
+  },
+  activityItem: {
+    gap: Theme.spacing.sm,
+    padding: Theme.spacing.sm,
+    borderRadius: Theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.divider,
+  },
+  activityItemAlternate: {
+    backgroundColor: Theme.colors.secondary + "05",
   },
   activityHeader: {
     flexDirection: "row",
@@ -352,9 +368,9 @@ const styles = StyleSheet.create({
     gap: Theme.spacing.sm,
   },
   iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -363,60 +379,45 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   activityType: {
-    fontSize: Theme.typography.fontSize.base,
-    fontWeight: Theme.typography.fontWeight.bold,
+    fontSize: Theme.typography.fontSize.sm,
+    fontWeight: Theme.typography.fontWeight.semibold,
   },
   activityTime: {
     fontSize: Theme.typography.fontSize.xs,
     color: Theme.colors.textMuted,
     fontWeight: Theme.typography.fontWeight.medium,
   },
-  activityDetails: {
-    gap: Theme.spacing.sm,
-  },
-  quantityRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Theme.spacing.sm,
-  },
   quantityBadge: {
-    backgroundColor: Theme.colors.primary + "15",
-    color: Theme.colors.primary,
+    backgroundColor: Theme.colors.surface,
     paddingHorizontal: Theme.spacing.sm,
     paddingVertical: Theme.spacing.xs,
     borderRadius: Theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    minWidth: 40,
+    alignItems: 'center',
+  },
+  quantityText: {
     fontSize: Theme.typography.fontSize.sm,
     fontWeight: Theme.typography.fontWeight.bold,
   },
-  productName: {
-    fontSize: Theme.typography.fontSize.base,
-    fontWeight: Theme.typography.fontWeight.semibold,
-    color: Theme.colors.text,
-    flex: 1,
+  activityDetails: {
+    marginLeft: 36, // Align with header content
+    gap: Theme.spacing.xs,
   },
-  metaRow: {
-    flexDirection: "row",
-    gap: Theme.spacing.lg,
-  },
-  metaItem: {
+  detailRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: Theme.spacing.xs,
   },
-  metaText: {
+  detailText: {
     fontSize: Theme.typography.fontSize.xs,
     color: Theme.colors.textMuted,
     fontWeight: Theme.typography.fontWeight.medium,
   },
-  userRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Theme.spacing.xs,
-  },
-  activityUser: {
-    fontSize: Theme.typography.fontSize.xs,
-    color: Theme.colors.secondary,
-    fontStyle: "italic",
-    fontWeight: Theme.typography.fontWeight.medium,
+  separator: {
+    height: 1,
+    backgroundColor: Theme.colors.divider,
+    marginVertical: Theme.spacing.sm,
   },
 });
