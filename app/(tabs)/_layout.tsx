@@ -8,7 +8,6 @@ import { Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function TabLayout() {
-
   return (
     <SafeAreaView
       edges={["top", "bottom"]}
@@ -106,7 +105,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="stock"
           options={{
-            title: "Stock",
+            title: "Inventory",
             tabBarIcon: ({ color, focused }) => (
               <IconSymbol
                 size={focused ? 26 : 24}

@@ -319,7 +319,7 @@ export default function StockScreen() {
       case "add":
         return "Add Stock";
       default:
-        return "Stock Inventory";
+        return "Inventory";
     }
   };
 
@@ -379,7 +379,7 @@ export default function StockScreen() {
             <TouchableOpacity
               onPress={handleBackToStock}
               style={styles.backButton}
-              accessibilityLabel="Back to stock inventory"
+              accessibilityLabel="Back to inventory"
             >
               <MaterialIcons
                 name="arrow-back"
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0 + 20,
     paddingHorizontal: Theme.spacing.xl,
-    paddingBottom: Theme.spacing.lg,
+    paddingBottom: Theme.spacing.sm,
     backgroundColor: Theme.colors.background,
     zIndex: 10,
   },
@@ -602,7 +602,6 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.border,
     justifyContent: "center",
     alignItems: "center",
-    // 3D effect
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.18,
@@ -620,15 +619,6 @@ const styles = StyleSheet.create({
   logButton: {
     backgroundColor: Theme.colors.secondary,
     borderColor: Theme.colors.secondary,
-  },
-  leftBubbleContainer: {
-    // Removed
-  },
-  rightBubbleContainer: {
-    // Removed
-  },
-  bubble: {
-    // Removed
   },
   allLogsContainer: {
     flex: 1,

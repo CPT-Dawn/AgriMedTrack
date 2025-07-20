@@ -346,7 +346,7 @@ export default function HomeScreen() {
         {/* Recent Stock Entries */}
         <View style={styles.activitiesSection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Stock Entries</Text>
+            <Text style={styles.sectionTitle}>Recent Inventory Entries</Text>
             <TouchableOpacity
               style={styles.viewAllButton}
               onPress={() => router.push("/(tabs)/stock")}

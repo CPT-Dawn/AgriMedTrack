@@ -114,8 +114,6 @@ export default function SalesScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-
-
   // Refresh stock data when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
@@ -1376,75 +1374,77 @@ export default function SalesScreen() {
   // --- Main Render ---
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
       {currentView === "add" ? (
         renderAddSale()
       ) : (
         <View style={styles.container}>
           {/* Header */}
-          <View
-            style={[
-              styles.header,
-              {
-                paddingTop:
-                  Platform.OS === "ios"
-                    ? Math.max(insets.top, 16)
-                    : (StatusBar.currentHeight || 0) + 4,
-              },
-            ]}
-          >
+          <View style={styles.header}>
             <View style={styles.headerTitleContainer}>
-              <Text style={styles.headerTitle}>Sales</Text>
-              <TouchableOpacity
-                style={styles.addButtonHeader}
-                onPress={handleBubblePress}
-                activeOpacity={0.8}
-              >
-                <MaterialIcons
-                  name="add"
-                  size={24}
-                  color={Theme.colors.white}
-                />
-              </TouchableOpacity>
+              <View style={styles.headerTitleRow}>
+                <Text style={styles.headerTitle}>Sales</Text>
+                <View style={styles.headerBoxButtonsContainer}>
+                  <TouchableOpacity
+                    style={[styles.headerBoxButton, styles.addButton]}
+                    onPress={handleBubblePress}
+                    accessibilityLabel="Add new sale"
+                  >
+                    <MaterialIcons
+                      name="add"
+                      size={Theme.typography.fontSize.xl + 4}
+                      color={"#fff"}
+                      style={{ fontWeight: "bold" }}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
-            <View style={styles.searchContainer}>
-              <MaterialIcons
-                name="search"
-                size={20}
-                color={Theme.colors.textMuted}
-                style={styles.searchIcon}
-              />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search sales..."
-                value={search}
-                onChangeText={setSearch}
-                placeholderTextColor={Theme.colors.textMuted}
-                accessibilityLabel="Search sales"
-              />
-              <TouchableOpacity
-                onPress={handleReload}
-                disabled={loadingSales || refreshing}
-                style={{ marginLeft: 8, padding: 4, borderRadius: 8 }}
-                accessibilityLabel="Reload sales"
-              >
+
+            {/* Search Bar - Only show in sales view */}
+            {currentView === "sales" && (
+              <View style={styles.searchBarContainer}>
                 <MaterialIcons
-                  name="refresh"
+                  name="search"
                   size={20}
-                  color={
-                    loadingSales || refreshing
-                      ? Theme.colors.textMuted
-                      : Theme.colors.primary
-                  }
-                  style={{
-                    transform: [
-                      {
-                        rotate: loadingSales || refreshing ? "180deg" : "0deg",
-                      },
-                    ],
-                  }}
+                  color={Theme.colors.text}
+                  style={{ marginRight: 6 }}
                 />
-              </TouchableOpacity>
-            </View>
+                <TextInput
+                  style={styles.searchBar}
+                  placeholder="Search sales..."
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholderTextColor={Theme.colors.textMuted}
+                  autoCapitalize="none"
+                  accessibilityLabel="Search sales"
+                />
+                <TouchableOpacity
+                  onPress={handleReload}
+                  disabled={loadingSales || refreshing}
+                  style={styles.refreshButton}
+                  accessibilityLabel="Refresh sales data"
+                >
+                  <MaterialIcons
+                    name="refresh"
+                    size={20}
+                    color={
+                      loadingSales || refreshing
+                        ? Theme.colors.textMuted
+                        : Theme.colors.primary
+                    }
+                    style={{
+                      transform: [
+                        {
+                          rotate:
+                            loadingSales || refreshing ? "180deg" : "0deg",
+                        },
+                      ],
+                    }}
+                  />
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
           {/* Main Content */}
@@ -1502,7 +1502,7 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0 + 20,
     paddingHorizontal: Theme.spacing.xl,
-    paddingBottom: Theme.spacing.lg,
+    paddingBottom: Theme.spacing.sm,
     backgroundColor: Theme.colors.background,
     zIndex: 10,
   },
@@ -1510,6 +1510,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: Theme.spacing.md,
+  },
+  headerTitleRow: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   backButton: {
     padding: 4,
@@ -2072,24 +2078,38 @@ const styles = StyleSheet.create({
     elevation: 6,
     marginLeft: 8,
   },
-  searchContainer: {
+  // New styles for header box buttons
+  headerBoxButtonsContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Theme.colors.surface,
-    borderRadius: Theme.borderRadius.lg,
-    paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: Theme.spacing.sm,
-    minHeight: 44,
-    ...Theme.shadows.sm,
   },
-  searchIcon: {
-    marginRight: Theme.spacing.xs,
+  headerBoxButton: {
+    borderRadius: Theme.borderRadius.md,
+    width: 36,
+    height: 36,
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    justifyContent: "center",
+    alignItems: "center",
+    // 3D effect
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: Theme.typography.fontSize.base,
-    color: Theme.colors.text,
-    padding: 0,
+  headerBoxButtonActive: {
+    borderColor: Theme.colors.error,
+    backgroundColor: Theme.colors.error,
+  },
+  addButton: {
+    backgroundColor: "#43A047",
+    borderColor: "#388E3C",
+  },
+  refreshButton: {
+    padding: 4,
+    marginLeft: 8,
   },
   loadingContainer: {
     flex: 1,
@@ -2105,32 +2125,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: Theme.spacing.lg,
   },
-  addButton: {
-    position: "absolute",
-    right: Theme.spacing.lg,
-    bottom: Theme.spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Theme.colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#2e7d32",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  // Add new style for the header button
-  addButtonHeader: {
-    backgroundColor: "#4CAF50",
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    ...Theme.shadows.md,
-  },
+
   // Add fixed save button styles
   saveButtonContainer: {
     position: "absolute",
