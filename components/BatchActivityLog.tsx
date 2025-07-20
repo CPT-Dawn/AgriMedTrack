@@ -67,7 +67,7 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
   };
   */
 
-  // Format date for display with relative time
+  // Format date for display with time within 24 hours, date for older entries
   const formatDate = (date: Date) => {
     const now = new Date();
     const diffInHours = Math.floor(
@@ -77,10 +77,19 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
     if (diffInHours < 1) {
       return "Just now";
     } else if (diffInHours < 24) {
-      return `${diffInHours}h ago`;
+      // Show time for entries within 24 hours
+      return date.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
     } else {
-      const diffInDays = Math.floor(diffInHours / 24);
-      return `${diffInDays}d ago`;
+      // Show date for entries older than 24 hours
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
     }
   };
 
@@ -200,7 +209,7 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
   );
   */
 
-  // Render a batch item with enhanced design
+  // Render a batch item with minimalist design matching StockCard
   const renderBatchItem = ({
     item: batch,
     index,
@@ -212,12 +221,18 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
     const scale = getCardScale(batch.id);
     const opacity = getCardOpacity(batch.id);
 
+    // Calculate total quantity for this batch
+    const totalQuantity = batch.items.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    );
+
     return (
       <Animated.View
         style={{
           transform: [{ scale }],
           opacity,
-          marginBottom: Theme.spacing.lg,
+          marginBottom: Theme.spacing["2xl"],
         }}
       >
         <TouchableOpacity
@@ -232,153 +247,151 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
           onPressOut={() => animateCardPressOut(batch.id)}
           accessibilityLabel={expanded ? "Collapse batch" : "Expand batch"}
         >
-          <View style={styles.batchCard}>
-            {/* Simplified header */}
-            <View style={styles.batchHeader}>
-              <View style={styles.batchHeaderContent}>
-                {/* Simple user avatar */}
-                <View style={styles.userAvatar}>
-                  {batch.addedByAvatar ? (
-                    <Image
-                      source={{ uri: batch.addedByAvatar }}
-                      style={styles.avatarImage}
-                      resizeMode="cover"
+          <View
+            style={[
+              styles.batchCard,
+              {
+                backgroundColor: expanded
+                  ? Theme.colors.surfacePressed
+                  : Theme.colors.surface,
+                shadowOpacity: expanded ? 0.18 : 0.08,
+                elevation: expanded ? 6 : 2,
+              },
+            ]}
+          >
+            {/* Card header matching StockCard style */}
+            <View style={styles.headerRow}>
+              <View style={styles.batchInfo}>
+                <Text style={styles.batchTitle}>
+                  {batch.addedByName || "User"}
+                </Text>
+                <View style={styles.batchIndicator}>
+                  <MaterialIcons
+                    name="history"
+                    size={12}
+                    color={
+                      expanded ? Theme.colors.success : Theme.colors.primary
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.batchIndicatorText,
+                      {
+                        color: expanded
+                          ? Theme.colors.success
+                          : Theme.colors.primary,
+                      },
+                    ]}
+                  >
+                    {expanded ? "Batch details" : formatDate(batch.addedAt)}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.quantityContainer}>
+                <Text style={styles.totalQty}>{totalQuantity} items</Text>
+              </View>
+            </View>
+
+            {/* Table header matching StockCard */}
+            <View style={styles.tableHeaderRow}>
+              <Text style={[styles.tableHeader, styles.companyHeader]}>
+                Supplier
+              </Text>
+              <Text style={[styles.tableHeader, styles.equalHeader]}>Pack</Text>
+              <Text style={[styles.tableHeader, styles.equalHeader]}>Sell</Text>
+              <Text style={[styles.tableHeader, styles.equalHeader]}>Qty</Text>
+            </View>
+
+            {/* Table rows matching StockCard */}
+            {batch.items.map((item, itemIndex) => (
+              <TouchableOpacity
+                key={item.id || itemIndex}
+                style={[
+                  styles.tableRow,
+                  itemIndex % 2 === 1 ? styles.tableRowAlternate : null,
+                ]}
+                onPress={() => onItemPress && onItemPress(item.stockEntryId)}
+                activeOpacity={onItemPress ? 0.7 : 1}
+              >
+                <Text
+                  style={[styles.tableCell, styles.companyCell]}
+                  numberOfLines={1}
+                >
+                  {item.supplierName}
+                </Text>
+                <Text
+                  style={[styles.tableCell, styles.equalCell]}
+                  numberOfLines={1}
+                >
+                  {item.sizeName}
+                </Text>
+                <Text
+                  style={[styles.tableCell, styles.equalCell]}
+                  numberOfLines={1}
+                >
+                  -
+                </Text>
+                <Text style={[styles.tableCell, styles.equalCell]}>
+                  {item.quantity}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            {/* Expandable actions section */}
+            {expanded && (
+              <View style={styles.expandedActions}>
+                <View style={styles.actionRow}>
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => onEditBatch && onEditBatch(batch)}
+                    accessibilityLabel="Edit batch"
+                  >
+                    <MaterialIcons
+                      name="edit"
+                      size={16}
+                      color={Theme.colors.primary}
                     />
-                  ) : (
-                    <Text style={styles.userInitial}>
-                      {(batch.addedByName || "User").charAt(0).toUpperCase()}
+                    <Text style={styles.actionButtonText}>Edit</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.deleteButton]}
+                    onPress={() => onDeleteBatch && onDeleteBatch(batch.id)}
+                    accessibilityLabel="Delete batch"
+                  >
+                    <MaterialIcons
+                      name="delete"
+                      size={16}
+                      color={Theme.colors.error}
+                    />
+                    <Text
+                      style={[styles.actionButtonText, styles.deleteButtonText]}
+                    >
+                      Delete
                     </Text>
+                  </TouchableOpacity>
+
+                  {batch.billUrl && (
+                    <TouchableOpacity
+                      style={styles.billButton}
+                      onPress={() =>
+                        batch.billUrl && setImagePreview(batch.billUrl)
+                      }
+                      accessibilityLabel="View bill image"
+                    >
+                      <MaterialIcons
+                        name="receipt"
+                        size={16}
+                        color={Theme.colors.primary}
+                      />
+                      <Text style={styles.billText}>Bill</Text>
+                    </TouchableOpacity>
                   )}
                 </View>
 
-                <View style={styles.batchHeaderText}>
-                  <Text style={styles.batchTitle}>
-                    {batch.addedByName || "User"}
-                  </Text>
-                  <View style={styles.batchSubtitleRow}>
-                    <Text style={styles.batchSubtitle}>
-                      Added {batch.items.length} item
-                      {batch.items.length !== 1 ? "s" : ""}
-                    </Text>
-                    <Text style={styles.batchDate}>
-                      {formatDate(batch.addedAt)}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-
-            {/* Table layout that matches StockCard style exactly */}
-            <View style={styles.entriesTable}>
-              {/* Table header */}
-              <View style={styles.tableHeaderRow}>
-                <Text style={[styles.tableHeader, styles.companyHeader]}>
-                  Supplier
+                <Text style={styles.batchDate}>
+                  Added {formatDate(batch.addedAt)}
                 </Text>
-                <Text style={[styles.tableHeader, styles.equalHeader]}>
-                  Pack
-                </Text>
-                <Text style={[styles.tableHeader, styles.equalHeader]}>
-                  Sell
-                </Text>
-                <Text style={[styles.tableHeader, styles.equalHeader]}>
-                  Qty
-                </Text>
-              </View>
-
-              {/* Table rows */}
-              {batch.items.map((item, itemIndex) => (
-                <TouchableOpacity
-                  key={item.id || itemIndex}
-                  style={[
-                    styles.tableRow,
-                    itemIndex % 2 === 1 && styles.tableRowAlternate,
-                  ]}
-                  onPress={() => onItemPress && onItemPress(item.stockEntryId)}
-                  activeOpacity={onItemPress ? 0.7 : 1}
-                >
-                  <Text
-                    style={[styles.tableCell, styles.companyCell]}
-                    numberOfLines={1}
-                  >
-                    {item.supplierName}
-                  </Text>
-                  <Text
-                    style={[styles.tableCell, styles.equalCell]}
-                    numberOfLines={1}
-                  >
-                    {item.sizeName}
-                  </Text>
-                  <Text
-                    style={[styles.tableCell, styles.equalCell]}
-                    numberOfLines={1}
-                  >
-                    -
-                  </Text>
-                  <Text style={[styles.tableCell, styles.equalCell]}>
-                    {item.quantity}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Simplified batch total */}
-            <View style={styles.batchTotal}>
-              <Text style={styles.batchTotalText}>
-                {batch.items.length} items total
-              </Text>
-
-              {/* Simplified bill button */}
-              {batch.billUrl && (
-                <TouchableOpacity
-                  style={styles.billButton}
-                  onPress={() =>
-                    batch.billUrl && setImagePreview(batch.billUrl)
-                  }
-                  accessibilityLabel="View bill image"
-                >
-                  <MaterialIcons
-                    name="receipt"
-                    size={16}
-                    color={Theme.colors.primary}
-                  />
-                  <Text style={styles.billText}>View Bill</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Simplified actions */}
-            {expanded && (
-              <View style={styles.expandedActions}>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => onEditBatch && onEditBatch(batch)}
-                  accessibilityLabel="Edit batch"
-                >
-                  <MaterialIcons
-                    name="edit"
-                    size={16}
-                    color={Theme.colors.primary}
-                  />
-                  <Text style={styles.actionButtonText}>Edit</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.deleteButton]}
-                  onPress={() => onDeleteBatch && onDeleteBatch(batch.id)}
-                  accessibilityLabel="Delete batch"
-                >
-                  <MaterialIcons
-                    name="delete"
-                    size={16}
-                    color={Theme.colors.error}
-                  />
-                  <Text
-                    style={[styles.actionButtonText, styles.deleteButtonText]}
-                  >
-                    Delete
-                  </Text>
-                </TouchableOpacity>
               </View>
             )}
           </View>
@@ -527,72 +540,52 @@ const styles = StyleSheet.create({
   },
   batchCard: {
     backgroundColor: Theme.colors.surface,
-    borderRadius: Theme.borderRadius.xl,
-    overflow: "hidden",
-    ...Theme.shadows.sm,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    marginBottom: Theme.spacing.md,
-  },
-  batchHeader: {
+    marginHorizontal: Theme.spacing.lg,
+    borderRadius: Theme.borderRadius["2xl"],
     padding: Theme.spacing.lg,
+    ...Theme.shadows.sm,
+  },
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.divider,
-    backgroundColor: Theme.colors.surface,
+    marginBottom: Theme.spacing.md,
   },
-  batchHeaderContent: {
+  batchInfo: {
+    flex: 1,
+    marginRight: Theme.spacing.sm,
+  },
+  batchTitle: {
+    fontSize: Theme.typography.fontSize.lg,
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.text,
+  },
+  batchIndicator: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
+    gap: Theme.spacing.xs,
+    marginTop: Theme.spacing.xs,
   },
-  userAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Theme.colors.primary + "20",
-    justifyContent: "center",
+  batchIndicatorText: {
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.primary,
+    fontWeight: Theme.typography.fontWeight.medium,
+  },
+  quantityContainer: {
+    flexDirection: "row",
     alignItems: "center",
-    marginRight: Theme.spacing.md,
   },
-  avatarImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  batchHealthIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 6,
+    backgroundColor: Theme.colors.primary,
   },
-  userInitial: {
+  totalQty: {
     fontSize: Theme.typography.fontSize.lg,
     fontWeight: Theme.typography.fontWeight.bold,
     color: Theme.colors.primary,
-  },
-  batchHeaderText: {
-    flex: 1,
-  },
-  batchTitle: {
-    fontSize: Theme.typography.fontSize.base,
-    fontWeight: Theme.typography.fontWeight.bold,
-    color: Theme.colors.text,
-    marginBottom: 2,
-  },
-  batchSubtitleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  batchSubtitle: {
-    fontSize: Theme.typography.fontSize.sm,
-    color: Theme.colors.textMuted,
-  },
-  batchDate: {
-    fontSize: Theme.typography.fontSize.sm,
-    color: Theme.colors.textMuted,
-    fontWeight: Theme.typography.fontWeight.medium,
-  },
-  entriesTable: {
-    paddingHorizontal: Theme.spacing.lg,
-    paddingBottom: Theme.spacing.lg,
   },
   tableHeaderRow: {
     flexDirection: "row",
@@ -639,38 +632,17 @@ const styles = StyleSheet.create({
   equalCell: {
     flex: 1,
   },
-  batchTotal: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: Theme.spacing.lg,
-    paddingVertical: Theme.spacing.md,
+
+  expandedActions: {
+    paddingTop: Theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: Theme.colors.divider,
   },
-  batchTotalText: {
-    fontSize: Theme.typography.fontSize.sm,
-    fontWeight: Theme.typography.fontWeight.medium,
-    color: Theme.colors.textMuted,
-  },
-  billButton: {
+  actionRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: Theme.spacing.xs,
-    paddingVertical: Theme.spacing.xs,
-    paddingHorizontal: Theme.spacing.sm,
-  },
-  billText: {
-    fontSize: Theme.typography.fontSize.sm,
-    color: Theme.colors.primary,
-  },
-  expandedActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
+    justifyContent: "flex-start",
     gap: Theme.spacing.md,
-    paddingHorizontal: Theme.spacing.lg,
-    paddingBottom: Theme.spacing.md,
-    paddingTop: Theme.spacing.sm,
+    marginBottom: Theme.spacing.sm,
   },
   actionButton: {
     flexDirection: "row",
@@ -692,6 +664,25 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     color: Theme.colors.error,
+  },
+  billButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Theme.spacing.xs,
+    paddingVertical: Theme.spacing.sm,
+    paddingHorizontal: Theme.spacing.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.borderRadius.md,
+  },
+  billText: {
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.primary,
+  },
+  batchDate: {
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.textMuted,
+    fontWeight: Theme.typography.fontWeight.medium,
   },
   loadingFooter: {
     flexDirection: "row",
