@@ -268,23 +268,25 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
               </View>
             </View>
 
-            {/* Minimalist table layout that matches StockCard style */}
+            {/* Table layout that matches StockCard style exactly */}
             <View style={styles.entriesTable}>
-              {/* Minimalist table header */}
+              {/* Table header */}
               <View style={styles.tableHeaderRow}>
-                <Text style={[styles.tableHeader, styles.productHeader]}>
-                  Product
-                </Text>
-                <Text style={[styles.tableHeader, styles.supplierHeader]}>
+                <Text style={[styles.tableHeader, styles.companyHeader]}>
                   Supplier
                 </Text>
                 <Text style={[styles.tableHeader, styles.equalHeader]}>
-                  Size
+                  Pack
                 </Text>
-                <Text style={[styles.tableHeader, styles.qtyHeader]}>Qty</Text>
+                <Text style={[styles.tableHeader, styles.equalHeader]}>
+                  Sell
+                </Text>
+                <Text style={[styles.tableHeader, styles.equalHeader]}>
+                  Qty
+                </Text>
               </View>
 
-              {/* Minimalist table rows */}
+              {/* Table rows */}
               {batch.items.map((item, itemIndex) => (
                 <TouchableOpacity
                   key={item.id || itemIndex}
@@ -296,13 +298,7 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
                   activeOpacity={onItemPress ? 0.7 : 1}
                 >
                   <Text
-                    style={[styles.tableCell, styles.productCell]}
-                    numberOfLines={1}
-                  >
-                    {item.productName}
-                  </Text>
-                  <Text
-                    style={[styles.tableCell, styles.supplierCell]}
+                    style={[styles.tableCell, styles.companyCell]}
                     numberOfLines={1}
                   >
                     {item.supplierName}
@@ -313,7 +309,13 @@ export const BatchActivityLog: React.FC<BatchActivityLogProps> = ({
                   >
                     {item.sizeName}
                   </Text>
-                  <Text style={[styles.tableCell, styles.qtyCell]}>
+                  <Text
+                    style={[styles.tableCell, styles.equalCell]}
+                    numberOfLines={1}
+                  >
+                    -
+                  </Text>
+                  <Text style={[styles.tableCell, styles.equalCell]}>
                     {item.quantity}
                   </Text>
                 </TouchableOpacity>
@@ -608,18 +610,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     paddingHorizontal: 2,
   },
-  productHeader: {
+  companyHeader: {
     flex: 2.2,
-  },
-  supplierHeader: {
-    flex: 2,
   },
   equalHeader: {
     flex: 1,
-  },
-  qtyHeader: {
-    flex: 0.8,
-    textAlign: "center",
   },
   tableRow: {
     flexDirection: "row",
@@ -638,23 +633,11 @@ const styles = StyleSheet.create({
     color: Theme.colors.text,
     paddingHorizontal: 2,
   },
-  productCell: {
+  companyCell: {
     flex: 2.2,
-    fontWeight: Theme.typography.fontWeight.semibold,
-  },
-  supplierCell: {
-    flex: 2,
-    color: Theme.colors.textMuted,
   },
   equalCell: {
     flex: 1,
-    color: Theme.colors.textMuted,
-  },
-  qtyCell: {
-    flex: 0.8,
-    textAlign: "center",
-    fontWeight: Theme.typography.fontWeight.bold,
-    color: Theme.colors.primary,
   },
   batchTotal: {
     flexDirection: "row",
