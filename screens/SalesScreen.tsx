@@ -114,8 +114,6 @@ export default function SalesScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-
-
   // Refresh stock data when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
@@ -435,7 +433,18 @@ export default function SalesScreen() {
             <View style={styles.saleCardContent}>
               <View style={styles.saleItemsList}>
                 {item.items.map((saleItem: SaleItem, index: number) => (
-                  <View key={index} style={styles.saleItemRow}>
+                  <View
+                    key={index}
+                    style={[
+                      styles.saleItemRow,
+                      {
+                        backgroundColor:
+                          index % 2 === 0
+                            ? "rgba(250, 250, 250, 0.5)"
+                            : Theme.colors.surface,
+                      },
+                    ]}
+                  >
                     <View style={styles.saleItemInfo}>
                       <Text style={styles.saleItemName}>
                         {saleItem.productName}
@@ -496,9 +505,15 @@ export default function SalesScreen() {
                   <TouchableOpacity
                     style={{
                       backgroundColor: Theme.colors.primary,
-                      borderRadius: 8,
+                      borderRadius: 12,
                       paddingVertical: 10,
                       paddingHorizontal: 22,
+                      // Add shadow for 3D effect
+                      shadowColor: Theme.colors.primary,
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.2,
+                      shadowRadius: 8,
+                      elevation: 4,
                     }}
                     onPress={() => handleEdit(item)}
                     accessibilityLabel="Edit bill"
@@ -516,9 +531,15 @@ export default function SalesScreen() {
                   <TouchableOpacity
                     style={{
                       backgroundColor: AppColors.error,
-                      borderRadius: 8,
+                      borderRadius: 12,
                       paddingVertical: 10,
                       paddingHorizontal: 22,
+                      // Add shadow for 3D effect
+                      shadowColor: AppColors.error,
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.2,
+                      shadowRadius: 8,
+                      elevation: 4,
                     }}
                     onPress={() => handleDelete(item)}
                     accessibilityLabel="Delete bill"
@@ -1669,20 +1690,36 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: "center",
-    paddingVertical: 40,
-    paddingHorizontal: 20,
+    paddingVertical: 60,
+    paddingHorizontal: 24,
+    // Subtle background
+    backgroundColor: "rgba(248, 249, 250, 0.7)",
+    borderRadius: 16,
+    margin: 20,
+    // Add depth
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 15,
+    elevation: 2,
   },
   emptyStateText: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: colors.gray[500],
-    marginTop: 12,
+    fontSize: 18,
+    fontWeight: "600",
+    color: colors.gray[600],
+    marginTop: 16,
+    // Add subtle text shadow for depth
+    textShadowColor: "rgba(0, 0, 0, 0.05)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   emptyStateSubtext: {
-    fontSize: 14,
-    color: colors.gray[400],
+    fontSize: 15,
+    color: colors.gray[500],
     textAlign: "center",
-    marginTop: 4,
+    marginTop: 8,
+    maxWidth: 250,
+    lineHeight: 22,
   },
 
   totalSection: {
@@ -1861,7 +1898,17 @@ const styles = StyleSheet.create({
     marginHorizontal: Theme.spacing.lg,
     marginBottom: Theme.spacing["2xl"],
     padding: Theme.spacing.lg,
-    ...Theme.shadows.lg,
+    // Enhanced shadow for depth
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 12,
+    // Subtle border for depth perception
+    borderWidth: 1,
+    borderColor: "rgba(230, 230, 230, 0.5)",
+    // Slight transform for 3D effect
+    transform: [{ perspective: 1000 }, { rotateX: "0.5deg" }],
   },
   saleCardHeader: {
     flexDirection: "row",
@@ -1869,7 +1916,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderBottomColor: "rgba(220, 220, 220, 0.8)",
+    // Add a subtle gradient effect
+    backgroundColor: "rgba(250, 250, 250, 0.4)",
+    borderTopLeftRadius: Theme.borderRadius.xl,
+    borderTopRightRadius: Theme.borderRadius.xl,
   },
   saleCardHeaderLeft: {
     flexDirection: "row",
@@ -1891,78 +1942,110 @@ const styles = StyleSheet.create({
     color: colors.gray[600],
   },
   paymentStatusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 12,
     backgroundColor: colors.gray[200],
+    // Shadow for floating effect
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   paymentStatusPaid: {
-    backgroundColor: AppColors.success + "20",
+    backgroundColor: "rgba(46, 204, 113, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(46, 204, 113, 0.3)",
   },
   paymentStatusPartial: {
-    backgroundColor: colors.secondary + "20",
+    backgroundColor: "rgba(241, 196, 15, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(241, 196, 15, 0.3)",
   },
   paymentStatusUnpaid: {
-    backgroundColor: AppColors.error + "20",
+    backgroundColor: "rgba(231, 76, 60, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(231, 76, 60, 0.3)",
   },
   paymentStatusBadgeText: {
     fontSize: 12,
-    fontWeight: "600",
-    color: colors.gray[700],
+    fontWeight: "700",
+    color: colors.gray[800],
   },
   saleCardContent: {
     padding: 16,
+    // Add subtle background gradient
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
   },
   saleItemsList: {
-    marginBottom: 12,
+    marginBottom: 16,
+    // Add subtle shadow for depth
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: 12,
+    overflow: "hidden",
   },
   saleItemRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray[100],
+    borderBottomColor: "rgba(230, 230, 230, 0.8)",
   },
   saleItemInfo: {
-    flex: 1,
+    flex: 2,
+    paddingRight: 8,
   },
   saleItemName: {
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 15,
+    fontWeight: "600",
     color: colors.text,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   saleItemDetails: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.gray[600],
   },
   saleItemPrice: {
+    flex: 1,
     alignItems: "flex-end",
+    paddingLeft: 8,
+    borderLeftWidth: 1,
+    borderLeftColor: "rgba(230, 230, 230, 0.5)",
   },
   saleItemUnitPrice: {
-    fontSize: 12,
-    color: colors.gray[500],
-    marginBottom: 2,
+    fontSize: 13,
+    color: colors.gray[600],
+    marginBottom: 3,
   },
   saleItemTotal: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.primary,
+    fontSize: 15,
+    fontWeight: "700",
+    color: Theme.colors.primary,
   },
   saleNotes: {
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.gray[50],
-    borderRadius: 8,
+    alignItems: "flex-start",
     padding: 12,
     marginBottom: 12,
-    gap: 8,
+    backgroundColor: "rgba(245, 245, 245, 0.7)",
+    borderRadius: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.gray[300],
   },
   saleNotesText: {
-    fontSize: 12,
-    color: colors.gray[600],
+    marginLeft: 8,
+    fontSize: 13,
+    color: colors.gray[700],
     flex: 1,
+    lineHeight: 18,
   },
   saleCardFooter: {
     flexDirection: "row",
@@ -2019,11 +2102,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Theme.colors.surface,
-    borderRadius: Theme.borderRadius.lg,
-    paddingHorizontal: Theme.spacing.sm,
+    borderRadius: Theme.borderRadius.xl,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: Theme.spacing.sm,
-    minHeight: 44,
-    ...Theme.shadows.sm,
+    minHeight: 48,
+    // Enhanced shadow for depth
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+    // Add subtle border
+    borderWidth: 1,
+    borderColor: "rgba(230, 230, 230, 0.7)",
+    marginHorizontal: 16,
+    marginBottom: 8,
   },
   searchBarContainerActive: {
     borderColor: Theme.colors.primary,
@@ -2126,13 +2219,24 @@ const styles = StyleSheet.create({
   },
   // Add new style for the header button
   addButtonHeader: {
-    backgroundColor: "#4CAF50",
-    width: 36,
-    height: 36,
-    borderRadius: 8,
+    backgroundColor: Theme.colors.primary,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
-    ...Theme.shadows.md,
+    // Enhanced 3D effect
+    shadowColor: Theme.colors.primary,
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 10,
+    // Additional depth with subtle border
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
   },
   // Add fixed save button styles
   saveButtonContainer: {
