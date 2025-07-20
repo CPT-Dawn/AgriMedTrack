@@ -1,12 +1,12 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -16,6 +16,7 @@ import {
 import { Theme } from "../constants/Theme";
 import { useUser } from "../hooks/useUser";
 import { BatchEntryFormData, StockEntryFormData } from "../types/stock";
+import { CreatableDropdown } from "./CreatableDropdown";
 
 interface AddStockFormProps {
   onSubmit: (
@@ -41,19 +42,23 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
   initialData,
 }) => {
   const { currentUser } = useUser();
-  const [items, setItems] = useState<StockEntryFormData[]>([
-    {
-      productId: "",
-      productName: "",
-      supplierId: "",
-      supplierName: "",
-      packagingId: "",
-      packaging: "",
-      quantity: "",
-      sellPrice: "",
-    },
-  ]);
+  const [items, setItems] = useState<StockEntryFormData[]>(
+    initialData?.items || [
+      {
+        productId: "",
+        productName: "",
+        supplierId: "",
+        supplierName: "",
+        packagingId: "",
+        packaging: "",
+        quantity: "",
+        sellPrice: "",
+      },
+    ]
+  );
   const [submitting, setSubmitting] = useState(false);
+
+  // Date/Time state
   const [stockDate, setStockDate] = useState(new Date());
   const [stockTime, setStockTime] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -215,125 +220,170 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
           <Text style={styles.inputLabel}>
             Product Name <Text style={styles.requiredAsterisk}>*</Text>
           </Text>
-          <View style={styles.inputWrapper}>
+          <View style={styles.inputContainer}>
             <MaterialIcons
               name="inventory-2"
               size={20}
               color={Theme.colors.textSecondary}
               style={styles.inputIcon}
             />
-            <TextInput
-              style={styles.textInput}
-              placeholder="Enter product name"
-              value={item.productName}
-              onChangeText={(text) =>
-                updateProduct(index, { productName: text })
-              }
-              placeholderTextColor={Theme.colors.textMuted}
-              autoCapitalize="words"
-              accessibilityLabel="Product name"
-            />
+            <View style={styles.dropdownWrapper}>
+              <CreatableDropdown
+                options={products.map((p) => ({ id: p.id, label: p.name }))}
+                value={item.productId}
+                placeholder="Select or create product"
+                onSelect={(option) =>
+                  updateProduct(index, {
+                    productId: option.id,
+                    productName: option.label,
+                  })
+                }
+                onCreate={async (newLabel: string) => {
+                  try {
+                    const newProduct = await getOrCreateProduct(newLabel);
+                    updateProduct(index, {
+                      productId: newProduct.id,
+                      productName: newProduct.name,
+                    });
+                    return { id: newProduct.id, label: newProduct.name };
+                  } catch {
+                    Alert.alert("Error", "Failed to create new product");
+                    throw new Error("Failed to create new product");
+                  }
+                }}
+              />
+            </View>
           </View>
         </View>
 
-        {/* Supplier Name - Full Width */}
+        {/* Supplier - Full Width */}
         <View style={styles.inputGroup}>
           <Text style={styles.inputLabel}>
             Supplier <Text style={styles.requiredAsterisk}>*</Text>
           </Text>
-          <View style={styles.inputWrapper}>
+          <View style={styles.inputContainer}>
             <MaterialIcons
-              name="business"
+              name="store"
               size={20}
               color={Theme.colors.textSecondary}
               style={styles.inputIcon}
             />
-            <TextInput
-              style={styles.textInput}
-              placeholder="Enter supplier name"
-              value={item.supplierName}
-              onChangeText={(text) =>
-                updateProduct(index, { supplierName: text })
-              }
-              placeholderTextColor={Theme.colors.textMuted}
-              autoCapitalize="words"
-              accessibilityLabel="Supplier name"
-            />
+            <View style={styles.dropdownWrapper}>
+              <CreatableDropdown
+                options={suppliers.map((s) => ({ id: s.id, label: s.name }))}
+                value={item.supplierId}
+                placeholder="Select supplier"
+                onSelect={(option) =>
+                  updateProduct(index, {
+                    supplierId: option.id,
+                    supplierName: option.label,
+                  })
+                }
+                onCreate={async (newLabel: string) => {
+                  try {
+                    const newSupplier = await getOrCreateSupplier(newLabel);
+                    updateProduct(index, {
+                      supplierId: newSupplier.id,
+                      supplierName: newSupplier.name,
+                    });
+                    return { id: newSupplier.id, label: newSupplier.name };
+                  } catch {
+                    Alert.alert("Error", "Failed to create new supplier");
+                    throw new Error("Failed to create new supplier");
+                  }
+                }}
+              />
+            </View>
           </View>
         </View>
 
-        {/* Packaging Size - Full Width */}
+        {/* Packaging - Full Width */}
         <View style={styles.inputGroup}>
           <Text style={styles.inputLabel}>
-            Packaging Size <Text style={styles.requiredAsterisk}>*</Text>
+            Packaging <Text style={styles.requiredAsterisk}>*</Text>
           </Text>
-          <View style={styles.inputWrapper}>
+          <View style={styles.inputContainer}>
             <MaterialIcons
-              name="straighten"
+              name="category"
+              size={20}
+              color={Theme.colors.textSecondary}
+              style={styles.inputIcon}
+            />
+            <View style={styles.dropdownWrapper}>
+              <CreatableDropdown
+                options={sizes.map((s) => ({ id: s.id, label: s.label }))}
+                value={item.packagingId}
+                placeholder="Select or create packaging"
+                onSelect={(option) =>
+                  updateProduct(index, {
+                    packagingId: option.id,
+                    packaging: option.label,
+                  })
+                }
+                onCreate={async (newLabel: string) => {
+                  try {
+                    const newSize = await getOrCreateSize(newLabel);
+                    updateProduct(index, {
+                      packagingId: newSize.id,
+                      packaging: newSize.label,
+                    });
+                    return { id: newSize.id, label: newSize.label };
+                  } catch {
+                    Alert.alert("Error", "Failed to create new packaging");
+                    throw new Error("Failed to create new packaging");
+                  }
+                }}
+                createLabel="Create packaging"
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Quantity - Full width */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>
+            Quantity <Text style={styles.requiredAsterisk}>*</Text>
+          </Text>
+          <View style={styles.inputContainer}>
+            <MaterialIcons
+              name="inventory"
               size={20}
               color={Theme.colors.textSecondary}
               style={styles.inputIcon}
             />
             <TextInput
-              style={styles.textInput}
-              placeholder="e.g., 10 ml bottle, 500 mg tablet"
-              value={item.packaging}
-              onChangeText={(text) => updateProduct(index, { packaging: text })}
+              style={[styles.textInput, styles.inputWithIcon]}
+              value={item.quantity}
+              onChangeText={(value) =>
+                updateProduct(index, { quantity: value })
+              }
+              placeholder="Enter quantity"
+              keyboardType="numeric"
               placeholderTextColor={Theme.colors.textMuted}
-              autoCapitalize="words"
-              accessibilityLabel="Packaging size"
             />
           </View>
         </View>
 
-        {/* Quantity and Sell Price Row */}
-        <View style={styles.inputRow}>
-          <View style={[styles.inputGroup, styles.flex1]}>
-            <Text style={styles.inputLabel}>
-              Quantity <Text style={styles.requiredAsterisk}>*</Text>
-            </Text>
-            <View style={styles.inputWrapper}>
-              <MaterialIcons
-                name="shopping-cart"
-                size={20}
-                color={Theme.colors.textSecondary}
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={styles.textInput}
-                placeholder="0"
-                value={item.quantity}
-                onChangeText={(text) =>
-                  updateProduct(index, { quantity: text })
-                }
-                placeholderTextColor={Theme.colors.textMuted}
-                keyboardType="numeric"
-                accessibilityLabel="Quantity"
-              />
-            </View>
-          </View>
-
-          <View style={[styles.inputGroup, styles.flex1]}>
-            <Text style={styles.inputLabel}>Sell Price (Optional)</Text>
-            <View style={styles.inputWrapper}>
-              <MaterialIcons
-                name="attach-money"
-                size={20}
-                color={Theme.colors.textSecondary}
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={styles.textInput}
-                placeholder="0.00"
-                value={item.sellPrice}
-                onChangeText={(text) =>
-                  updateProduct(index, { sellPrice: text })
-                }
-                placeholderTextColor={Theme.colors.textMuted}
-                keyboardType="numeric"
-                accessibilityLabel="Sell price"
-              />
-            </View>
+        {/* Sell Price - Full width */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Sell Price (₹)</Text>
+          <View style={styles.inputContainer}>
+            <MaterialIcons
+              name="sell"
+              size={20}
+              color={Theme.colors.textSecondary}
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={[styles.textInput, styles.inputWithIcon]}
+              value={item.sellPrice}
+              onChangeText={(value) =>
+                updateProduct(index, { sellPrice: value })
+              }
+              placeholder="0.00"
+              keyboardType="numeric"
+              placeholderTextColor={Theme.colors.textMuted}
+            />
           </View>
         </View>
       </View>
@@ -342,69 +392,119 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={{ flex: 1, backgroundColor: Theme.colors.background }}
     >
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+      <FlatList
+        data={items}
+        keyExtractor={(_, idx) => `item-${idx}`}
+        renderItem={({ item, index }) => renderItemCard(item, index)}
+        contentContainerStyle={{
+          paddingHorizontal: Theme.spacing.xl,
+          paddingTop: Theme.spacing.md,
+          paddingBottom: Theme.spacing["6xl"],
+        }}
         showsVerticalScrollIndicator={false}
-      >
-        {/* Form Header */}
-        <View style={styles.formHeader}>
-          <Text style={styles.formTitle}>
-            {initialData ? "Edit Stock Entry" : "Add New Stock"}
-          </Text>
-          <Text style={styles.formSubtitle}>
-            {initialData
-              ? "Update the stock entry details below"
-              : "Enter the details for your new stock entry"}
-          </Text>
-        </View>
+        ListHeaderComponent={() => (
+          <>
+            {/* Date & Time Section */}
+            <View style={styles.dateTimeSection}>
+              <View style={styles.dateTimeRow}>
+                {/* Date Field */}
+                <View style={styles.dateTimeField}>
+                  <Text style={styles.inputLabel}>DATE</Text>
+                  <TouchableOpacity
+                    style={styles.dateTimeButton}
+                    onPress={() => setShowDatePicker(true)}
+                    accessibilityLabel="Select date"
+                    activeOpacity={0.85}
+                  >
+                    <MaterialIcons
+                      name="event"
+                      size={20}
+                      color={Theme.colors.primary}
+                      style={styles.dateTimeIcon}
+                    />
+                    <Text style={styles.dateTimeText}>
+                      {stockDate
+                        ? stockDate.toLocaleDateString()
+                        : "Select Date"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
 
-        {/* Product Items */}
-        {items.map((item, index) => renderItemCard(item, index))}
+                {/* Time Field */}
+                <View style={styles.dateTimeField}>
+                  <Text style={styles.inputLabel}>TIME</Text>
+                  <TouchableOpacity
+                    style={styles.dateTimeButton}
+                    onPress={() => setShowTimePicker(true)}
+                    accessibilityLabel="Select time"
+                    activeOpacity={0.85}
+                  >
+                    <MaterialIcons
+                      name="schedule"
+                      size={20}
+                      color={Theme.colors.primary}
+                      style={styles.dateTimeIcon}
+                    />
+                    <Text style={styles.dateTimeText}>
+                      {stockTime
+                        ? stockTime.toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "Select Time"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </>
+        )}
+        ListFooterComponent={() => (
+          <>
+            <TouchableOpacity
+              style={styles.addProductButton}
+              onPress={addAnotherProduct}
+              accessibilityLabel="Add another product"
+            >
+              <MaterialIcons
+                name="add-circle"
+                size={20}
+                color={Theme.colors.primary}
+              />
+              <Text style={styles.addProductText}>Add Another Product</Text>
+            </TouchableOpacity>
 
-        {/* Add Another Product Button */}
-        <TouchableOpacity
-          style={styles.addProductButton}
-          onPress={addAnotherProduct}
-          accessibilityLabel="Add another product"
-        >
-          <MaterialIcons
-            name="add-circle-outline"
-            size={24}
-            color={Theme.colors.primary}
-          />
-          <Text style={styles.addProductText}>Add Another Product</Text>
-        </TouchableOpacity>
-
-        {/* Confirm & Save Button */}
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[
-              styles.primaryButton,
-              submitting && styles.primaryButtonDisabled,
-            ]}
-            onPress={handleSubmit}
-            disabled={submitting}
-            accessibilityLabel="Confirm and save stock"
-          >
-            {submitting ? (
-              <ActivityIndicator color={Theme.colors.white} size="small" />
-            ) : (
-              <>
-                <MaterialIcons
-                  name="save"
-                  size={20}
-                  color={Theme.colors.white}
-                />
-                <Text style={styles.primaryButtonText}>Confirm & Save</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+            {/* Confirm & Save Button */}
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.primaryButton,
+                  submitting && styles.primaryButtonDisabled,
+                ]}
+                onPress={handleSubmit}
+                disabled={submitting}
+                accessibilityLabel="Confirm and save stock"
+              >
+                {submitting ? (
+                  <ActivityIndicator color={Theme.colors.white} size="small" />
+                ) : (
+                  <>
+                    <MaterialIcons
+                      name="save"
+                      size={20}
+                      color={Theme.colors.white}
+                    />
+                    <Text style={styles.primaryButtonText}>Confirm & Save</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+      />
 
       {/* Date Picker Modal */}
       {showDatePicker && (
@@ -520,20 +620,18 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Theme.colors.border,
     borderRadius: Theme.borderRadius.lg,
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: 2,
+    paddingLeft: Theme.spacing.md,
     ...Theme.shadows.md,
   },
-  inputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Theme.colors.surface,
-    borderWidth: 1.5,
-    borderColor: Theme.colors.border,
-    borderRadius: Theme.borderRadius.lg,
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: 2,
-    ...Theme.shadows.sm,
+  dropdownWrapper: {
+    flex: 1,
+    borderLeftWidth: 0,
+  },
+  inputWithIcon: {
+    flex: 1,
+    paddingLeft: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.sm,
+    borderWidth: 0,
   },
   inputIcon: {
     marginRight: Theme.spacing.xs,
@@ -682,33 +780,56 @@ const styles = StyleSheet.create({
   },
   itemTitle: {
     fontSize: Theme.typography.fontSize.base,
-    fontWeight: Theme.typography.fontWeight.semibold,
+    fontWeight: Theme.typography.fontWeight.bold,
     color: Theme.colors.text,
   },
   itemSubtitle: {
     fontSize: Theme.typography.fontSize.sm,
     color: Theme.colors.textSecondary,
-    marginTop: 2,
+    marginTop: Theme.spacing.xs,
+    fontWeight: Theme.typography.fontWeight.medium,
   },
-  itemSection: {
-    marginBottom: Theme.spacing.md,
-  },
-  requiredAsterisk: {
-    color: Theme.colors.error,
+  removeButton: {
+    padding: 8,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: Theme.borderRadius.full,
   },
   deleteButtonPosition: {
     position: "absolute",
-    top: 8,
-    right: 8,
-    zIndex: 1,
+    top: 18,
+    right: 18,
+    zIndex: 10,
   },
   deleteIconWrapper: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
     backgroundColor: Theme.colors.error,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
+    ...Theme.shadows.md,
+  },
+  itemSection: {
+    marginBottom: 8,
+  },
+  dropdownContainer: {
+    backgroundColor: Theme.colors.surface,
+    borderWidth: 1.5,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.borderRadius.lg,
     ...Theme.shadows.sm,
+    overflow: "hidden",
+  },
+  sectionLabel: {
+    fontSize: Theme.typography.fontSize.sm,
+    fontWeight: Theme.typography.fontWeight.semibold,
+    color: Theme.colors.textSecondary,
+    marginBottom: Theme.spacing.sm,
+  },
+  requiredAsterisk: {
+    color: Theme.colors.error,
   },
 });

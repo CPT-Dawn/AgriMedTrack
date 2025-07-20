@@ -25,35 +25,32 @@ export default function TabLayout() {
           tabBarInactiveTintColor: Theme.colors.textMuted,
           tabBarStyle: {
             backgroundColor: Theme.colors.surface,
-            borderTopLeftRadius: Theme.borderRadius["2xl"],
-            borderTopRightRadius: Theme.borderRadius["2xl"],
+            borderTopLeftRadius: Theme.borderRadius.xl,
+            borderTopRightRadius: Theme.borderRadius.xl,
             borderTopWidth: 0,
-            height: Platform.OS === "ios" ? 88 : 68,
-            paddingBottom: Platform.OS === "ios" ? 28 : 8,
+            height: Platform.OS === "ios" ? 96 : 76,
+            paddingBottom: Platform.OS === "ios" ? 32 : 12,
             paddingTop: Theme.spacing.md,
-            // Enhanced 3D shadows for depth
-            elevation: 20,
-            shadowColor: "#000000",
-            shadowOffset: { width: 0, height: -8 },
-            shadowOpacity: 0.25,
-            shadowRadius: 20,
-            // Additional inner shadow effect
+            // Modern subtle shadow
+            elevation: 8,
+            shadowColor: Theme.colors.shadow,
+            shadowOffset: { width: 0, height: -4 },
+            shadowOpacity: 0.08,
+            shadowRadius: 12,
+            // Clean border
             borderWidth: 1,
-            borderColor: "rgba(255, 255, 255, 0.1)",
-            // Position and spacing
+            borderColor: Theme.colors.border,
+            // Position with proper margins
             position: "absolute",
-            left: Theme.spacing.sm,
-            right: Theme.spacing.sm,
+            left: Theme.spacing.md,
+            right: Theme.spacing.md,
             bottom: Platform.OS === "android" ? 0 : 0,
           },
           tabBarLabelStyle: {
             fontSize: Theme.typography.fontSize.xs,
-            fontWeight: Theme.typography.fontWeight.semibold,
+            fontWeight: Theme.typography.fontWeight.medium,
             marginTop: 4,
-            // Enhanced 3D text styling
-            textShadowColor: "rgba(0, 0, 0, 0.1)",
-            textShadowOffset: { width: 0, height: 1 },
-            textShadowRadius: 2,
+            letterSpacing: 0.2,
           },
           tabBarIconStyle: {
             marginTop: 4,
@@ -70,12 +67,8 @@ export default function TabLayout() {
                 name="house.fill"
                 color={color}
                 style={{
-                  transform: [{ scale: focused ? 1.1 : 1 }],
-                  shadowColor: focused ? color : "transparent",
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: focused ? 0.3 : 0,
-                  shadowRadius: 4,
-                  elevation: focused ? 8 : 0,
+                  transform: [{ scale: focused ? 1.05 : 1 }],
+                  opacity: focused ? 1 : 0.7,
                 }}
               />
             ),
@@ -91,12 +84,8 @@ export default function TabLayout() {
                 name="chart.bar.fill"
                 color={color}
                 style={{
-                  transform: [{ scale: focused ? 1.1 : 1 }],
-                  shadowColor: focused ? color : "transparent",
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: focused ? 0.3 : 0,
-                  shadowRadius: 4,
-                  elevation: focused ? 8 : 0,
+                  transform: [{ scale: focused ? 1.05 : 1 }],
+                  opacity: focused ? 1 : 0.7,
                 }}
               />
             ),
@@ -112,12 +101,8 @@ export default function TabLayout() {
                 name="shippingbox.fill"
                 color={color}
                 style={{
-                  transform: [{ scale: focused ? 1.1 : 1 }],
-                  shadowColor: focused ? color : "transparent",
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: focused ? 0.3 : 0,
-                  shadowRadius: 4,
-                  elevation: focused ? 8 : 0,
+                  transform: [{ scale: focused ? 1.05 : 1 }],
+                  opacity: focused ? 1 : 0.7,
                 }}
               />
             ),
