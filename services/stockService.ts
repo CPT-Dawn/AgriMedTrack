@@ -1187,7 +1187,7 @@ export const deleteSale = async (saleId: string): Promise<void> => {
 export const getSales = async (): Promise<Sale[]> => {
   try {
     const querySnapshot = await getDocs(
-      query(salesCollection, orderBy("createdAt", "desc"))
+      query(salesCollection, orderBy("saleDate", "desc"))
     );
 
     const sales = await Promise.all(

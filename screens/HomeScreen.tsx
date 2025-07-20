@@ -28,6 +28,7 @@ export default function HomeScreen() {
     stockEntries,
     activities,
     loading: stockLoading,
+    refreshData: refreshStock,
   } = useStock();
   const [sales, setSales] = useState<Sale[]>([]);
   const [salesLoading, setSalesLoading] = useState(true);
@@ -52,7 +53,7 @@ export default function HomeScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchSales();
+    await Promise.all([fetchSales(), refreshStock()]);
     setRefreshing(false);
   };
 
@@ -101,9 +102,9 @@ export default function HomeScreen() {
     0
   );
 
-  // Recent sales (last 5)
-  const recentSales = sales.slice(0, 5);
-  // Recent stock activities (last 5 'added')
+  // Recent sales (last 3)
+  const recentSales = sales.slice(0, 3);
+  // Recent stock activities (last 3 'added')
   const recentStockAdds = activities
     .filter((a) => a.action === "added")
     .sort((a, b) => {
@@ -111,7 +112,7 @@ export default function HomeScreen() {
       const tB = b.timestamp instanceof Date ? b.timestamp.getTime() : 0;
       return tB - tA;
     })
-    .slice(0, 5);
+    .slice(0, 3);
 
   // --- Loading State ---
   const isLoading = stockLoading || salesLoading;
@@ -171,17 +172,36 @@ export default function HomeScreen() {
     const totalAmount = sale.totalAmount || 0;
 
     if (itemCount === 0) return `Sale of ${formatCurrency(totalAmount)}`;
-    if (itemCount === 1)
-      return `${sale.items[0].productName} - ${formatCurrency(totalAmount)}`;
-    return `${itemCount} items - ${formatCurrency(totalAmount)}`;
+    if (itemCount === 1) {
+      const item = sale.items[0];
+      const quantity = item.quantity ? `${item.quantity} ` : "";
+      const packaging = item.packaging ? `${item.packaging} ` : "";
+      return `${packaging}${item.productName} ke ${quantity}piece`;
+    }
+
+    // For multi-product sales, show top 2 items and indicate more
+    const item1 = sale.items[0];
+    const item2 = sale.items[1];
+    if (itemCount === 2) {
+      return `${item1.productName}, ${item2.productName}`;
+    }
+    return `${item1.productName}, ${item2.productName} +${itemCount - 2} more`;
   };
 
   const getStockActivitySummary = (activity: any) => {
     const quantity = activity.quantity || 0;
     const productName = activity.productName || "Unknown Product";
     const sizeName = activity.sizeName || "";
+    const supplierName = activity.supplierName || "";
 
-    return `${quantity} ${sizeName} of ${productName}`;
+    // Create quantity and size text
+    const quantityText = quantity > 0 ? `${quantity} ` : "";
+    const sizeText = sizeName ? `${sizeName} of ` : "";
+
+    // Create supplier text
+    const supplierText = supplierName ? ` from ${supplierName}` : "";
+
+    return `Added ${quantityText}x ${sizeText}${productName}${supplierText}`;
   };
 
   return (
@@ -254,7 +274,10 @@ export default function HomeScreen() {
         <View style={styles.activitiesSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Sales</Text>
-            <TouchableOpacity style={styles.viewAllButton}>
+            <TouchableOpacity
+              style={styles.viewAllButton}
+              onPress={() => router.push("/(tabs)/explore")}
+            >
               <Text style={styles.viewAllText}>View All</Text>
             </TouchableOpacity>
           </View>
@@ -324,7 +347,10 @@ export default function HomeScreen() {
         <View style={styles.activitiesSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Stock Entries</Text>
-            <TouchableOpacity style={styles.viewAllButton}>
+            <TouchableOpacity
+              style={styles.viewAllButton}
+              onPress={() => router.push("/(tabs)/stock")}
+            >
               <Text style={styles.viewAllText}>View All</Text>
             </TouchableOpacity>
           </View>
