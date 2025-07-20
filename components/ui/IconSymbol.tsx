@@ -9,7 +9,7 @@ type IconMapping = Record<
   SymbolViewProps["name"],
   ComponentProps<typeof MaterialIcons>["name"]
 >;
-type IconSymbolName = keyof typeof MAPPING;
+type IconSymbolName = "home" | "receipt" | "inventory";
 
 /**
  * Add your SF Symbols to Material Icons mappings here.
@@ -17,13 +17,10 @@ type IconSymbolName = keyof typeof MAPPING;
  * - see SF Symbols in the [SF Symbols](https://developer.apple.com/sf-symbols/) app.
  */
 const MAPPING = {
-  "house.fill": "home",
-  "paperplane.fill": "send",
-  "chevron.left.forwardslash.chevron.right": "code",
-  "chevron.right": "chevron-right",
-  "chart.bar.fill": "bar-chart", // for Sales
-  "shippingbox.fill": "inventory", // for Stock
-} as IconMapping;
+  home: "home", // Home tab
+  receipt: "receipt-long", // Sales tab
+  inventory: "inventory-2", // Inventory tab
+} as const;
 
 /**
  * An icon component that uses native SF Symbols on iOS, and Material Icons on Android and web.
