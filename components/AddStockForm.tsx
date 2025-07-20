@@ -1,7 +1,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as ImagePicker from "expo-image-picker";
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -444,7 +444,7 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
         keyExtractor={(_, idx) => `item-${idx}`}
         renderItem={({ item, index }) => renderItemCard(item, index)}
         contentContainerStyle={{
-          paddingHorizontal: Theme.spacing.lg,
+          paddingHorizontal: Theme.spacing.xl,
           paddingTop: Theme.spacing.md,
           paddingBottom: Theme.spacing["6xl"],
         }}
@@ -669,10 +669,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   inputLabel: {
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: Theme.typography.fontSize.xs,
+    fontWeight: Theme.typography.fontWeight.semibold,
     color: Theme.colors.textSecondary,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
     textTransform: "uppercase",
     letterSpacing: 0.8,
   },
@@ -681,9 +681,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Theme.colors.border,
     borderRadius: Theme.borderRadius.lg,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
+    fontSize: Theme.typography.fontSize.base,
     color: Theme.colors.text,
     ...Theme.shadows.sm,
   },
@@ -713,7 +713,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Theme.colors.border,
     borderRadius: Theme.borderRadius.lg,
-    paddingHorizontal: 14,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 2,
     ...Theme.shadows.md,
   },
@@ -724,7 +724,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Theme.colors.border,
     borderRadius: Theme.borderRadius.lg,
-    paddingLeft: 14,
+    paddingLeft: Theme.spacing.md,
     ...Theme.shadows.md,
   },
   dropdownWrapper: {
@@ -733,12 +733,12 @@ const styles = StyleSheet.create({
   },
   inputWithIcon: {
     flex: 1,
-    paddingLeft: 8,
-    paddingVertical: 12,
+    paddingLeft: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.sm,
     borderWidth: 0,
   },
   inputIcon: {
-    marginRight: 6,
+    marginRight: Theme.spacing.xs,
   },
   errorContainer: {
     flexDirection: "row",
@@ -757,10 +757,10 @@ const styles = StyleSheet.create({
     ...Theme.shadows.sm,
   },
   imageUploadText: {
-    marginTop: 8,
-    fontSize: 16,
+    marginTop: Theme.spacing.sm,
+    fontSize: Theme.typography.fontSize.base,
     color: Theme.colors.primary,
-    fontWeight: "500",
+    fontWeight: Theme.typography.fontWeight.medium,
   },
   imagePreviewContainer: {
     backgroundColor: Theme.colors.surface,
@@ -775,24 +775,24 @@ const styles = StyleSheet.create({
   },
   imageActions: {
     flexDirection: "row",
-    padding: 12,
-    gap: 8,
+    padding: Theme.spacing.sm,
+    gap: Theme.spacing.sm,
   },
   imageActionButton: {
     flex: 1,
     backgroundColor: Theme.colors.primary,
     borderRadius: Theme.borderRadius.md,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: Theme.spacing.sm,
+    paddingHorizontal: Theme.spacing.sm,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
+    gap: Theme.spacing.xs,
   },
   imageActionText: {
     color: Theme.colors.white,
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: Theme.typography.fontSize.sm,
+    fontWeight: Theme.typography.fontWeight.medium,
   },
   addProductButton: {
     backgroundColor: Theme.colors.surface,
@@ -800,28 +800,28 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.primary,
     borderStyle: "dashed",
     borderRadius: Theme.borderRadius.lg,
-    paddingVertical: 16,
+    paddingVertical: Theme.spacing.md,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    marginTop: 8,
-    marginBottom: 16,
+    gap: Theme.spacing.sm,
+    marginTop: Theme.spacing.sm,
+    marginBottom: Theme.spacing.md,
   },
   addProductText: {
-    fontSize: 16,
+    fontSize: Theme.typography.fontSize.base,
     color: Theme.colors.primary,
-    fontWeight: "500",
+    fontWeight: Theme.typography.fontWeight.medium,
   },
   primaryButton: {
     backgroundColor: Theme.colors.primary,
     borderRadius: Theme.borderRadius.lg,
-    paddingVertical: 16,
+    paddingVertical: Theme.spacing.md,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     minHeight: 56,
-    gap: 8,
+    gap: Theme.spacing.sm,
     ...Theme.shadows.md,
   },
   primaryButtonDisabled: {
@@ -829,8 +829,8 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: Theme.colors.white,
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: Theme.typography.fontSize.base,
+    fontWeight: Theme.typography.fontWeight.semibold,
   },
   formHeader: {
     marginBottom: Theme.spacing["2xl"],
@@ -864,6 +864,7 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.border,
     paddingHorizontal: Theme.spacing.md,
     paddingVertical: Theme.spacing.sm,
+    minHeight: 44,
     ...Theme.shadows.sm,
   },
   dateTimeIcon: {
@@ -873,6 +874,7 @@ const styles = StyleSheet.create({
     color: Theme.colors.text,
     fontSize: Theme.typography.fontSize.base,
     flex: 1,
+    fontWeight: Theme.typography.fontWeight.medium,
   },
   billSection: {
     marginTop: Theme.spacing.xl,
@@ -927,22 +929,22 @@ const styles = StyleSheet.create({
   },
   itemNumberText: {
     color: Theme.colors.white,
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: Theme.typography.fontSize.base,
+    fontWeight: Theme.typography.fontWeight.semibold,
   },
   itemHeaderText: {
     flex: 1,
   },
   itemTitle: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: Theme.typography.fontSize.base,
+    fontWeight: Theme.typography.fontWeight.bold,
     color: Theme.colors.text,
   },
   itemSubtitle: {
-    fontSize: 13,
+    fontSize: Theme.typography.fontSize.sm,
     color: Theme.colors.textSecondary,
-    marginTop: 4,
-    fontWeight: "500",
+    marginTop: Theme.spacing.xs,
+    fontWeight: Theme.typography.fontWeight.medium,
   },
   removeButton: {
     padding: 8,
@@ -979,10 +981,10 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   sectionLabel: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: Theme.typography.fontSize.sm,
+    fontWeight: Theme.typography.fontWeight.semibold,
     color: Theme.colors.textSecondary,
-    marginBottom: 12,
+    marginBottom: Theme.spacing.sm,
   },
   requiredAsterisk: {
     color: Theme.colors.error,

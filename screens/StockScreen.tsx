@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight || 0 + 20,
     paddingHorizontal: Theme.spacing.xl,
-    paddingBottom: Theme.spacing.sm,
+    paddingBottom: Theme.spacing.lg,
     backgroundColor: Theme.colors.background,
     zIndex: 10,
   },
