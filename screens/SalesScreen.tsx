@@ -99,6 +99,7 @@ export default function SalesScreen() {
     "Paid" | "Unpaid" | "Partial"
   >("Paid");
   const [notes, setNotes] = useState("");
+  const [receivedAmount, setReceivedAmount] = useState(0);
 
   const [submitting, setSubmitting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -147,6 +148,7 @@ export default function SalesScreen() {
     setNotes("");
     setErrors({});
     setEditSale(null); // Clear edit state
+    setReceivedAmount(0);
   }, []);
 
   // Format sale date for display with time within 24 hours, date for older entries
@@ -262,6 +264,7 @@ export default function SalesScreen() {
       setEditSale(null); // Clear edit state for new sale
       setSaleDate(new Date());
       setSaleTime(new Date());
+      setReceivedAmount(0);
     } else {
       // Going to add view - clear any existing edit state
       setCurrentView("add");
@@ -283,6 +286,7 @@ export default function SalesScreen() {
       setErrors({});
       setSaleDate(new Date());
       setSaleTime(new Date());
+      setReceivedAmount(0);
     }
   };
 
@@ -303,6 +307,7 @@ export default function SalesScreen() {
     setSaleDate(dateObj);
     setSaleTime(timeObj);
     setPaymentStatus(sale.paymentStatus);
+    setReceivedAmount(sale.receivedAmount || 0);
     // Ensure all dropdown fields are set for each sale item
     setSaleItems(
       sale.items.map((item) => {
@@ -487,7 +492,12 @@ export default function SalesScreen() {
                       styles.paymentStatusUnpaid,
                   ]}
                 >
-                  <Text style={styles.paymentStatusBadgeText}>
+                  <Text
+                    style={[
+                      styles.paymentStatusBadgeText,
+                      item.paymentStatus === "Partial" && { color: "#" }, // orange text for partial
+                    ]}
+                  >
                     {item.paymentStatus}
                   </Text>
                 </View>
@@ -547,9 +557,27 @@ export default function SalesScreen() {
                 {/* Removed notes display as notes field no longer exists */}
               </View>
               <View style={styles.saleCardFooterRight}>
-                <Text style={styles.saleCardTotalAmount}>
-                  ₹{item.totalAmount}
-                </Text>
+                {item.paymentStatus === "Partial" ? (
+                  <Text style={{ fontSize: 16, fontWeight: "bold" }}>
+                    <Text style={{ color: "green" }}>
+                      ₹{item.receivedAmount || 0}
+                    </Text>
+                    <Text style={{ color: Theme.colors.textMuted }}> / </Text>
+                    <Text style={{ color: "red" }}>₹{item.totalAmount}</Text>
+                  </Text>
+                ) : item.paymentStatus === "Paid" ? (
+                  <Text
+                    style={{ fontSize: 16, fontWeight: "bold", color: "green" }}
+                  >
+                    ₹{item.totalAmount}
+                  </Text>
+                ) : (
+                  <Text
+                    style={{ fontSize: 16, fontWeight: "bold", color: "red" }}
+                  >
+                    ₹{item.totalAmount}
+                  </Text>
+                )}
               </View>
             </View>
 
@@ -834,6 +862,12 @@ export default function SalesScreen() {
             (sum, item) => sum + item.totalPrice,
             0
           ),
+          receivedAmount:
+            paymentStatus === "Partial"
+              ? receivedAmount
+              : paymentStatus === "Paid"
+              ? itemsWithTotal.reduce((sum, item) => sum + item.totalPrice, 0)
+              : 0,
         };
 
         // Save to Firebase
@@ -931,7 +965,7 @@ export default function SalesScreen() {
         {/* Form Content */}
         <KeyboardAwareScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ padding: 12, paddingBottom: 20 }}
+          contentContainerStyle={{ padding: 12, paddingBottom: 45 }}
           enableOnAndroid
           extraScrollHeight={100}
           keyboardShouldPersistTaps="handled"
@@ -1128,39 +1162,118 @@ export default function SalesScreen() {
             >
               Payment Status
             </Text>
-            <View style={{ flexDirection: "row", gap: 8 }}>
+            <View
+              style={{ flexDirection: "row", gap: 8, alignItems: "center" }}
+            >
               {["Paid", "Unpaid", "Partial"].map((status) => (
-                <TouchableOpacity
-                  key={status}
-                  style={{
-                    backgroundColor:
-                      paymentStatus === status
-                        ? Theme.colors.primary
-                        : Theme.colors.surface,
-                    paddingVertical: 8,
-                    paddingHorizontal: 16,
-                    borderRadius: 16,
-                    borderWidth: 1,
-                    borderColor:
-                      paymentStatus === status
-                        ? Theme.colors.primary
-                        : Theme.colors.border,
-                    ...Theme.shadows.sm,
-                  }}
-                  onPress={() => setPaymentStatus(status as any)}
-                >
-                  <Text
+                <React.Fragment key={status}>
+                  <TouchableOpacity
                     style={{
-                      color:
+                      backgroundColor:
                         paymentStatus === status
-                          ? Theme.colors.white
-                          : Theme.colors.text,
-                      fontWeight: "600",
+                          ? Theme.colors.primary
+                          : Theme.colors.surface,
+                      paddingVertical: 8,
+                      paddingHorizontal:
+                        status === "Partial" && paymentStatus === "Partial"
+                          ? 10
+                          : 16,
+                      borderRadius: 16,
+                      borderWidth: 1,
+                      borderColor:
+                        paymentStatus === status
+                          ? Theme.colors.primary
+                          : Theme.colors.border,
+                      ...Theme.shadows.sm,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      minWidth:
+                        status === "Partial" && paymentStatus === "Partial"
+                          ? 140
+                          : undefined,
                     }}
+                    onPress={() => setPaymentStatus(status as any)}
+                    activeOpacity={0.85}
                   >
-                    {status}
-                  </Text>
-                </TouchableOpacity>
+                    <Text
+                      style={{
+                        color:
+                          paymentStatus === status
+                            ? Theme.colors.white
+                            : Theme.colors.text,
+                        fontWeight: "600",
+                        fontSize: 15,
+                      }}
+                    >
+                      {status}
+                    </Text>
+                    {status === "Partial" && paymentStatus === "Partial" && (
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          marginLeft: 8,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: Theme.colors.white,
+                            fontWeight: "500",
+                            fontSize: 13,
+                            marginRight: 4,
+                          }}
+                        ></Text>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            backgroundColor: Theme.colors.surface,
+                            borderRadius: 8,
+                            borderWidth: 1,
+                            borderColor: Theme.colors.primary,
+                            paddingHorizontal: 6,
+                            marginLeft: 0,
+                            minWidth: 60,
+                            height: 30,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: Theme.colors.primary,
+                              fontWeight: "bold",
+                              fontSize: 15,
+                              marginRight: 2,
+                            }}
+                          >
+                            ₹
+                          </Text>
+                          <TextInput
+                            style={{
+                              color: Theme.colors.text,
+                              fontSize: 15,
+                              padding: 0,
+                              margin: 0,
+                              minWidth: 36,
+                              backgroundColor: "transparent",
+                              borderWidth: 0,
+                              textAlign: "right",
+                            }}
+                            keyboardType="numeric"
+                            value={receivedAmount ? String(receivedAmount) : ""}
+                            onChangeText={(v) =>
+                              setReceivedAmount(
+                                Number(v.replace(/[^\d.]/g, ""))
+                              )
+                            }
+                            placeholder=" Received"
+                            placeholderTextColor={Theme.colors.textMuted}
+                            underlineColorAndroid="transparent"
+                          />
+                        </View>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </React.Fragment>
               ))}
             </View>
           </View>
@@ -2098,7 +2211,8 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.success + "20",
   },
   paymentStatusPartial: {
-    backgroundColor: colors.secondary + "20",
+    backgroundColor: "#FFF3E0", // light orange background
+    borderColor: "#FF9800", // orange border
   },
   paymentStatusUnpaid: {
     backgroundColor: AppColors.error + "20",

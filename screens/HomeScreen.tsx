@@ -84,21 +84,31 @@ export default function HomeScreen() {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  // Total sales this month
+  // Total sales this month (money received only)
   const salesThisMonth = sales.filter(
     (s) => s.saleDate && new Date(s.saleDate) >= monthStart
   );
   const totalSalesAmount = salesThisMonth.reduce(
-    (sum, s) => sum + (s.totalAmount || 0),
+    (sum, s) =>
+      sum +
+      (s.paymentStatus === "Paid"
+        ? s.totalAmount || 0
+        : s.paymentStatus === "Partial"
+        ? s.receivedAmount || 0
+        : 0),
     0
   );
 
-  // Pending payment (unpaid or partial sales)
+  // Pending payment (money not received)
   const pendingSales = sales.filter(
     (s) => s.paymentStatus === "Unpaid" || s.paymentStatus === "Partial"
   );
   const pendingAmount = pendingSales.reduce(
-    (sum, s) => sum + (s.totalAmount || 0),
+    (sum, s) =>
+      sum +
+      (s.paymentStatus === "Unpaid"
+        ? s.totalAmount || 0
+        : (s.totalAmount || 0) - (s.receivedAmount || 0)),
     0
   );
 

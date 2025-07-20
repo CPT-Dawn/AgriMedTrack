@@ -896,6 +896,7 @@ export const addSale = async (
           ? convertDateToTimestamp(new Date(saleData.saleDate))
           : convertDateToTimestamp(saleData.saleDate as Date),
       totalAmount: saleData.totalAmount || 0,
+      receivedAmount: saleData.receivedAmount || 0,
       createdAt: serverTimestamp(),
     };
 
@@ -1037,6 +1038,7 @@ export const updateSale = async (
           ? convertDateToTimestamp(new Date(saleData.saleDate))
           : convertDateToTimestamp(saleData.saleDate as Date),
       totalAmount: saleData.totalAmount || 0,
+      receivedAmount: saleData.receivedAmount || 0,
       updatedAt: serverTimestamp(),
       updatedBy: userId,
       updatedByName: userName,
@@ -1200,6 +1202,7 @@ export const getSales = async (): Promise<Sale[]> => {
           paymentStatus: data.paymentStatus || "Paid",
           saleDate: convertTimestampToDate(data.saleDate),
           totalAmount: data.totalAmount || 0,
+          receivedAmount: data.receivedAmount || 0,
           discount: data.discount || 0,
           tax: data.tax || 0,
           createdAt: convertTimestampToDate(data.createdAt),

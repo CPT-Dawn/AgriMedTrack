@@ -125,6 +125,7 @@ export interface Sale {
   saleDate: string | Date;
   items: SaleItem[];
   totalAmount: number;
+  receivedAmount?: number; // Amount received for partial payments
   discount?: number;
   tax?: number;
   createdAt?: Date;
