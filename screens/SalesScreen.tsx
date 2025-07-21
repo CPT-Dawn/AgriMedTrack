@@ -8,8 +8,8 @@ import {
   BackHandler,
   FlatList,
   LayoutAnimation,
+  Modal,
   Platform,
-  RefreshControl,
   StatusBar,
   StyleSheet,
   Text,
@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   UIManager,
   View,
+  RefreshControl,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import SaleItemInput from "../components/SaleItemInput";
@@ -74,6 +75,155 @@ type SaleEntry = Sale;
 // Update currentView type
 type ViewType = "sales" | "add";
 
+// --- StockScreen-style Success Modal ---
+const SuccessModal = ({ visible, message, onDismiss }: { visible: boolean; message: string; onDismiss: () => void }) => {
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onDismiss}
+    >
+      <View style={salesModalStyles.overlay}>
+        <View style={salesModalStyles.modalBox}>
+          <View style={[salesModalStyles.iconCircle, { backgroundColor: Theme.colors.success + "15" }] }>
+            <MaterialIcons name="check-circle" size={32} color={Theme.colors.success} />
+          </View>
+          <Text style={salesModalStyles.title}>Success!</Text>
+          <Text style={salesModalStyles.subtitle}>{message}</Text>
+          <TouchableOpacity
+            style={salesModalStyles.primaryButton}
+            onPress={onDismiss}
+            accessibilityLabel="Close success modal"
+          >
+            <Text style={salesModalStyles.primaryButtonText}>OK</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+// --- StockScreen-style Confirm Delete Modal ---
+const ConfirmDeleteModal = ({ visible, onConfirm, onCancel }: { visible: boolean; onConfirm: () => void; onCancel: () => void }) => {
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onCancel}
+    >
+      <View style={salesModalStyles.overlay}>
+        <View style={salesModalStyles.modalBox}>
+          <View style={[salesModalStyles.iconCircle, { backgroundColor: Theme.colors.error + "15" }] }>
+            <MaterialIcons name="delete" size={32} color={Theme.colors.error} />
+          </View>
+          <Text style={salesModalStyles.title}>Delete Sale?</Text>
+          <Text style={salesModalStyles.subtitle}>Are you sure you want to delete this sale? This action cannot be undone.</Text>
+          <View style={salesModalStyles.buttonRow}>
+            <TouchableOpacity
+              style={salesModalStyles.cancelButton}
+              onPress={onCancel}
+              accessibilityLabel="Cancel delete sale"
+            >
+              <Text style={salesModalStyles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={salesModalStyles.deleteButton}
+              onPress={onConfirm}
+              accessibilityLabel="Confirm delete sale"
+            >
+              <Text style={salesModalStyles.deleteButtonText}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const salesModalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalBox: {
+    backgroundColor: Theme.colors.white,
+    borderRadius: 20,
+    padding: 28,
+    width: "85%",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  iconCircle: {
+    borderRadius: 32,
+    padding: 12,
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: Theme.colors.text,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: Theme.colors.textMuted,
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  buttonRow: {
+    flexDirection: "row",
+    width: "100%",
+    justifyContent: "space-between",
+    gap: 14,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  cancelButtonText: {
+    color: Theme.colors.text,
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  deleteButton: {
+    flex: 1,
+    backgroundColor: Theme.colors.error,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  deleteButtonText: {
+    color: Theme.colors.white,
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  primaryButton: {
+    backgroundColor: Theme.colors.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    alignItems: "center",
+    minWidth: 100,
+  },
+  primaryButtonText: {
+    color: Theme.colors.white,
+    fontWeight: "600",
+    fontSize: 16,
+  },
+});
+
 export default function SalesScreen() {
   const { currentUser } = useUser();
   const {
@@ -104,6 +254,12 @@ export default function SalesScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [pendingDeleteSale, setPendingDeleteSale] = useState<SaleEntry | null>(
+    null
+  );
 
   // Refresh stock data when screen comes into focus
   useFocusEffect(
@@ -336,34 +492,25 @@ export default function SalesScreen() {
 
   // Handle delete sale
   const handleDelete = (sale: SaleEntry) => {
-    Alert.alert(
-      "Delete Sale",
-      "Are you sure you want to delete this sale? This action cannot be undone.",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setLoadingSales(true);
-              await deleteSale(sale.id || "");
-              // Refresh sales data after deletion
-              await loadSalesData();
-              Alert.alert("Success", "Sale deleted successfully");
-            } catch (error) {
-              console.error("Error deleting sale:", error);
-              Alert.alert("Error", "Failed to delete sale");
-            } finally {
-              setLoadingSales(false);
-            }
-          },
-        },
-      ]
-    );
+    setPendingDeleteSale(sale);
+    setShowDeleteConfirm(true);
+  };
+  const confirmDeleteSale = async () => {
+    if (!pendingDeleteSale) return;
+    try {
+      setLoadingSales(true);
+      await deleteSale(pendingDeleteSale.id || "");
+      await loadSalesData();
+      setSuccessMessage("Sale deleted successfully");
+      setShowSuccess(true);
+    } catch (error) {
+      console.error("Error deleting sale:", error);
+      Alert.alert("Error", "Failed to delete sale");
+    } finally {
+      setLoadingSales(false);
+      setShowDeleteConfirm(false);
+      setPendingDeleteSale(null);
+    }
   };
 
   // Render sale card with minimalist design matching StockCard
@@ -881,10 +1028,11 @@ export default function SalesScreen() {
         // This will trigger a re-render of the stock items with updated quantities
         refreshStock();
 
-        Alert.alert(
-          "Success",
+        // Show modern success modal
+        setSuccessMessage(
           `Sale ${editSale ? "updated" : "recorded"} successfully`
         );
+        setShowSuccess(true);
       } catch (error) {
         console.error("Error saving sale:", error);
         Alert.alert(
@@ -1507,6 +1655,19 @@ export default function SalesScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
+      <SuccessModal
+        visible={showSuccess}
+        message={successMessage}
+        onDismiss={() => setShowSuccess(false)}
+      />
+      <ConfirmDeleteModal
+        visible={showDeleteConfirm}
+        onConfirm={confirmDeleteSale}
+        onCancel={() => {
+          setShowDeleteConfirm(false);
+          setPendingDeleteSale(null);
+        }}
+      />
       {currentView === "add" ? (
         renderAddSale()
       ) : (
