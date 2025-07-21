@@ -171,9 +171,9 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
             sellPrice: "",
           },
         ]);
-        Alert.alert("Success", "Stock entry added successfully");
+        // Success modal is now handled by parent (StockScreen)
       } else {
-        Alert.alert("Success", "Stock entry updated successfully");
+        // Success modal is now handled by parent (StockScreen)
       }
     } catch {
       Alert.alert("Error", "Failed to add stock entry");

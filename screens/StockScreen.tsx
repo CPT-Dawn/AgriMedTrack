@@ -7,6 +7,7 @@ import {
   Animated,
   BackHandler,
   FlatList,
+  Modal,
   Platform,
   RefreshControl,
   StatusBar,
@@ -73,6 +74,13 @@ export default function StockScreen() {
     "stock"
   );
   // const [editBatch, setEditBatch] = useState<StockBatch | null>(null);
+
+  // --- Delete Batch Modal State ---
+  const [deleteBatchId, setDeleteBatchId] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // --- Success Modal State ---
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Handle pull-to-refresh
   const onRefresh = useCallback(async () => {
@@ -176,6 +184,7 @@ export default function StockScreen() {
       clearError();
       await addStockEntry(formData, currentUser?.id || "unknown-user");
       setCurrentView("stock"); // Return to stock view after adding
+      setShowSuccessModal(true); // Show success modal
       // setEditBatch(null); // Clear edit state
       return Promise.resolve();
     } catch (err) {
@@ -207,20 +216,26 @@ export default function StockScreen() {
 
   // Handle delete batch
   const handleDeleteBatch = (batchId: string) => {
-    Alert.alert("Delete Batch", "Are you sure you want to delete this batch?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await deleteStockBatch(batchId);
-          } catch {
-            Alert.alert("Error", "Failed to delete batch");
-          }
-        },
-      },
-    ]);
+    setDeleteBatchId(batchId);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteBatch = async () => {
+    if (!deleteBatchId) return;
+    try {
+      await deleteStockBatch(deleteBatchId);
+      setShowDeleteModal(false);
+      setDeleteBatchId(null);
+    } catch {
+      setShowDeleteModal(false);
+      setDeleteBatchId(null);
+      Alert.alert("Error", "Failed to delete batch");
+    }
+  };
+
+  const cancelDeleteBatch = () => {
+    setShowDeleteModal(false);
+    setDeleteBatchId(null);
   };
 
   // Load more logs
@@ -368,6 +383,8 @@ export default function StockScreen() {
     }
   };
 
+  const closeSuccessModal = () => setShowSuccessModal(false);
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -483,6 +500,214 @@ export default function StockScreen() {
         </View>
       )}
       {renderContent()}
+
+      {/* Delete Batch Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={cancelDeleteBatch}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.35)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: Theme.colors.white,
+              borderRadius: 20,
+              padding: 28,
+              width: "85%",
+              alignItems: "center",
+              shadowColor: "#000",
+              shadowOpacity: 0.12,
+              shadowRadius: 16,
+              elevation: 8,
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: Theme.colors.error + "15",
+                borderRadius: 32,
+                padding: 12,
+                marginBottom: 12,
+              }}
+            >
+              <MaterialIcons
+                name="delete"
+                size={32}
+                color={Theme.colors.error}
+              />
+            </View>
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: "700",
+                color: Theme.colors.text,
+                marginBottom: 8,
+              }}
+            >
+              Delete Batch?
+            </Text>
+            <Text
+              style={{
+                fontSize: 15,
+                color: Theme.colors.textMuted,
+                textAlign: "center",
+                marginBottom: 24,
+              }}
+            >
+              Are you sure you want to delete this batch? This action cannot be
+              undone.
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                width: "100%",
+                justifyContent: "space-between",
+                gap: 14,
+              }}
+            >
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: Theme.colors.surface,
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  alignItems: "center",
+                  borderWidth: 1,
+                  borderColor: Theme.colors.border,
+                }}
+                onPress={cancelDeleteBatch}
+                accessibilityLabel="Cancel delete batch"
+              >
+                <Text
+                  style={{
+                    color: Theme.colors.text,
+                    fontWeight: "600",
+                    fontSize: 16,
+                  }}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: Theme.colors.error,
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  alignItems: "center",
+                }}
+                onPress={confirmDeleteBatch}
+                accessibilityLabel="Confirm delete batch"
+              >
+                <Text
+                  style={{
+                    color: Theme.colors.white,
+                    fontWeight: "600",
+                    fontSize: 16,
+                  }}
+                >
+                  Delete
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        transparent
+        animationType="fade"
+        onRequestClose={closeSuccessModal}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.35)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: Theme.colors.white,
+              borderRadius: 20,
+              padding: 28,
+              width: "85%",
+              alignItems: "center",
+              shadowColor: "#000",
+              shadowOpacity: 0.12,
+              shadowRadius: 16,
+              elevation: 8,
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: Theme.colors.success + "15",
+                borderRadius: 32,
+                padding: 12,
+                marginBottom: 12,
+              }}
+            >
+              <MaterialIcons
+                name="check-circle"
+                size={32}
+                color={Theme.colors.success}
+              />
+            </View>
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: "700",
+                color: Theme.colors.text,
+                marginBottom: 8,
+              }}
+            >
+              Stock Added!
+            </Text>
+            <Text
+              style={{
+                fontSize: 15,
+                color: Theme.colors.textMuted,
+                textAlign: "center",
+                marginBottom: 24,
+              }}
+            >
+              Stock was added successfully to your inventory.
+            </Text>
+            <TouchableOpacity
+              style={{
+                backgroundColor: Theme.colors.primary,
+                borderRadius: 12,
+                paddingVertical: 12,
+                paddingHorizontal: 32,
+                alignItems: "center",
+                minWidth: 100,
+              }}
+              onPress={closeSuccessModal}
+              accessibilityLabel="Close success modal"
+            >
+              <Text
+                style={{
+                  color: Theme.colors.white,
+                  fontWeight: "600",
+                  fontSize: 16,
+                }}
+              >
+                OK
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
