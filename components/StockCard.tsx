@@ -64,15 +64,23 @@ const StockCardComponent: React.FC<StockCardProps> = ({
         company: supplierGroup.supplier.name,
         packaging: sizeGroup.size.label,
         sellPrice: stockEntry?.sellPrice ?? "",
-        quantity: sizeGroup.quantity,
+        quantity:
+          typeof sizeGroup.quantity === "string"
+            ? parseFloat(sizeGroup.quantity) || 0
+            : sizeGroup.quantity,
       });
 
-      totalQuantity += sizeGroup.quantity;
+      const qty =
+        typeof sizeGroup.quantity === "string"
+          ? parseFloat(sizeGroup.quantity) || 0
+          : sizeGroup.quantity;
+      totalQuantity += qty;
       // Extract unit from packaging label if not already set
       if (!unit) {
-        const match = sizeGroup.size.label.match(/^[\d.]+\s*([a-zA-Z]+)$/);
-        if (match) {
-          unit = match[1];
+        // Try to extract unit from packaging label (e.g., '50 KG', '1 L', '500ml')
+        const match = sizeGroup.size.label.match(/[a-zA-Z]+/g);
+        if (match && match.length > 0) {
+          unit = match[match.length - 1];
         }
       }
     });
