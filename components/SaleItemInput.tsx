@@ -43,7 +43,12 @@ export interface SaleItemInputProps {
     inStock: boolean;
     suppliers?: { id: string; name: string }[];
     availableQuantity?: number;
-    packagingOptions?: { packaging: string; price: number; quantity: number }[];
+    packagingOptions?: {
+      id: string;
+      packaging: string;
+      price: number;
+      quantity: number;
+    }[];
   }[];
   onUpdate: (updates: Partial<SaleItemInputProps["item"]>) => void;
   onRemove: () => void;
@@ -75,7 +80,6 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
   const [availableSizes, setAvailableSizes] = useState<
     { id: string; label: string }[]
   >([]);
-  const [availableQuantity, setAvailableQuantity] = useState<number>(0);
   const [exceedsStock, setExceedsStock] = useState<boolean>(false);
 
   useEffect(() => {
@@ -118,7 +122,6 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
           .filter((p) => !!(p as any).id)
           .map((p) => ({ id: (p as any).id, label: (p as any).packaging }));
         setAvailableSizes(optionsWithId);
-        setAvailableQuantity(selectedStockItem.availableQuantity || 0);
       }
     }
   }, [item.productId, item.supplierId, item.packaging, stockItems]);
@@ -141,10 +144,6 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
           .map((p) => ({ id: (p as any).id, label: (p as any).packaging }))
       );
 
-      // Set available quantity
-      const quantity = selectedStockItem.availableQuantity || 0;
-      setAvailableQuantity(quantity);
-
       // Do NOT set default packaging or price here
       onUpdate({
         productId: option.id,
@@ -156,7 +155,10 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
       setNoStockMessage("");
 
       // Check if current quantity exceeds stock
-      checkQuantityExceedsStock(item.quantity, quantity);
+      checkQuantityExceedsStock(
+        item.quantity,
+        selectedStockItem.availableQuantity || 0
+      );
     }
   };
 

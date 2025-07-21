@@ -40,7 +40,7 @@ export default function RootLayout() {
   // Force refresh user data on mount
   useEffect(() => {
     loadUserData();
-  }, []);
+  }, [loadUserData]);
 
   // Add debugging
   console.log("RootLayout state:", {

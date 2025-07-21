@@ -86,25 +86,6 @@ const StockCardComponent: React.FC<StockCardProps> = ({
     });
   });
 
-  function formatTotalQuantity(quantity: number, unit: string) {
-    if (unit === "ml" && quantity >= 1000)
-      return `${(quantity / 1000).toFixed(2)} L`;
-    if (unit === "g" && quantity >= 1000)
-      return `${(quantity / 1000).toFixed(2)} kg`;
-    if (unit === "mg" && quantity >= 1000)
-      return `${(quantity / 1000).toFixed(2)} g`;
-    if (unit === "kg" || unit === "L" || unit === "gm")
-      return `${quantity} ${unit}`;
-    return `${quantity} ${unit}`;
-  }
-
-  // Determine stock health status
-  const getStockHealthColor = () => {
-    if (total <= 5) return Theme.colors.error;
-    if (total <= 15) return Theme.colors.warning;
-    return Theme.colors.success;
-  };
-
   // Wiggle animation
   const wiggleAnim = useRef(new Animated.Value(0)).current;
 
