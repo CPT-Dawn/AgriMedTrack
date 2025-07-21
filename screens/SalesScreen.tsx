@@ -6,7 +6,6 @@ import {
   Alert,
   Animated,
   BackHandler,
-  Dimensions,
   FlatList,
   LayoutAnimation,
   Platform,
@@ -20,7 +19,6 @@ import {
   View,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SaleItemInput from "../components/SaleItemInput";
 import { AppColors } from "../constants/Colors";
 import { Theme } from "../constants/Theme";
@@ -33,12 +31,6 @@ import {
   updateSale,
 } from "../services/stockService";
 import { Sale, SaleItem } from "../types/stock";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const HEADER_HORIZONTAL = Math.max(
-  Theme.spacing.lg,
-  Math.round(SCREEN_WIDTH * 0.045)
-);
 
 // Local color reference for backward compatibility
 const colors = {
@@ -83,7 +75,6 @@ type SaleEntry = Sale;
 type ViewType = "sales" | "add";
 
 export default function SalesScreen() {
-  const insets = useSafeAreaInsets();
   const { currentUser } = useUser();
   const {
     stockItems,
@@ -98,7 +89,6 @@ export default function SalesScreen() {
   const [paymentStatus, setPaymentStatus] = useState<
     "Paid" | "Unpaid" | "Partial"
   >("Paid");
-  const [notes, setNotes] = useState("");
   const [receivedAmount, setReceivedAmount] = useState(0);
 
   const [submitting, setSubmitting] = useState(false);
@@ -145,37 +135,10 @@ export default function SalesScreen() {
     setSaleItems([]);
     setBuyer("");
     setPaymentStatus("Paid");
-    setNotes("");
     setErrors({});
     setEditSale(null); // Clear edit state
     setReceivedAmount(0);
   }, []);
-
-  // Format sale date for display with time within 24 hours, date for older entries
-  const formatSaleDate = (date: Date) => {
-    const now = new Date();
-    const diffInHours = Math.floor(
-      (now.getTime() - date.getTime()) / (1000 * 60 * 60)
-    );
-
-    if (diffInHours < 1) {
-      return "Just now";
-    } else if (diffInHours < 24) {
-      // Show time for entries within 24 hours
-      return date.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      });
-    } else {
-      // Show date for entries older than 24 hours
-      return date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
-    }
-  };
 
   // Load sales data from Firebase
   const loadSalesData = async () => {
@@ -259,7 +222,6 @@ export default function SalesScreen() {
       setSaleItems([]);
       setBuyer("");
       setPaymentStatus("Paid");
-      setNotes("");
       setErrors({});
       setEditSale(null); // Clear edit state for new sale
       setSaleDate(new Date());
@@ -282,7 +244,6 @@ export default function SalesScreen() {
       ]);
       setBuyer("");
       setPaymentStatus("Paid");
-      setNotes("");
       setErrors({});
       setSaleDate(new Date());
       setSaleTime(new Date());
@@ -407,15 +368,8 @@ export default function SalesScreen() {
 
   // Render sale card with minimalist design matching StockCard
   const renderSaleCard = ({ item }: { item: SaleEntry }) => {
-    const saleDate = new Date(item.saleDate);
     const expanded = expandedSaleId === item.id;
     const scale = getCardScale(item.id || "");
-
-    // Calculate total items for this sale
-    const totalItems = item.items.reduce(
-      (sum, saleItem) => sum + parseInt(saleItem.quantity),
-      0
-    );
 
     return (
       <Animated.View
@@ -638,47 +592,47 @@ export default function SalesScreen() {
 
   // Add a new view: 'edit'
   // In the main renderContent function:
-  const renderContent = () => {
-    switch (currentView) {
-      case "add":
-        return renderAddSale();
-      default:
-        return (
-          <FlatList
-            data={filteredSaleEntries}
-            renderItem={renderSaleCard}
-            keyExtractor={(item) => item.id || Date.now().toString()}
-            contentContainerStyle={styles.listContainer}
-            showsVerticalScrollIndicator={false}
-            initialNumToRender={6}
-            maxToRenderPerBatch={10}
-            windowSize={10}
-            removeClippedSubviews={Platform.OS === "android"}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={handleReload}
-                colors={[Theme.colors.primary]}
-                tintColor={Theme.colors.primary}
-              />
-            }
-            ListEmptyComponent={() => (
-              <View style={styles.emptyState}>
-                <MaterialIcons
-                  name="receipt"
-                  size={48}
-                  color={colors.gray[300]}
-                />
-                <Text style={styles.emptyStateText}>No sales found</Text>
-                <Text style={styles.emptyStateSubtext}>
-                  Try a different search or tap the + button to add a sale
-                </Text>
-              </View>
-            )}
-          />
-        );
-    }
-  };
+  // const renderContent = () => {
+  //   switch (currentView) {
+  //     case "add":
+  //       return renderAddSale();
+  //     default:
+  //       return (
+  //         <FlatList
+  //           data={filteredSaleEntries}
+  //           renderItem={renderSaleCard}
+  //           keyExtractor={(item) => item.id || Date.now().toString()}
+  //           contentContainerStyle={styles.listContainer}
+  //           showsVerticalScrollIndicator={false}
+  //           initialNumToRender={6}
+  //           maxToRenderPerBatch={10}
+  //           windowSize={10}
+  //           removeClippedSubviews={Platform.OS === "android"}
+  //           refreshControl={
+  //             <RefreshControl
+  //               refreshing={refreshing}
+  //               onRefresh={handleReload}
+  //               colors={[Theme.colors.primary]}
+  //               tintColor={Theme.colors.primary}
+  //             />
+  //           }
+  //           ListEmptyComponent={() => (
+  //             <View style={styles.emptyState}>
+  //               <MaterialIcons
+  //                 name="receipt"
+  //                 size={48}
+  //                 color={colors.gray[300]}
+  //               />
+  //               <Text style={styles.emptyStateText}>No sales found</Text>
+  //               <Text style={styles.emptyStateSubtext}>
+  //                 Try a different search or tap the + button to add a sale
+  //               </Text>
+  //             </View>
+  //           )}
+  //         />
+  //       );
+  //   }
+  // };
 
   // Implement renderSaleForm for both add and edit
   // Old SaleForm component removed - now using renderAddSale() with proper Firebase integration
@@ -712,6 +666,7 @@ export default function SalesScreen() {
     const availableStockItems = stockItems.map((item) => {
       // Get all available packaging options for this product
       const packagingOptions: {
+        id: string; // <-- add unique id
         packaging: string;
         price: number;
         quantity: number;
@@ -727,7 +682,11 @@ export default function SalesScreen() {
               e.packagingId === sizeGroup.size.id
           );
 
+          // Use supplierId + packagingId for unique id
+          const uniqueId = `${supplierGroup.supplier.id}_${sizeGroup.size.id}`;
+
           packagingOptions.push({
+            id: uniqueId, // <-- unique id
             packaging: sizeGroup.size.label,
             price: stockEntry?.sellPrice || 0,
             quantity: sizeGroup.quantity,
@@ -892,7 +851,7 @@ export default function SalesScreen() {
         setBuyer(currentUser?.name || "");
         setSaleDate(new Date());
         setPaymentStatus("Paid");
-        setNotes("");
+        setErrors({});
         setSaleItems([]);
         setShowConfirm(false);
         setSubmitting(false);

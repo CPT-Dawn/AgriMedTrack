@@ -15,7 +15,7 @@ export interface Supplier {
 
 export interface PackagingSize {
   id: string;
-  label: string; // This is now the packaging string (e.g., "10 ml bottle")
+  label: string; 
   createdAt?: Date;
 }
 

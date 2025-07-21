@@ -24,8 +24,6 @@ export default function HomeScreen() {
   const [greeting, setGreeting] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const {
-    products,
-    stockEntries,
     activities,
     loading: stockLoading,
     refreshData: refreshStock,

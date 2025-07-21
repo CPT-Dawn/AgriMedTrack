@@ -102,7 +102,7 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
         // Set available packaging options
         const packagingOptions = selectedStockItem.packagingOptions || [];
         setAvailableSizes(
-          packagingOptions.map((p) => ({ id: p.packaging, label: p.packaging }))
+          packagingOptions.map((p) => ({ id: p.id, label: p.packaging })) // use unique id
         );
         // Set available quantity
         setAvailableQuantity(selectedStockItem.availableQuantity || 0);
@@ -168,7 +168,7 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
     if (selectedStockItem && selectedStockItem.packagingOptions) {
       // Find the selected packaging option to get its price
       const selectedPackaging = selectedStockItem.packagingOptions.find(
-        (p) => p.packaging === option.label
+        (p) => p.id === option.id // match by unique id
       );
 
       const newPrice = selectedPackaging ? selectedPackaging.price : 0;

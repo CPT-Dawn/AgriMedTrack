@@ -76,7 +76,7 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
         useNativeDriver: true,
       }),
     ]).start();
-  }, [recentActivities]);
+  }, [recentActivities, fadeAnim, slideAnim]);
 
   if (recentActivities.length === 0) {
     return (
@@ -142,8 +142,7 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
             {activity.updatedByName || activity.updatedBy || "Unknown User"}
           </Text>
           <Text style={styles.activityDescription}>
-            Added {activity.quantity} {activity.sizeName} from{" "}
-            {activity.supplierName}
+            Added {activity.sizeName} from {activity.supplierName}
           </Text>
           <Text style={styles.activityTime}>
             {getTimeAgo(activity.timestamp)}
@@ -171,10 +170,10 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
         </View>
         <View style={styles.activityContent}>
           <Text style={styles.activityTitle}>
-            {sale.buyer || "Anonymous Customer"}
+            {sale.addedByName || sale.addedBy}
           </Text>
           <Text style={styles.activityDescription}>
-            Sold {saleItem.quantity} {saleItem.packaging} at ₹
+            Sold {saleItem.packaging} of {saleItem.supplierName} at ₹
             {saleItem.unitPrice}
           </Text>
           <Text style={styles.activityTime}>
@@ -183,6 +182,8 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
                 ? sale.createdAt
                 : new Date(sale.createdAt || new Date())
             )}
+            {" \u2022 "}
+            {sale.buyer || "Unkown"}
           </Text>
         </View>
         <View style={styles.activityAmount}>
