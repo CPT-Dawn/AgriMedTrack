@@ -47,7 +47,7 @@ const StockCardComponent: React.FC<StockCardProps> = ({
 }) => {
   // Gather all supplier/packaging/price/quantity rows for this product
   const rows: any[] = [];
-  let totalQuantity = 0;
+  let total = 0;
   let unit = "";
 
   item.suppliers.forEach((supplierGroup) => {
@@ -60,29 +60,29 @@ const StockCardComponent: React.FC<StockCardProps> = ({
           e.packagingId === sizeGroup.size.id
       );
 
-      rows.push({
-        company: supplierGroup.supplier.name,
-        packaging: sizeGroup.size.label,
-        sellPrice: stockEntry?.sellPrice ?? "",
-        quantity:
-          typeof sizeGroup.quantity === "string"
-            ? parseFloat(sizeGroup.quantity) || 0
-            : sizeGroup.quantity,
-      });
-
+      const pack = sizeGroup.size.pack || 1;
       const qty =
         typeof sizeGroup.quantity === "string"
           ? parseFloat(sizeGroup.quantity) || 0
           : sizeGroup.quantity;
-      totalQuantity += qty;
-      // Extract unit from packaging label if not already set
-      if (!unit) {
-        // Try to extract unit from packaging label (e.g., '50 KG', '1 L', '500ml')
-        const match = sizeGroup.size.label.match(/[a-zA-Z]+/g);
-        if (match && match.length > 0) {
-          unit = match[match.length - 1];
-        }
+      const rowTotal = pack * qty;
+      total += rowTotal;
+      if (!unit && sizeGroup.size.unit) {
+        unit = sizeGroup.size.unit;
       }
+
+      rows.push({
+        company: supplierGroup.supplier.name,
+        packaging:
+          sizeGroup.size.pack && sizeGroup.size.unit
+            ? `${sizeGroup.size.pack} ${sizeGroup.size.unit}`
+            : sizeGroup.size.label,
+        sellPrice: stockEntry?.sellPrice ?? "",
+        quantity: qty,
+        pack,
+        unit: sizeGroup.size.unit,
+        rowTotal,
+      });
     });
   });
 
@@ -100,8 +100,8 @@ const StockCardComponent: React.FC<StockCardProps> = ({
 
   // Determine stock health status
   const getStockHealthColor = () => {
-    if (totalQuantity <= 5) return Theme.colors.error;
-    if (totalQuantity <= 15) return Theme.colors.warning;
+    if (total <= 5) return Theme.colors.error;
+    if (total <= 15) return Theme.colors.warning;
     return Theme.colors.success;
   };
 
@@ -218,7 +218,7 @@ const StockCardComponent: React.FC<StockCardProps> = ({
           </View>
           <View style={styles.quantityContainer}>
             <Text style={styles.totalQty}>
-              {formatTotalQuantity(totalQuantity, unit)}
+              {total} {unit}
             </Text>
           </View>
         </View>

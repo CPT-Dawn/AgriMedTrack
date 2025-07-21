@@ -75,6 +75,8 @@ export function useStock() {
                 size: {
                   id: size.id,
                   label: size.label,
+                  pack: size.pack,
+                  unit: size.unit,
                 },
                 quantity: totalQuantity,
                 lastUpdated: lastEntry.updatedAt,

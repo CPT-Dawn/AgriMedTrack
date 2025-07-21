@@ -670,6 +670,8 @@ export default function SalesScreen() {
         packaging: string;
         price: number;
         quantity: number;
+        supplierId: string;
+        packagingId: string;
       }[] = [];
 
       item.suppliers.forEach((supplierGroup) => {
@@ -690,6 +692,8 @@ export default function SalesScreen() {
             packaging: sizeGroup.size.label,
             price: stockEntry?.sellPrice || 0,
             quantity: sizeGroup.quantity,
+            supplierId: supplierGroup.supplier.id,
+            packagingId: sizeGroup.size.id,
           });
         });
       });
@@ -700,7 +704,7 @@ export default function SalesScreen() {
       return {
         id: item.id,
         name: item.product.name,
-        packaging: firstPackaging ? firstPackaging.packaging : "",
+        packaging: "", // Do not pre-fill packaging
         price: firstPackaging ? firstPackaging.price : 0,
         inStock: item.totalQuantity > 0,
         availableQuantity: item.totalQuantity,
@@ -744,13 +748,25 @@ export default function SalesScreen() {
           const stockItem = availableStockItems.find(
             (stock) => stock.id === item.productId
           );
-          if (
-            stockItem &&
-            parseFloat(item.quantity) > stockItem.availableQuantity
-          ) {
+          let effectiveAvailable = stockItem ? stockItem.availableQuantity : 0;
+
+          // If editing, add back the original sale quantity for this item
+          if (editSale) {
+            const originalItem = editSale.items.find(
+              (orig) =>
+                orig.productId === item.productId &&
+                orig.packaging === item.packaging &&
+                orig.supplierId === item.supplierId
+            );
+            if (originalItem) {
+              effectiveAvailable += Number(originalItem.quantity) || 0;
+            }
+          }
+
+          if (parseFloat(item.quantity) > effectiveAvailable) {
             newErrors[
               `item${idx}Quantity`
-            ] = `Exceeds available stock (${stockItem.availableQuantity})`;
+            ] = `Exceeds available stock (${effectiveAvailable})`;
           }
         }
       });
@@ -1284,26 +1300,50 @@ export default function SalesScreen() {
                 <FlatList
                   data={saleItems}
                   keyExtractor={(item) => item.id}
-                  renderItem={({ item, index }) => (
-                    <SaleItemInput
-                      item={item}
-                      index={index}
-                      stockItems={availableStockItems}
-                      onUpdate={(updates) => handleUpdateItem(item.id, updates)}
-                      onRemove={() => handleRemoveItem(item.id)}
-                      errors={{
-                        product: errors[`item${index}Product`],
-                        quantity: errors[`item${index}Quantity`],
-                        price: errors[`item${index}Price`],
-                        supplier: errors[`item${index}Supplier`],
-                      }}
-                      initiallyExpanded={
-                        editSale
-                          ? true
-                          : index === 0 || index === saleItems.length - 1
-                      } // All items expanded when editing, otherwise first and last items
-                    />
-                  )}
+                  renderItem={({ item, index }) => {
+                    // Calculate effective available stock for this item
+                    const stockItem = availableStockItems.find(
+                      (stock) => stock.id === item.productId
+                    );
+                    let effectiveAvailable = stockItem
+                      ? stockItem.availableQuantity
+                      : 0;
+                    if (editSale) {
+                      const originalItem = editSale.items.find(
+                        (orig) =>
+                          orig.productId === item.productId &&
+                          orig.packaging === item.packaging &&
+                          orig.supplierId === item.supplierId
+                      );
+                      if (originalItem) {
+                        effectiveAvailable +=
+                          Number(originalItem.quantity) || 0;
+                      }
+                    }
+                    return (
+                      <SaleItemInput
+                        item={item}
+                        index={index}
+                        stockItems={availableStockItems}
+                        effectiveAvailableQuantity={effectiveAvailable}
+                        onUpdate={(updates) =>
+                          handleUpdateItem(item.id, updates)
+                        }
+                        onRemove={() => handleRemoveItem(item.id)}
+                        errors={{
+                          product: errors[`item${index}Product`],
+                          quantity: errors[`item${index}Quantity`],
+                          price: errors[`item${index}Price`],
+                          supplier: errors[`item${index}Supplier`],
+                        }}
+                        initiallyExpanded={
+                          editSale
+                            ? true
+                            : index === 0 || index === saleItems.length - 1
+                        }
+                      />
+                    );
+                  }}
                   scrollEnabled={false}
                   showsVerticalScrollIndicator={false}
                 />

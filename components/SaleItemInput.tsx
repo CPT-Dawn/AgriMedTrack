@@ -54,6 +54,7 @@ export interface SaleItemInputProps {
     supplier?: string;
   };
   initiallyExpanded?: boolean;
+  effectiveAvailableQuantity?: number;
 }
 
 const SaleItemInput: React.FC<SaleItemInputProps> = ({
@@ -64,6 +65,7 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
   onRemove,
   errors,
   initiallyExpanded = false,
+  effectiveAvailableQuantity = 0,
 }) => {
   const [noStockMessage, setNoStockMessage] = useState("");
   const [expanded, setExpanded] = useState(initiallyExpanded);
@@ -97,14 +99,25 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
         (stock) => stock.id === item.productId
       );
       if (selectedStockItem) {
-        // Set suppliers for this product
         setSuppliers(selectedStockItem.suppliers || []);
-        // Set available packaging options
-        const packagingOptions = selectedStockItem.packagingOptions || [];
-        setAvailableSizes(
-          packagingOptions.map((p) => ({ id: p.id, label: p.packaging })) // use unique id
-        );
-        // Set available quantity
+        // Cast packagingOptions to the correct type
+        let packagingOptions = (selectedStockItem.packagingOptions || []) as {
+          id: string;
+          packaging: string;
+          price: number;
+          quantity: number;
+          supplierId: string;
+          packagingId: string;
+        }[];
+        if (item.supplierId) {
+          packagingOptions = packagingOptions.filter(
+            (p) => p.supplierId === item.supplierId
+          );
+        }
+        const optionsWithId = (packagingOptions as any[])
+          .filter((p) => !!(p as any).id)
+          .map((p) => ({ id: (p as any).id, label: (p as any).packaging }));
+        setAvailableSizes(optionsWithId);
         setAvailableQuantity(selectedStockItem.availableQuantity || 0);
       }
     }
@@ -123,26 +136,22 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
       // Set available packaging options
       const packagingOptions = selectedStockItem.packagingOptions || [];
       setAvailableSizes(
-        packagingOptions.map((p) => ({ id: p.packaging, label: p.packaging }))
+        (packagingOptions as any[])
+          .filter((p) => !!(p as any).id)
+          .map((p) => ({ id: (p as any).id, label: (p as any).packaging }))
       );
 
       // Set available quantity
       const quantity = selectedStockItem.availableQuantity || 0;
       setAvailableQuantity(quantity);
 
-      // Set default packaging and price
-      const defaultPackaging = packagingOptions[0];
-      const defaultPackagingLabel = defaultPackaging
-        ? defaultPackaging.packaging
-        : "";
-      const defaultPrice = defaultPackaging ? defaultPackaging.price : 0;
-
+      // Do NOT set default packaging or price here
       onUpdate({
         productId: option.id,
         productName: option.label,
-        packaging: defaultPackagingLabel,
-        unitPrice: defaultPrice.toString(),
-        totalPrice: calcTotal(item.quantity, defaultPrice.toString()),
+        packaging: "", // Clear packaging
+        unitPrice: "",
+        totalPrice: calcTotal(item.quantity, ""),
       });
       setNoStockMessage("");
 
@@ -214,7 +223,7 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
   // Check if quantity exceeds available stock
   const checkQuantityExceedsStock = (
     quantity: string,
-    availableQty: number
+    availableQty: number = effectiveAvailableQuantity
   ) => {
     const qty = parseFloat(quantity) || 0;
     const exceeds = qty > availableQty;
@@ -225,7 +234,7 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
   // Quantity
   const handleQuantityChange = (quantity: string) => {
     // Check if quantity exceeds available stock
-    checkQuantityExceedsStock(quantity, availableQuantity);
+    checkQuantityExceedsStock(quantity, effectiveAvailableQuantity);
 
     onUpdate({
       quantity,
@@ -324,7 +333,7 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
                   color={colors.primary}
                 />
                 <Text style={styles.stockInfoText}>
-                  Available: {selectedStockItem.availableQuantity || 0} units
+                  Available: {effectiveAvailableQuantity} units
                 </Text>
               </View>
             )}

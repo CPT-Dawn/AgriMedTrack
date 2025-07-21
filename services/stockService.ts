@@ -161,8 +161,8 @@ export const getPackagingSizes = async (): Promise<PackagingSize[]> => {
       return {
         id: doc.id,
         label: data.label,
+        pack: data.pack,
         unit: data.unit,
-        value: data.value || "",
         createdAt: convertTimestampToDate(data.createdAt),
       };
     });
@@ -172,18 +172,36 @@ export const getPackagingSizes = async (): Promise<PackagingSize[]> => {
   }
 };
 
+// Helper to parse packaging string into pack and unit
+function parsePackagingLabel(label: string): {
+  pack: number | null;
+  unit: string | null;
+} {
+  // Example: "10 kg" => { pack: 10, unit: "kg" }
+  const match = label.match(/^(\d+(?:\.\d+)?)\s*(\w+)$/);
+  if (match) {
+    return { pack: parseFloat(match[1]), unit: match[2] };
+  }
+  return { pack: null, unit: null };
+}
+
 export const createPackagingSize = async (
   label: string
 ): Promise<PackagingSize> => {
   try {
+    const { pack, unit } = parsePackagingLabel(label);
     const newSize = {
       label,
+      pack,
+      unit,
       createdAt: serverTimestamp(),
     };
     const docRef = await addDoc(packagingSizesCollection, newSize);
     return {
       id: docRef.id,
       label,
+      pack: pack === null ? undefined : pack,
+      unit: unit === null ? undefined : unit,
       createdAt: new Date(),
     };
   } catch (error) {
@@ -437,6 +455,14 @@ export const updateStockBatch = async (
         updatedByAvatar: userAvatar || "",
         updatedAt: serverTimestamp(),
         createdAt: serverTimestamp(),
+        pack:
+          item.pack !== undefined
+            ? item.pack
+            : parsePackagingLabel(item.packaging).pack,
+        unit:
+          item.unit !== undefined
+            ? item.unit
+            : parsePackagingLabel(item.packaging).unit,
       };
       const stockEntryRef = await addDoc(
         stockEntriesCollection,
@@ -551,6 +577,14 @@ export const addStockEntryBatch = async (
         updatedByAvatar: userAvatar || "",
         updatedAt: serverTimestamp(),
         createdAt: serverTimestamp(),
+        pack:
+          item.pack !== undefined
+            ? item.pack
+            : parsePackagingLabel(item.packaging).pack,
+        unit:
+          item.unit !== undefined
+            ? item.unit
+            : parsePackagingLabel(item.packaging).unit,
       };
       const stockEntryRef = await addDoc(
         stockEntriesCollection,
@@ -586,9 +620,18 @@ export const restoreStockQuantity = async (
   productId: string,
   packagingLabel: string,
   quantityToRestore: number,
+  supplierId: string,
   userId: string = "system-sale-edit",
   userName: string = "System"
 ): Promise<void> => {
+  if (!supplierId) {
+    console.warn(
+      "[restoreStockQuantity] No supplierId provided. Skipping stock restore for product:",
+      productId,
+      packagingLabel
+    );
+    return;
+  }
   try {
     console.log(`🔄 restoreStockQuantity called with:`, {
       productId,
@@ -623,14 +666,10 @@ export const restoreStockQuantity = async (
     // Filter entries by packaging label
     const matchingEntries = entriesSnapshot.docs
       .map((doc) => ({ id: doc.id, ...doc.data() } as StockEntryWithFields))
-      .filter((entry) => {
-        // Match by packaging field (the unified packaging string)
-        const matches = entry.packaging === packagingLabel;
-        console.log(
-          `🔍 Entry ${entry.id}: packaging="${entry.packaging}" matches "${packagingLabel}" = ${matches}`
-        );
-        return matches;
-      });
+      .filter(
+        (entry) =>
+          entry.packaging === packagingLabel && entry.supplierId === supplierId
+      );
 
     console.log(
       `📦 Found ${matchingEntries.length} matching entries for packaging "${packagingLabel}"`
@@ -730,9 +769,18 @@ export const updateStockQuantity = async (
   productId: string,
   packagingLabel: string,
   quantitySold: number,
+  supplierId: string,
   userId: string = "system-sale",
   userName: string = "System"
 ): Promise<void> => {
+  if (!supplierId) {
+    console.warn(
+      "[updateStockQuantity] No supplierId provided. Skipping stock deduction for product:",
+      productId,
+      packagingLabel
+    );
+    return;
+  }
   try {
     console.log(`🔍 updateStockQuantity called with:`, {
       productId,
@@ -767,14 +815,10 @@ export const updateStockQuantity = async (
     // Filter entries by packaging label
     const matchingEntries = entriesSnapshot.docs
       .map((doc) => ({ id: doc.id, ...doc.data() } as StockEntryWithFields))
-      .filter((entry) => {
-        // Match by packaging field (the unified packaging string)
-        const matches = entry.packaging === packagingLabel;
-        console.log(
-          `🔍 Entry ${entry.id}: packaging="${entry.packaging}" matches "${packagingLabel}" = ${matches}`
-        );
-        return matches;
-      });
+      .filter(
+        (entry) =>
+          entry.packaging === packagingLabel && entry.supplierId === supplierId
+      );
 
     console.log(
       `📦 Found ${matchingEntries.length} matching entries for packaging "${packagingLabel}"`
@@ -947,6 +991,7 @@ export const addSale = async (
           item.productId,
           item.packaging,
           parseFloat(item.quantity) || 0,
+          item.supplierId || "",
           userId,
           userName
         );
@@ -1008,13 +1053,16 @@ export const updateSale = async (
     for (const existingItem of existingItems) {
       if (existingItem.productId) {
         const originalQuantity = Number(existingItem.quantity) || 0;
-        console.log(
-          `🔄 Restoring ${originalQuantity} units of ${existingItem.productName} (${existingItem.packaging})`
-        );
+        if (!existingItem.supplierId) {
+          throw new Error(
+            `[updateSale] Missing supplierId for original sale item: ${existingItem.productName}`
+          );
+        }
         await restoreStockQuantity(
           existingItem.productId,
           String(existingItem.packaging),
           originalQuantity,
+          existingItem.supplierId,
           userId,
           userName
         );
@@ -1063,13 +1111,16 @@ export const updateSale = async (
       // Now subtract the new quantities from stock
       if (item.productId) {
         const newQuantity = parseFloat(item.quantity) || 0;
-        console.log(
-          `🔄 Subtracting ${newQuantity} units of ${item.productName} (${item.packaging})`
-        );
+        if (!item.supplierId) {
+          throw new Error(
+            `[updateSale] Missing supplierId for new sale item: ${item.productName}`
+          );
+        }
         await updateStockQuantity(
           item.productId,
           item.packaging,
           newQuantity,
+          item.supplierId,
           userId,
           userName
         );
@@ -1099,13 +1150,16 @@ export const deleteSale = async (saleId: string): Promise<void> => {
       const itemData = itemDoc.data();
       if (itemData.productId) {
         const quantity = parseFloat(itemData.quantity) || 0;
-        console.log(
-          `🔄 Restoring ${quantity} units of ${itemData.productName} (${itemData.packaging})`
-        );
+        if (!itemData.supplierId) {
+          throw new Error(
+            `[deleteSale] Missing supplierId for deleted sale item: ${itemData.productName}`
+          );
+        }
         await restoreStockQuantity(
           itemData.productId,
           String(itemData.packaging),
           quantity,
+          itemData.supplierId,
           "system-sale-delete",
           "System"
         );

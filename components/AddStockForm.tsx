@@ -150,9 +150,25 @@ export const AddStockForm: React.FC<AddStockFormProps> = ({
         }
       }
 
+      // Add pack and unit fields to each item before submit
+      function parsePackagingLabel(label: string): {
+        pack: number | undefined;
+        unit: string | undefined;
+      } {
+        const match = label.match(/^(\d+(?:\.\d+)?)\s*(\w+)$/);
+        if (match) {
+          return { pack: parseFloat(match[1]), unit: match[2] };
+        }
+        return { pack: undefined, unit: undefined };
+      }
+      const itemsWithPackUnit = items.map((item) => {
+        const { pack, unit } = parsePackagingLabel(item.packaging);
+        return { ...item, pack, unit };
+      });
+
       const batchData: BatchEntryFormData = {
         addedBy: currentUser?.id || "unknown-user",
-        items,
+        items: itemsWithPackUnit,
       };
 
       await onSubmit(batchData);

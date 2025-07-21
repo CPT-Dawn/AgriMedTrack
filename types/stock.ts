@@ -15,7 +15,9 @@ export interface Supplier {
 
 export interface PackagingSize {
   id: string;
-  label: string; 
+  label: string;
+  pack?: number; // Number of units in the packaging (e.g., 10)
+  unit?: string; // Unit of the packaging (e.g., kg, g, ml)
   createdAt?: Date;
 }
 
@@ -25,6 +27,8 @@ export interface StockEntry {
   supplierId: string;
   packagingId: string;
   packaging: string;
+  pack?: number; // Number of units in the packaging
+  unit?: string; // Unit of the packaging
   quantity: number;
   buyPrice?: number;
   sellPrice?: number;
@@ -89,6 +93,8 @@ export interface StockEntryFormData {
   supplierName: string;
   packagingId: string; // formerly sizeId
   packaging: string; // formerly sizeLabel
+  pack?: number; // Number of units in the packaging
+  unit?: string; // Unit of the packaging
   quantity: string;
   buyPrice?: string;
   sellPrice?: string;
