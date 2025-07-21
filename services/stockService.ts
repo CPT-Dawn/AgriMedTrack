@@ -585,7 +585,9 @@ export const addStockEntryBatch = async (
 export const restoreStockQuantity = async (
   productId: string,
   packagingLabel: string,
-  quantityToRestore: number
+  quantityToRestore: number,
+  userId: string = "system-sale-edit",
+  userName: string = "System"
 ): Promise<void> => {
   try {
     console.log(`🔄 restoreStockQuantity called with:`, {
@@ -696,7 +698,8 @@ export const restoreStockQuantity = async (
         quantity: addition,
         buyPrice: entryData.buyPrice || null,
         sellPrice: entryData.sellPrice || null,
-        updatedBy: "system-sale-edit",
+        updatedBy: userId,
+        updatedByName: userName,
         timestamp: serverTimestamp(),
       };
 
@@ -726,7 +729,9 @@ export const restoreStockQuantity = async (
 export const updateStockQuantity = async (
   productId: string,
   packagingLabel: string,
-  quantitySold: number
+  quantitySold: number,
+  userId: string = "system-sale",
+  userName: string = "System"
 ): Promise<void> => {
   try {
     console.log(`🔍 updateStockQuantity called with:`, {
@@ -842,7 +847,8 @@ export const updateStockQuantity = async (
         quantity: deduction,
         buyPrice: entryData.buyPrice || null,
         sellPrice: entryData.sellPrice || null,
-        updatedBy: "system-sale",
+        updatedBy: userId || "system-sale",
+        updatedByName: userName || "System",
         timestamp: serverTimestamp(),
       };
 
@@ -932,24 +938,6 @@ export const addSale = async (
 
       await addDoc(itemsCollection, saleItemData);
 
-      // Create activity log for the sale
-      const activityData = {
-        action: "sold",
-        stockEntryId: "", // No direct reference to stock entry
-        productName: item.productName,
-        supplierName: item.supplierName || "",
-        sizeName: item.packaging,
-        quantity: parseFloat(item.quantity) || 0,
-        buyPrice: null,
-        sellPrice: parseFloat(item.unitPrice) || 0,
-        batchId: null,
-        updatedBy: userId,
-        updatedByName: userName,
-        timestamp: serverTimestamp(),
-      };
-
-      await addDoc(stockActivitiesCollection, activityData);
-
       // Update stock quantities
       if (item.productId) {
         console.log(
@@ -958,7 +946,9 @@ export const addSale = async (
         await updateStockQuantity(
           item.productId,
           item.packaging,
-          parseFloat(item.quantity) || 0
+          parseFloat(item.quantity) || 0,
+          userId,
+          userName
         );
       } else {
         console.warn(`⚠️ No productId for item: ${item.productName}`);
@@ -1024,7 +1014,9 @@ export const updateSale = async (
         await restoreStockQuantity(
           existingItem.productId,
           String(existingItem.packaging),
-          originalQuantity
+          originalQuantity,
+          userId,
+          userName
         );
       }
     }
@@ -1068,30 +1060,19 @@ export const updateSale = async (
 
       await addDoc(itemsCollection, saleItemData);
 
-      // Create activity log for the updated sale
-      const activityData = {
-        action: "updated_sale",
-        stockEntryId: "",
-        productName: item.productName,
-        supplierName: item.supplierName || "",
-        sizeName: item.packaging,
-        quantity: parseFloat(item.quantity) || 0,
-        buyPrice: null,
-        sellPrice: parseFloat(item.unitPrice) || 0,
-        batchId: null,
-        updatedBy: userId,
-        timestamp: serverTimestamp(),
-      };
-
-      await addDoc(stockActivitiesCollection, activityData);
-
       // Now subtract the new quantities from stock
       if (item.productId) {
         const newQuantity = parseFloat(item.quantity) || 0;
         console.log(
           `🔄 Subtracting ${newQuantity} units of ${item.productName} (${item.packaging})`
         );
-        await updateStockQuantity(item.productId, item.packaging, newQuantity);
+        await updateStockQuantity(
+          item.productId,
+          item.packaging,
+          newQuantity,
+          userId,
+          userName
+        );
       }
     }
 
@@ -1124,7 +1105,9 @@ export const deleteSale = async (saleId: string): Promise<void> => {
         await restoreStockQuantity(
           itemData.productId,
           String(itemData.packaging),
-          quantity
+          quantity,
+          "system-sale-delete",
+          "System"
         );
       }
     }
