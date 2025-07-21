@@ -3,6 +3,7 @@ import { useUser } from "@/hooks/useUser";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
+import LottieView from "lottie-react-native";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -293,7 +294,13 @@ export default function HomeScreen() {
           <View style={styles.activitiesList}>
             {isLoading ? (
               <View style={styles.loadingContainer}>
-                <Text style={styles.loadingText}>Loading recent sales...</Text>
+                <LottieView
+                  source={require("../assets/images/loading_blur.json")}
+                  autoPlay
+                  loop
+                  speed={0.5}
+                  style={{ width: 72, height: 72, opacity: 0.9 }}
+                />
               </View>
             ) : recentSales.length === 0 ? (
               <View style={styles.emptyState}>
@@ -366,7 +373,13 @@ export default function HomeScreen() {
           <View style={styles.activitiesList}>
             {isLoading ? (
               <View style={styles.loadingContainer}>
-                <Text style={styles.loadingText}>Loading stock entries...</Text>
+                <LottieView
+                  source={require("../assets/images/loading_blur.json")}
+                  autoPlay
+                  loop
+                  speed={0.5}
+                  style={{ width: 72, height: 72, opacity: 0.9 }}
+                />
               </View>
             ) : recentStockAdds.length === 0 ? (
               <View style={styles.emptyState}>
@@ -491,6 +504,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 20,
     marginBottom: 30,
+    // Add subtle shadow for section depth
+    ...Theme.shadows.sm,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -522,7 +537,9 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.surface,
     borderRadius: 12,
     padding: 16,
-    ...Theme.shadows.sm,
+    ...Theme.shadows.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.divider,
   },
   cardHeader: {
     flexDirection: "row",
@@ -543,6 +560,8 @@ const styles = StyleSheet.create({
   activitiesSection: {
     paddingHorizontal: 20,
     marginBottom: 30,
+    // Add subtle shadow for section depth
+    ...Theme.shadows.sm,
   },
   activitiesList: {
     gap: 12,
@@ -553,7 +572,9 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.surface,
     borderRadius: 12,
     padding: 16,
-    ...Theme.shadows.sm,
+    ...Theme.shadows.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.divider,
   },
   activityIcon: {
     width: 40,
@@ -621,6 +642,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: Theme.colors.surface,
     borderRadius: 12,
+    ...Theme.shadows.sm,
+    borderWidth: 1,
+    borderColor: Theme.colors.divider,
   },
   emptyStateText: {
     fontSize: 14,
@@ -630,7 +654,7 @@ const styles = StyleSheet.create({
   },
   logoutContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 50,
   },
   logoutButton: {
     flexDirection: "row",
