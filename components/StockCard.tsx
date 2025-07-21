@@ -1,4 +1,3 @@
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { memo, useEffect, useRef } from "react";
 import {
   Animated,
@@ -142,7 +141,7 @@ const StockCardComponent: React.FC<StockCardProps> = ({
       outputRange: [0, 500], // Use maxHeight instead of fixed height
     }),
     opacity: expandAnim,
-    overflow: "hidden",
+    overflow: "hidden" as const,
   };
 
   // Wiggle animation
@@ -221,13 +220,29 @@ const StockCardComponent: React.FC<StockCardProps> = ({
           <Text style={[styles.tableHeader, styles.companyHeader]}>
             Supplier
           </Text>
-          <Text style={[styles.tableHeader, styles.equalHeader]}>Pack</Text>
-          <Text style={[styles.tableHeader, styles.equalHeader]}>Sell</Text>
           <Text
             style={[
               styles.tableHeader,
               styles.equalHeader,
-              qtyRightAlign && styles.qtyHeaderRight,
+              styles.centerHeader,
+            ]}
+          >
+            Pack
+          </Text>
+          <Text
+            style={[
+              styles.tableHeader,
+              styles.equalHeader,
+              styles.centerHeader,
+            ]}
+          >
+            Sell
+          </Text>
+          <Text
+            style={[
+              styles.tableHeader,
+              styles.equalHeader,
+              styles.qtyHeaderRight,
             ]}
           >
             Qty
@@ -246,18 +261,18 @@ const StockCardComponent: React.FC<StockCardProps> = ({
             <Text style={[styles.tableCell, styles.companyCell]}>
               {row.company}
             </Text>
-            <Text style={[styles.tableCell, styles.equalCell]}>
+            <Text
+              style={[styles.tableCell, styles.equalCell, styles.centerCell]}
+            >
               {row.packaging}
             </Text>
-            <Text style={[styles.tableCell, styles.equalCell]}>
+            <Text
+              style={[styles.tableCell, styles.equalCell, styles.centerCell]}
+            >
               {row.sellPrice}
             </Text>
             <Text
-              style={[
-                styles.tableCell,
-                styles.equalCell,
-                qtyRightAlign && styles.qtyCellRight,
-              ]}
+              style={[styles.tableCell, styles.equalCell, styles.qtyCellRight]}
             >
               {row.quantity}
             </Text>
@@ -364,6 +379,14 @@ const styles = StyleSheet.create({
   },
   qtyHeaderRight: {
     textAlign: "center",
+  },
+  centerHeader: {
+    textAlign: "center",
+  },
+  centerCell: {
+    textAlign: "center",
+    justifyContent: "center",
+    alignItems: "center",
   },
   tableRow: {
     flexDirection: "row",
