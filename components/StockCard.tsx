@@ -86,6 +86,9 @@ const StockCardComponent: React.FC<StockCardProps> = ({
     });
   });
 
+  // Filter out rows with quantity 0
+  const visibleRows = rows.filter((row) => row.quantity > 0);
+
   // Wiggle animation
   const wiggleAnim = useRef(new Animated.Value(0)).current;
 
@@ -239,7 +242,7 @@ const StockCardComponent: React.FC<StockCardProps> = ({
         </View>
 
         {/* Table rows */}
-        {rows.map((row, idx) => (
+        {visibleRows.map((row, idx) => (
           <View
             key={idx}
             style={[
