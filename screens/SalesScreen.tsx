@@ -10,6 +10,7 @@ import {
   LayoutAnimation,
   Modal,
   Platform,
+  RefreshControl,
   StatusBar,
   StyleSheet,
   Text,
@@ -17,7 +18,6 @@ import {
   TouchableOpacity,
   UIManager,
   View,
-  RefreshControl,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import SaleItemInput from "../components/SaleItemInput";
@@ -76,7 +76,15 @@ type SaleEntry = Sale;
 type ViewType = "sales" | "add";
 
 // --- StockScreen-style Success Modal ---
-const SuccessModal = ({ visible, message, onDismiss }: { visible: boolean; message: string; onDismiss: () => void }) => {
+const SuccessModal = ({
+  visible,
+  message,
+  onDismiss,
+}: {
+  visible: boolean;
+  message: string;
+  onDismiss: () => void;
+}) => {
   return (
     <Modal
       visible={visible}
@@ -86,8 +94,17 @@ const SuccessModal = ({ visible, message, onDismiss }: { visible: boolean; messa
     >
       <View style={salesModalStyles.overlay}>
         <View style={salesModalStyles.modalBox}>
-          <View style={[salesModalStyles.iconCircle, { backgroundColor: Theme.colors.success + "15" }] }>
-            <MaterialIcons name="check-circle" size={32} color={Theme.colors.success} />
+          <View
+            style={[
+              salesModalStyles.iconCircle,
+              { backgroundColor: Theme.colors.success + "15" },
+            ]}
+          >
+            <MaterialIcons
+              name="check-circle"
+              size={32}
+              color={Theme.colors.success}
+            />
           </View>
           <Text style={salesModalStyles.title}>Success!</Text>
           <Text style={salesModalStyles.subtitle}>{message}</Text>
@@ -105,7 +122,15 @@ const SuccessModal = ({ visible, message, onDismiss }: { visible: boolean; messa
 };
 
 // --- StockScreen-style Confirm Delete Modal ---
-const ConfirmDeleteModal = ({ visible, onConfirm, onCancel }: { visible: boolean; onConfirm: () => void; onCancel: () => void }) => {
+const ConfirmDeleteModal = ({
+  visible,
+  onConfirm,
+  onCancel,
+}: {
+  visible: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) => {
   return (
     <Modal
       visible={visible}
@@ -115,11 +140,19 @@ const ConfirmDeleteModal = ({ visible, onConfirm, onCancel }: { visible: boolean
     >
       <View style={salesModalStyles.overlay}>
         <View style={salesModalStyles.modalBox}>
-          <View style={[salesModalStyles.iconCircle, { backgroundColor: Theme.colors.error + "15" }] }>
+          <View
+            style={[
+              salesModalStyles.iconCircle,
+              { backgroundColor: Theme.colors.error + "15" },
+            ]}
+          >
             <MaterialIcons name="delete" size={32} color={Theme.colors.error} />
           </View>
           <Text style={salesModalStyles.title}>Delete Sale?</Text>
-          <Text style={salesModalStyles.subtitle}>Are you sure you want to delete this sale? This action cannot be undone.</Text>
+          <Text style={salesModalStyles.subtitle}>
+            Are you sure you want to delete this sale? This action cannot be
+            undone.
+          </Text>
           <View style={salesModalStyles.buttonRow}>
             <TouchableOpacity
               style={salesModalStyles.cancelButton}
@@ -1488,6 +1521,21 @@ export default function SalesScreen() {
                           editSale
                             ? true
                             : index === 0 || index === saleItems.length - 1
+                        }
+                        originalQuantity={
+                          editSale
+                            ? (() => {
+                                const originalItem = editSale.items.find(
+                                  (orig) =>
+                                    orig.productId === item.productId &&
+                                    orig.packaging === item.packaging &&
+                                    orig.supplierId === item.supplierId
+                                );
+                                return originalItem
+                                  ? Number(originalItem.quantity) || 0
+                                  : 0;
+                              })()
+                            : 0
                         }
                       />
                     );

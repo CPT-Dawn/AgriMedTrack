@@ -60,6 +60,7 @@ export interface SaleItemInputProps {
   };
   initiallyExpanded?: boolean;
   effectiveAvailableQuantity?: number;
+  originalQuantity?: number; // <-- new prop
 }
 
 const SaleItemInput: React.FC<SaleItemInputProps> = ({
@@ -71,6 +72,7 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
   errors,
   initiallyExpanded = false,
   effectiveAvailableQuantity = 0,
+  originalQuantity = 0, // <-- default
 }) => {
   const [noStockMessage, setNoStockMessage] = useState("");
   const [expanded, setExpanded] = useState(initiallyExpanded);
@@ -105,14 +107,8 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
       if (selectedStockItem) {
         setSuppliers(selectedStockItem.suppliers || []);
         // Cast packagingOptions to the correct type
-        let packagingOptions = (selectedStockItem.packagingOptions || []) as {
-          id: string;
-          packaging: string;
-          price: number;
-          quantity: number;
-          supplierId: string;
-          packagingId: string;
-        }[];
+        let packagingOptions = (selectedStockItem.packagingOptions ||
+          []) as any[];
         if (item.supplierId) {
           packagingOptions = packagingOptions.filter(
             (p) => p.supplierId === item.supplierId
@@ -235,9 +231,34 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
 
   // Quantity
   const handleQuantityChange = (quantity: string) => {
+    // Find the available quantity for the selected supplier and packaging size
+    let maxAvailable = effectiveAvailableQuantity;
+    if (item.productId && item.supplierId && item.packaging) {
+      const stockItem = stockItems.find((s) => s.id === item.productId);
+      if (stockItem && stockItem.packagingOptions) {
+        const packagingOption = stockItem.packagingOptions.find((p: any) => {
+          if ("supplierId" in p && p.supplierId && item.supplierId) {
+            return (
+              p.packaging === item.packaging && p.supplierId === item.supplierId
+            );
+          }
+          return p.packaging === item.packaging;
+        });
+        if (packagingOption) {
+          maxAvailable = packagingOption.quantity;
+        }
+      }
+    }
+    // Add back original quantity in edit mode
+    maxAvailable += originalQuantity;
     // Check if quantity exceeds available stock
-    checkQuantityExceedsStock(quantity, effectiveAvailableQuantity);
-
+    if (parseFloat(quantity) > maxAvailable) {
+      setExceedsStock(true);
+      // Optionally, do not update the quantity if it exceeds stock
+      return;
+    } else {
+      setExceedsStock(false);
+    }
     onUpdate({
       quantity,
       totalPrice: calcTotal(quantity, item.unitPrice),
@@ -378,6 +399,50 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
                 </Text>
               </View>
             )}
+            {/* Show available quantity for selected supplier and packaging size */}
+            {item.productId &&
+              item.supplierId &&
+              item.packaging &&
+              (() => {
+                const stockItem = stockItems.find(
+                  (s) => s.id === item.productId
+                );
+                let availableQty = null;
+                if (stockItem && stockItem.packagingOptions) {
+                  const packagingOption = stockItem.packagingOptions.find(
+                    (p: any) => {
+                      // If supplierId exists on packagingOption, match both supplier and packaging
+                      if (
+                        "supplierId" in p &&
+                        p.supplierId &&
+                        item.supplierId
+                      ) {
+                        return (
+                          p.packaging === item.packaging &&
+                          p.supplierId === item.supplierId
+                        );
+                      }
+                      // Otherwise, match only by packaging
+                      return p.packaging === item.packaging;
+                    }
+                  );
+                  if (packagingOption) {
+                    availableQty = packagingOption.quantity;
+                  }
+                }
+                return availableQty !== null ? (
+                  <View style={styles.stockInfoContainer}>
+                    <MaterialIcons
+                      name="inventory"
+                      size={16}
+                      color={colors.primary}
+                    />
+                    <Text style={styles.stockInfoText}>
+                      Available: {availableQty} units
+                    </Text>
+                  </View>
+                ) : null;
+              })()}
           </View>
 
           {/* Quantity and Price */}
@@ -401,8 +466,8 @@ const SaleItemInput: React.FC<SaleItemInputProps> = ({
                 <Text style={styles.errorText}>{errors.quantity}</Text>
               )}
               {exceedsStock && (
-                <Text style={styles.stockWarningText}>
-                  Exceeds available stock
+                <Text style={styles.errorText}>
+                  Exceeds available stock for this supplier and size
                 </Text>
               )}
             </View>
