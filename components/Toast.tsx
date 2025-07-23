@@ -99,14 +99,15 @@ const Toast: React.FC<ToastProps> = ({
 
   const showToast = () => {
     Animated.parallel([
-      Animated.timing(slideAnim, {
+      Animated.spring(slideAnim, {
         toValue: 0,
-        duration: 300,
         useNativeDriver: true,
+        tension: 60,
+        friction: 8,
       }),
       Animated.timing(opacityAnim, {
         toValue: 1,
-        duration: 300,
+        duration: 400,
         useNativeDriver: true,
       }),
     ]).start();
@@ -120,14 +121,15 @@ const Toast: React.FC<ToastProps> = ({
 
   const hideToast = () => {
     Animated.parallel([
-      Animated.timing(slideAnim, {
+      Animated.spring(slideAnim, {
         toValue: position === "top" ? -width : width,
-        duration: 300,
         useNativeDriver: true,
+        tension: 60,
+        friction: 8,
       }),
       Animated.timing(opacityAnim, {
         toValue: 0,
-        duration: 300,
+        duration: 400,
         useNativeDriver: true,
       }),
     ]).start(() => {
