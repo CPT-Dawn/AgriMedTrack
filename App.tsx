@@ -10,14 +10,19 @@ import {
 } from "@expo-google-fonts/montserrat";
 import { useFonts as useLato, Lato_400Regular } from "@expo-google-fonts/lato";
 import { Ionicons } from "@expo/vector-icons";
-import { Text, View, Alert } from "react-native";
+import { Text, View, Alert, ActivityIndicator } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
 import DashboardScreen from "./screens/DashboardScreen";
 import InventoryScreen from "./screens/InventoryScreen";
 import SalesScreen from "./screens/SalesScreen";
+import LoginScreen from "./screens/LoginScreen";
+import LoadingScreen from "./components/LoadingScreen";
 import { colors } from "./theme";
 import { auth } from "./services/firebase";
 import { createStackNavigator } from "@react-navigation/stack";
+import { useAuth } from "./hooks/useAuth";
+import { ToastProvider } from "./hooks/useToast";
+import { UIProvider } from "./hooks/useUI";
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -31,6 +36,7 @@ export default function App() {
     Lato_400Regular,
   });
   const fontsLoaded = montserratLoaded && latoLoaded;
+  const { user, loading: authLoading } = useAuth();
 
   React.useEffect(() => {
     if (fontsLoaded) {
@@ -40,8 +46,8 @@ export default function App() {
     }
   }, [fontsLoaded]);
 
-  if (!fontsLoaded) {
-    return null;
+  if (!fontsLoaded || authLoading) {
+    return <LoadingScreen message="Initializing Patel Krishi Kendra..." />;
   }
 
   // Firebase config check
@@ -54,12 +60,22 @@ export default function App() {
 
   return (
     <GluestackUIProvider config={config}>
-      <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="MainTabs" component={MainTabs} />
-          {/* Future: Add modal screens here */}
-        </Stack.Navigator>
-      </NavigationContainer>
+      <ToastProvider>
+        <UIProvider>
+          <NavigationContainer>
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
+              {user ? (
+                <Stack.Screen name="MainTabs" component={MainTabs} />
+              ) : (
+                <Stack.Screen name="Login">
+                  {() => <LoginScreen onLoginSuccess={() => {}} />}
+                </Stack.Screen>
+              )}
+              {/* Future: Add modal screens here */}
+            </Stack.Navigator>
+          </NavigationContainer>
+        </UIProvider>
+      </ToastProvider>
     </GluestackUIProvider>
   );
 }

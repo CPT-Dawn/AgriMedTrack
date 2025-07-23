@@ -17,5 +17,4 @@ export const fonts = {
   headline: "Montserrat_700Bold",
   headlineBlack: "Montserrat_900Black",
   body: "Lato_400Regular",
-  bodyItalic: "Lato_400Italic",
 };
