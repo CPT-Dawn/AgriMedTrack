@@ -109,6 +109,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
       default:
         return {
           justifyContent: "center" as const,
+          alignItems: "center" as const,
         };
     }
   };
