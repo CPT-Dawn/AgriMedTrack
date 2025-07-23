@@ -34,6 +34,8 @@ const Toast: React.FC<ToastProps> = ({
   const slideAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const { width } = Dimensions.get("window");
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const wasVisible = useRef(false);
 
   const getToastConfig = () => {
     switch (type) {
@@ -107,19 +109,24 @@ const Toast: React.FC<ToastProps> = ({
       }),
       Animated.timing(opacityAnim, {
         toValue: 1,
-        duration: 400,
+        duration: 350,
         useNativeDriver: true,
       }),
     ]).start();
 
     if (duration > 0) {
-      setTimeout(() => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
         hideToast();
       }, duration);
     }
   };
 
   const hideToast = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
     Animated.parallel([
       Animated.spring(slideAnim, {
         toValue: position === "top" ? -width : width,
@@ -129,7 +136,7 @@ const Toast: React.FC<ToastProps> = ({
       }),
       Animated.timing(opacityAnim, {
         toValue: 0,
-        duration: 400,
+        duration: 350,
         useNativeDriver: true,
       }),
     ]).start(() => {
@@ -138,11 +145,24 @@ const Toast: React.FC<ToastProps> = ({
   };
 
   useEffect(() => {
-    if (visible) {
+    if (visible && !wasVisible.current) {
       slideAnim.setValue(position === "top" ? -width : width);
       showToast();
     }
+    if (!visible && wasVisible.current) {
+      hideToast();
+    }
+    wasVisible.current = visible;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   if (!visible) return null;
 
