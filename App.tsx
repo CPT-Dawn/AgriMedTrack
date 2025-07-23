@@ -11,7 +11,7 @@ import {
 import { useFonts as useLato, Lato_400Regular } from "@expo-google-fonts/lato";
 import { Ionicons } from "@expo/vector-icons";
 import { Text, View, Alert } from "react-native";
-import AppLoading from "expo-app-loading";
+import * as SplashScreen from "expo-splash-screen";
 import DashboardScreen from "./screens/DashboardScreen";
 import InventoryScreen from "./screens/InventoryScreen";
 import SalesScreen from "./screens/SalesScreen";
@@ -30,9 +30,18 @@ export default function App() {
   const [latoLoaded] = useLato({
     Lato_400Regular,
   });
+  const fontsLoaded = montserratLoaded && latoLoaded;
 
-  if (!montserratLoaded || !latoLoaded) {
-    return <AppLoading />;
+  React.useEffect(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    } else {
+      SplashScreen.preventAutoHideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
   }
 
   // Firebase config check
