@@ -204,3 +204,166 @@ export const seedMasterData = async () => {
     return { success: false, message: "Failed to add master data" };
   }
 };
+
+// Sample inventory logs data
+const sampleInventoryLogs = [
+  {
+    addedByUid: "user123",
+    addedByName: "Admin User",
+    addedAt: Timestamp.fromDate(new Date("2024-07-20T10:30:00")),
+    items: [
+      {
+        productId: "prod_001",
+        productName: "Urea",
+        supplierId: "supp_001",
+        supplierName: "IFFCO",
+        packagingSize: "50 kg",
+        batchNumber: "URE001",
+        quantityAdded: 50,
+        buyPrice: 280,
+        sellPrice: 320,
+        mfgDate: Timestamp.fromDate(new Date("2024-01-15")),
+        expiryDate: Timestamp.fromDate(new Date("2026-01-15")),
+      },
+      {
+        productId: "prod_002",
+        productName: "DAP",
+        supplierId: "supp_001",
+        supplierName: "IFFCO",
+        packagingSize: "50 kg",
+        batchNumber: "DAP001",
+        quantityAdded: 30,
+        buyPrice: 1250,
+        sellPrice: 1350,
+        mfgDate: Timestamp.fromDate(new Date("2024-02-10")),
+        expiryDate: Timestamp.fromDate(new Date("2027-02-10")),
+      },
+    ],
+  },
+  {
+    addedByUid: "user123",
+    addedByName: "Admin User",
+    addedAt: Timestamp.fromDate(new Date("2024-07-22T14:15:00")),
+    items: [
+      {
+        productId: "prod_003",
+        productName: "NPK 10:26:26",
+        supplierId: "supp_002",
+        supplierName: "Coromandel",
+        packagingSize: "50 kg",
+        batchNumber: "NPK001",
+        quantityAdded: 60,
+        buyPrice: 1180,
+        sellPrice: 1280,
+        mfgDate: Timestamp.fromDate(new Date("2024-03-05")),
+        expiryDate: Timestamp.fromDate(new Date("2027-03-05")),
+      },
+    ],
+  },
+  {
+    addedByUid: "user123",
+    addedByName: "Admin User",
+    addedAt: Timestamp.fromDate(new Date("2024-07-23T09:45:00")),
+    items: [
+      {
+        productId: "prod_004",
+        productName: "Glyphosate",
+        supplierId: "supp_003",
+        supplierName: "Bayer",
+        packagingSize: "1 litre",
+        batchNumber: "GLY001",
+        quantityAdded: 20,
+        buyPrice: 450,
+        sellPrice: 520,
+        mfgDate: Timestamp.fromDate(new Date("2024-01-20")),
+        expiryDate: Timestamp.fromDate(new Date("2025-08-20")),
+      },
+      {
+        productId: "prod_005",
+        productName: "2,4-D",
+        supplierId: "supp_003",
+        supplierName: "Bayer",
+        packagingSize: "500 ml",
+        batchNumber: "24D001",
+        quantityAdded: 15,
+        buyPrice: 180,
+        sellPrice: 220,
+        mfgDate: Timestamp.fromDate(new Date("2024-02-15")),
+        expiryDate: Timestamp.fromDate(new Date("2026-02-15")),
+      },
+    ],
+  },
+  {
+    addedByUid: "user123",
+    addedByName: "Admin User",
+    addedAt: Timestamp.fromDate(new Date("2024-07-24T16:20:00")),
+    items: [
+      {
+        productId: "prod_006",
+        productName: "Potash",
+        supplierId: "supp_004",
+        supplierName: "IPL",
+        packagingSize: "50 kg",
+        batchNumber: "POT001",
+        quantityAdded: 80,
+        buyPrice: 850,
+        sellPrice: 950,
+        mfgDate: Timestamp.fromDate(new Date("2024-04-01")),
+        expiryDate: Timestamp.fromDate(new Date("2029-04-01")),
+      },
+    ],
+  },
+  {
+    addedByUid: "user123",
+    addedByName: "Admin User",
+    addedAt: Timestamp.fromDate(new Date("2024-07-25T11:10:00")),
+    items: [
+      {
+        productId: "prod_007",
+        productName: "Zinc Sulphate",
+        supplierId: "supp_004",
+        supplierName: "IPL",
+        packagingSize: "25 kg",
+        batchNumber: "ZIN001",
+        quantityAdded: 40,
+        buyPrice: 85,
+        sellPrice: 105,
+        mfgDate: Timestamp.fromDate(new Date("2024-03-10")),
+        expiryDate: Timestamp.fromDate(new Date("2027-03-10")),
+      },
+      {
+        productId: "prod_008",
+        productName: "Fungicide - Mancozeb",
+        supplierId: "supp_005",
+        supplierName: "UPL",
+        packagingSize: "1 kg",
+        batchNumber: "MAN001",
+        quantityAdded: 25,
+        buyPrice: 320,
+        sellPrice: 380,
+        mfgDate: Timestamp.fromDate(new Date("2024-02-20")),
+        expiryDate: Timestamp.fromDate(new Date("2026-02-20")),
+      },
+    ],
+  },
+];
+
+export const seedInventoryLogs = async () => {
+  try {
+    console.log("Starting to seed inventory logs...");
+
+    const logsRef = collection(db, "inventory_logs");
+    for (const log of sampleInventoryLogs) {
+      await addDoc(logsRef, log);
+      console.log(
+        `Added inventory log: ${log.addedAt.toDate().toLocaleString()}`
+      );
+    }
+
+    console.log("Successfully seeded inventory logs!");
+    return { success: true, message: "Inventory logs added successfully!" };
+  } catch (error) {
+    console.error("Error seeding inventory logs:", error);
+    return { success: false, message: "Failed to add inventory logs" };
+  }
+};

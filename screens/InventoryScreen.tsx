@@ -19,7 +19,11 @@ import Chip from "../components/Chip";
 import InventoryStats from "../components/InventoryStats";
 import EmptyState from "../components/EmptyState";
 import LoadingScreen from "../components/LoadingScreen";
-import { seedInventoryData, seedMasterData } from "../utils/seedData";
+import {
+  seedInventoryData,
+  seedMasterData,
+  seedInventoryLogs,
+} from "../utils/seedData";
 
 export default function InventoryScreen() {
   const navigation = useNavigation();
@@ -60,10 +64,8 @@ export default function InventoryScreen() {
   };
 
   const handleViewLogs = () => {
-    showInfo(
-      "View Logs",
-      "Navigation to Inventory Log screen will be implemented"
-    );
+    // @ts-ignore - Navigate to ViewLogs screen
+    navigation.navigate("ViewLogs");
   };
 
   // Handle search clear
@@ -81,10 +83,15 @@ export default function InventoryScreen() {
       if (masterResult.success) {
         const inventoryResult = await seedInventoryData();
         if (inventoryResult.success) {
-          showSuccess(
-            "Sample Data Added",
-            "Inventory has been populated with sample products!"
-          );
+          const logsResult = await seedInventoryLogs();
+          if (logsResult.success) {
+            showSuccess(
+              "Sample Data Added",
+              "Inventory and logs have been populated with sample data!"
+            );
+          } else {
+            showError("Error", logsResult.message);
+          }
         } else {
           showError("Error", inventoryResult.message);
         }

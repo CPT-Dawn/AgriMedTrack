@@ -18,6 +18,7 @@ import InventoryScreen from "./screens/InventoryScreen";
 import SalesScreen from "./screens/SalesScreen";
 import LoginScreen from "./screens/LoginScreen";
 import AddInventoryScreen from "./screens/AddInventoryScreen";
+import ViewLogsScreen from "./screens/ViewLogsScreen";
 import LoadingScreen from "./components/LoadingScreen";
 import { colors } from "./theme";
 import { auth } from "./services/firebase";
@@ -77,6 +78,7 @@ export default function App() {
                       name="AddInventory"
                       component={AddInventoryScreen}
                     />
+                    <Stack.Screen name="ViewLogs" component={ViewLogsScreen} />
                   </>
                 ) : (
                   <Stack.Screen name="Login">
