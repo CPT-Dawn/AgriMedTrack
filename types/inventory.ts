@@ -28,4 +28,5 @@ export interface InventoryItem {
   sellPrice: number;
   mfgDate: Date;
   expiryDate: Date;
+  stockAddDate?: Date; // New field for when stock was added
 }

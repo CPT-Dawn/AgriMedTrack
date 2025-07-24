@@ -8,6 +8,7 @@ import {
   StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import {
   collection,
   getDocs,
@@ -32,6 +33,11 @@ const AddInventoryScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
+  // Stock add date/time
+  const [stockAddDate, setStockAddDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
   // Master data
   const [products, setProducts] = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -53,6 +59,7 @@ const AddInventoryScreen: React.FC = () => {
       sellPrice: 0,
       mfgDate: new Date(),
       expiryDate: new Date(),
+      stockAddDate: new Date(),
     },
   ]);
 
@@ -154,6 +161,7 @@ const AddInventoryScreen: React.FC = () => {
       sellPrice: 0,
       mfgDate: new Date(),
       expiryDate: new Date(),
+      stockAddDate: new Date(),
     };
 
     setInventoryItems((prev) => [...prev, newItem]);
@@ -188,6 +196,38 @@ const AddInventoryScreen: React.FC = () => {
           : item
       )
     );
+  };
+
+  // Date/time picker handlers
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      const newDateTime = new Date(stockAddDate);
+      newDateTime.setFullYear(selectedDate.getFullYear());
+      newDateTime.setMonth(selectedDate.getMonth());
+      newDateTime.setDate(selectedDate.getDate());
+      setStockAddDate(newDateTime);
+    }
+  };
+
+  const handleTimeChange = (event: any, selectedTime?: Date) => {
+    setShowTimePicker(false);
+    if (selectedTime) {
+      const newDateTime = new Date(stockAddDate);
+      newDateTime.setHours(selectedTime.getHours());
+      newDateTime.setMinutes(selectedTime.getMinutes());
+      setStockAddDate(newDateTime);
+    }
+  };
+
+  const formatDateTime = (date: Date) => {
+    return date.toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   const validateForm = (): boolean => {
@@ -407,6 +447,94 @@ const AddInventoryScreen: React.FC = () => {
           </Text>
         </View>
 
+        {/* Stock Add Date/Time Picker */}
+        <View
+          style={{
+            backgroundColor: colors.surface,
+            paddingHorizontal: 20,
+            paddingVertical: 16,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.textSecondary + "20",
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: fonts.body,
+              fontSize: 14,
+              color: colors.textPrimary,
+              marginBottom: 12,
+              fontWeight: "600",
+            }}
+          >
+            Stock Addition Date & Time
+          </Text>
+
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                backgroundColor: colors.background,
+                borderWidth: 1,
+                borderColor: colors.textSecondary + "30",
+                borderRadius: 8,
+                padding: 12,
+                minHeight: 48,
+                justifyContent: "center",
+              }}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.body,
+                  fontSize: 14,
+                  color: colors.textPrimary,
+                }}
+              >
+                📅 {stockAddDate.toLocaleDateString()}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                backgroundColor: colors.background,
+                borderWidth: 1,
+                borderColor: colors.textSecondary + "30",
+                borderRadius: 8,
+                padding: 12,
+                minHeight: 48,
+                justifyContent: "center",
+              }}
+              onPress={() => setShowTimePicker(true)}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.body,
+                  fontSize: 14,
+                  color: colors.textPrimary,
+                }}
+              >
+                🕒{" "}
+                {stockAddDate.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text
+            style={{
+              fontFamily: fonts.body,
+              fontSize: 12,
+              color: colors.textSecondary,
+              marginTop: 8,
+            }}
+          >
+            Current: {formatDateTime(stockAddDate)}
+          </Text>
+        </View>
+
         {/* Form Content */}
         <ScrollView
           style={{ flex: 1 }}
@@ -484,6 +612,26 @@ const AddInventoryScreen: React.FC = () => {
           </TouchableOpacity>
         </ScrollView>
       </View>
+
+      {/* Date Picker */}
+      {showDatePicker && (
+        <DateTimePicker
+          value={stockAddDate}
+          mode="date"
+          display="default"
+          onChange={handleDateChange}
+        />
+      )}
+
+      {/* Time Picker */}
+      {showTimePicker && (
+        <DateTimePicker
+          value={stockAddDate}
+          mode="time"
+          display="default"
+          onChange={handleTimeChange}
+        />
+      )}
     </SafeAreaView>
   );
 };

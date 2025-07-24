@@ -7,6 +7,7 @@ import {
   Modal,
   ScrollView,
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { colors, fonts } from "../theme";
 import { useToast } from "../hooks/useToast";
 import { Product, Supplier, InventoryItem } from "../types/inventory";
@@ -87,41 +88,51 @@ const InventoryItemForm: React.FC<InventoryItemFormProps> = ({
     placeholder?: string,
     keyboardType: "default" | "numeric" | "decimal-pad" = "default",
     multiline = false
-  ) => (
-    <View style={{ marginBottom: 16 }}>
-      <Text
-        style={{
-          fontFamily: fonts.body,
-          fontSize: 14,
-          color: colors.textPrimary,
-          marginBottom: 8,
-          fontWeight: "600",
-        }}
-      >
-        {label}
-      </Text>
-      <TextInput
-        style={{
-          backgroundColor: colors.surface,
-          borderWidth: 1,
-          borderColor: colors.textSecondary + "30",
-          borderRadius: 8,
-          padding: 12,
-          fontFamily: fonts.body,
-          fontSize: 16,
-          color: colors.textPrimary,
-          minHeight: multiline ? 80 : 48,
-          textAlignVertical: multiline ? "top" : "center",
-        }}
-        value={value.toString()}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={colors.textSecondary}
-        keyboardType={keyboardType}
-        multiline={multiline}
-      />
-    </View>
-  );
+  ) => {
+    // Handle display value - show empty string for zero numeric values to allow easy editing
+    const displayValue = (() => {
+      if (typeof value === "number") {
+        return value === 0 ? "" : value.toString();
+      }
+      return value.toString();
+    })();
+
+    return (
+      <View style={{ marginBottom: 16 }}>
+        <Text
+          style={{
+            fontFamily: fonts.body,
+            fontSize: 14,
+            color: colors.textPrimary,
+            marginBottom: 8,
+            fontWeight: "600",
+          }}
+        >
+          {label}
+        </Text>
+        <TextInput
+          style={{
+            backgroundColor: colors.surface,
+            borderWidth: 1,
+            borderColor: colors.textSecondary + "30",
+            borderRadius: 8,
+            padding: 12,
+            fontFamily: fonts.body,
+            fontSize: 16,
+            color: colors.textPrimary,
+            minHeight: multiline ? 80 : 48,
+            textAlignVertical: multiline ? "top" : "center",
+          }}
+          value={displayValue}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={colors.textSecondary}
+          keyboardType={keyboardType}
+          multiline={multiline}
+        />
+      </View>
+    );
+  };
 
   const renderPicker = (
     label: string,
@@ -292,20 +303,19 @@ const InventoryItemForm: React.FC<InventoryItemFormProps> = ({
     showPicker: boolean,
     setShowPicker: (show: boolean) => void
   ) => {
-    const [showDateModal, setShowDateModal] = useState(false);
-    const [tempDate, setTempDate] = useState(value);
-
-    const handleDateChange = () => {
-      onChange(tempDate);
-      setShowDateModal(false);
-    };
-
     const formatDate = (date: Date) => {
       return date.toLocaleDateString("en-US", {
         year: "numeric",
         month: "short",
         day: "numeric",
       });
+    };
+
+    const handleDateChange = (event: any, selectedDate?: Date) => {
+      setShowPicker(false);
+      if (selectedDate) {
+        onChange(selectedDate);
+      }
     };
 
     return (
@@ -331,7 +341,7 @@ const InventoryItemForm: React.FC<InventoryItemFormProps> = ({
             minHeight: 48,
             justifyContent: "center",
           }}
-          onPress={() => setShowDateModal(true)}
+          onPress={() => setShowPicker(true)}
         >
           <Text
             style={{
@@ -340,165 +350,19 @@ const InventoryItemForm: React.FC<InventoryItemFormProps> = ({
               color: colors.textPrimary,
             }}
           >
-            {formatDate(value)}
+            📅 {formatDate(value)}
           </Text>
         </TouchableOpacity>
 
-        {/* Date Modal */}
-        <Modal
-          visible={showDateModal}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowDateModal(false)}
-        >
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: "rgba(0,0,0,0.5)",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <View
-              style={{
-                backgroundColor: colors.surface,
-                borderRadius: 12,
-                padding: 20,
-                width: "90%",
-                maxWidth: 400,
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: fonts.headline,
-                  fontSize: 18,
-                  color: colors.textPrimary,
-                  marginBottom: 16,
-                }}
-              >
-                Select {label}
-              </Text>
-
-              <Text
-                style={{
-                  fontFamily: fonts.body,
-                  fontSize: 14,
-                  color: colors.textSecondary,
-                  marginBottom: 16,
-                }}
-              >
-                Current: {formatDate(tempDate)}
-              </Text>
-
-              {/* Simple date input - you can replace this with a proper date picker */}
-              <View style={{ marginBottom: 20 }}>
-                <Text
-                  style={{
-                    fontFamily: fonts.body,
-                    fontSize: 12,
-                    color: colors.textSecondary,
-                    marginBottom: 8,
-                  }}
-                >
-                  For now, use the buttons below or implement a proper date
-                  picker
-                </Text>
-                <View
-                  style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}
-                >
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: colors.primary,
-                      padding: 8,
-                      borderRadius: 6,
-                    }}
-                    onPress={() => setTempDate(new Date())}
-                  >
-                    <Text
-                      style={{
-                        color: colors.surface,
-                        fontSize: 12,
-                        fontFamily: fonts.body,
-                      }}
-                    >
-                      Today
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: colors.secondary,
-                      padding: 8,
-                      borderRadius: 6,
-                    }}
-                    onPress={() => {
-                      const nextYear = new Date(tempDate);
-                      nextYear.setFullYear(nextYear.getFullYear() + 1);
-                      setTempDate(nextYear);
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: colors.surface,
-                        fontSize: 12,
-                        fontFamily: fonts.body,
-                      }}
-                    >
-                      +1 Year
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                <TouchableOpacity
-                  style={{
-                    flex: 1,
-                    backgroundColor: colors.primary,
-                    padding: 12,
-                    borderRadius: 8,
-                    alignItems: "center",
-                  }}
-                  onPress={handleDateChange}
-                >
-                  <Text
-                    style={{
-                      fontFamily: fonts.body,
-                      fontSize: 14,
-                      color: colors.surface,
-                      fontWeight: "600",
-                    }}
-                  >
-                    Confirm
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={{
-                    flex: 1,
-                    backgroundColor: colors.textSecondary,
-                    padding: 12,
-                    borderRadius: 8,
-                    alignItems: "center",
-                  }}
-                  onPress={() => {
-                    setTempDate(value);
-                    setShowDateModal(false);
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontFamily: fonts.body,
-                      fontSize: 14,
-                      color: colors.surface,
-                      fontWeight: "600",
-                    }}
-                  >
-                    Cancel
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
+        {/* Native Date Picker */}
+        {showPicker && (
+          <DateTimePicker
+            value={value}
+            mode="date"
+            display="default"
+            onChange={handleDateChange}
+          />
+        )}
       </View>
     );
   };
