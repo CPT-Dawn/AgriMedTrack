@@ -4,23 +4,25 @@ import {
   Text,
   FlatList,
   RefreshControl,
-  SafeAreaView,
   Alert,
   TouchableOpacity,
+  StatusBar,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { colors, fonts } from "../theme";
 import { useInventory } from "../hooks/useInventory";
 import { useToast } from "../hooks/useToast";
 import ProductCard, { InventoryItem } from "../components/ProductCard";
 import SearchBar from "../components/SearchBar";
 import Chip from "../components/Chip";
-import FloatingActionButton from "../components/FloatingActionButton";
 import InventoryStats from "../components/InventoryStats";
 import EmptyState from "../components/EmptyState";
 import LoadingScreen from "../components/LoadingScreen";
 import { seedInventoryData, seedMasterData } from "../utils/seedData";
 
 export default function InventoryScreen() {
+  const navigation = useNavigation();
   const { inventoryItems, loading, error, filterItems } = useInventory();
   const { showError, showInfo, showSuccess } = useToast();
   const [searchText, setSearchText] = useState("");
@@ -53,10 +55,8 @@ export default function InventoryScreen() {
 
   // Handle navigation actions
   const handleAddStock = () => {
-    showInfo(
-      "Add Stock",
-      "Navigation to Add Inventory screen will be implemented"
-    );
+    // @ts-ignore - Navigate to AddInventory screen
+    navigation.navigate("AddInventory");
   };
 
   const handleViewLogs = () => {
@@ -101,7 +101,15 @@ export default function InventoryScreen() {
   // Show error state
   if (error) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: colors.background }}
+        edges={["top", "left", "right"]}
+      >
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor={colors.background}
+          translucent={false}
+        />
         <View
           style={{
             flex: 1,
@@ -138,7 +146,19 @@ export default function InventoryScreen() {
 
   // Show loading state
   if (loading) {
-    return <LoadingScreen message="Loading inventory..." />;
+    return (
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: colors.background }}
+        edges={["top", "left", "right"]}
+      >
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor={colors.background}
+          translucent={false}
+        />
+        <LoadingScreen message="Loading inventory..." />
+      </SafeAreaView>
+    );
   }
 
   // Render header with navigation chips
@@ -210,7 +230,7 @@ export default function InventoryScreen() {
         value={searchText}
         onChangeText={setSearchText}
         onClear={handleSearchClear}
-        placeholder="Search products, suppliers, or batch numbers..."
+        placeholder="Search ..."
       />
 
       {/* Statistics only show when there are items and no search */}
@@ -258,7 +278,15 @@ export default function InventoryScreen() {
   const renderFooter = () => <View style={{ height: 100 }} />;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={["top", "left", "right"]}
+    >
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={colors.background}
+        translucent={false}
+      />
       <FlatList
         data={filteredItems}
         keyExtractor={(item) => item.inventoryItemId}
@@ -289,9 +317,6 @@ export default function InventoryScreen() {
           index,
         })}
       />
-
-      {/* Floating Action Button */}
-      <FloatingActionButton onPress={handleAddStock} label="Add Stock" />
     </SafeAreaView>
   );
 }

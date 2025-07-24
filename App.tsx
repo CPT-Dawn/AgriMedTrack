@@ -1,6 +1,7 @@
 import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GluestackUIProvider } from "@gluestack-ui/themed";
 import { config } from "@gluestack-ui/config";
 import {
@@ -16,6 +17,7 @@ import DashboardScreen from "./screens/DashboardScreen";
 import InventoryScreen from "./screens/InventoryScreen";
 import SalesScreen from "./screens/SalesScreen";
 import LoginScreen from "./screens/LoginScreen";
+import AddInventoryScreen from "./screens/AddInventoryScreen";
 import LoadingScreen from "./components/LoadingScreen";
 import { colors } from "./theme";
 import { auth } from "./services/firebase";
@@ -59,30 +61,42 @@ export default function App() {
   }
 
   return (
-    <GluestackUIProvider config={config}>
-      <ToastProvider>
-        <UIProvider>
-          <NavigationContainer>
-            <Stack.Navigator screenOptions={{ headerShown: false }}>
-              {user ? (
-                <Stack.Screen name="MainTabs" component={MainTabs} />
-              ) : (
-                <Stack.Screen name="Login">
-                  {() => <LoginScreen onLoginSuccess={() => {}} />}
-                </Stack.Screen>
-              )}
-              {/* Future: Add modal screens here */}
-            </Stack.Navigator>
-          </NavigationContainer>
-        </UIProvider>
-      </ToastProvider>
-    </GluestackUIProvider>
+    <SafeAreaProvider>
+      <GluestackUIProvider config={config}>
+        <ToastProvider>
+          <UIProvider>
+            <NavigationContainer>
+              <Stack.Navigator
+                id={undefined}
+                screenOptions={{ headerShown: false }}
+              >
+                {user ? (
+                  <>
+                    <Stack.Screen name="MainTabs" component={MainTabs} />
+                    <Stack.Screen
+                      name="AddInventory"
+                      component={AddInventoryScreen}
+                    />
+                  </>
+                ) : (
+                  <Stack.Screen name="Login">
+                    {() => <LoginScreen onLoginSuccess={() => {}} />}
+                  </Stack.Screen>
+                )}
+                {/* Future: Add modal screens here */}
+              </Stack.Navigator>
+            </NavigationContainer>
+          </UIProvider>
+        </ToastProvider>
+      </GluestackUIProvider>
+    </SafeAreaProvider>
   );
 }
 
 function MainTabs() {
   return (
     <Tab.Navigator
+      id={undefined}
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: colors.primary,

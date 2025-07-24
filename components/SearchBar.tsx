@@ -12,7 +12,7 @@ interface SearchBarProps {
 const SearchBar: React.FC<SearchBarProps> = ({
   value,
   onChangeText,
-  placeholder = "Search products, suppliers, or batch numbers...",
+  placeholder = "Search...",
   onClear,
 }) => {
   return (
