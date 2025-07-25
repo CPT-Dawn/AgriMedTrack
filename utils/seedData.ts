@@ -367,3 +367,183 @@ export const seedInventoryLogs = async () => {
     return { success: false, message: "Failed to add inventory logs" };
   }
 };
+
+// Sample sales data based on the Firestore schema
+const sampleSalesData = [
+  {
+    billNumber: "PKK20241201001",
+    customerName: "Ramesh Patel",
+    customerPhone: "9876543210",
+    saleDate: Timestamp.fromDate(new Date("2024-12-01")),
+    totalAmount: 1680,
+    totalProfit: 160,
+    paymentStatus: "Paid" as const,
+    amountPaid: 1680,
+    amountPending: 0,
+    items: [
+      {
+        productId: "prod_001",
+        productName: "Urea",
+        supplierId: "supp_001",
+        supplierName: "IFFCO",
+        packagingSize: "50 kg",
+        batchNumber: "URE001",
+        quantitySold: 5,
+        sellPricePerUnit: 320,
+        buyPricePerUnit: 280,
+        itemTotal: 1600,
+        itemProfit: 200,
+      },
+      {
+        productId: "prod_007",
+        productName: "Zinc Sulphate",
+        supplierId: "supp_004",
+        supplierName: "IPL",
+        packagingSize: "25 kg",
+        batchNumber: "ZIN001",
+        quantitySold: 1,
+        sellPricePerUnit: 105,
+        buyPricePerUnit: 85,
+        itemTotal: 105,
+        itemProfit: 20,
+      },
+    ],
+    createdBy: "admin@pkk.com",
+    createdAt: Timestamp.fromDate(new Date("2024-12-01")),
+    lastUpdated: Timestamp.fromDate(new Date("2024-12-01")),
+  },
+  {
+    billNumber: "PKK20241202001",
+    customerName: "Suresh Kumar",
+    customerPhone: "9876543211",
+    saleDate: Timestamp.fromDate(new Date("2024-12-02")),
+    totalAmount: 2700,
+    totalProfit: 200,
+    paymentStatus: "Partial" as const,
+    amountPaid: 2000,
+    amountPending: 700,
+    items: [
+      {
+        productId: "prod_002",
+        productName: "DAP",
+        supplierId: "supp_001",
+        supplierName: "IFFCO",
+        packagingSize: "50 kg",
+        batchNumber: "DAP001",
+        quantitySold: 2,
+        sellPricePerUnit: 1350,
+        buyPricePerUnit: 1250,
+        itemTotal: 2700,
+        itemProfit: 200,
+      },
+    ],
+    createdBy: "admin@pkk.com",
+    createdAt: Timestamp.fromDate(new Date("2024-12-02")),
+    lastUpdated: Timestamp.fromDate(new Date("2024-12-02")),
+  },
+  {
+    billNumber: "PKK20241203001",
+    customerName: "Mukesh Singh",
+    customerPhone: "9876543212",
+    saleDate: Timestamp.fromDate(new Date("2024-12-03")),
+    totalAmount: 2560,
+    totalProfit: 200,
+    paymentStatus: "Unpaid" as const,
+    amountPaid: 0,
+    amountPending: 2560,
+    items: [
+      {
+        productId: "prod_003",
+        productName: "NPK 10:26:26",
+        supplierId: "supp_002",
+        supplierName: "Coromandel",
+        packagingSize: "50 kg",
+        batchNumber: "NPK001",
+        quantitySold: 2,
+        sellPricePerUnit: 1280,
+        buyPricePerUnit: 1180,
+        itemTotal: 2560,
+        itemProfit: 200,
+      },
+    ],
+    createdBy: "admin@pkk.com",
+    createdAt: Timestamp.fromDate(new Date("2024-12-03")),
+    lastUpdated: Timestamp.fromDate(new Date("2024-12-03")),
+  },
+  {
+    billNumber: "PKK20241204001",
+    customerName: "Raj Yadav",
+    customerPhone: "9876543213",
+    saleDate: Timestamp.fromDate(new Date("2024-12-04")),
+    totalAmount: 1520,
+    totalProfit: 240,
+    paymentStatus: "Paid" as const,
+    amountPaid: 1520,
+    amountPending: 0,
+    items: [
+      {
+        productId: "prod_008",
+        productName: "Fungicide - Mancozeb",
+        supplierId: "supp_005",
+        supplierName: "UPL",
+        packagingSize: "1 kg",
+        batchNumber: "MAN001",
+        quantitySold: 4,
+        sellPricePerUnit: 380,
+        buyPricePerUnit: 320,
+        itemTotal: 1520,
+        itemProfit: 240,
+      },
+    ],
+    createdBy: "admin@pkk.com",
+    createdAt: Timestamp.fromDate(new Date("2024-12-04")),
+    lastUpdated: Timestamp.fromDate(new Date("2024-12-04")),
+  },
+  {
+    billNumber: "PKK20241205001",
+    customerName: "Gopal Mehta",
+    customerPhone: "9876543214",
+    saleDate: Timestamp.fromDate(new Date("2024-12-05")),
+    totalAmount: 1950,
+    totalProfit: 150,
+    paymentStatus: "Partial" as const,
+    amountPaid: 1000,
+    amountPending: 950,
+    items: [
+      {
+        productId: "prod_004",
+        productName: "Potash",
+        supplierId: "supp_002",
+        supplierName: "Coromandel",
+        packagingSize: "50 kg",
+        batchNumber: "POT001",
+        quantitySold: 3,
+        sellPricePerUnit: 650,
+        buyPricePerUnit: 600,
+        itemTotal: 1950,
+        itemProfit: 150,
+      },
+    ],
+    createdBy: "admin@pkk.com",
+    createdAt: Timestamp.fromDate(new Date("2024-12-05")),
+    lastUpdated: Timestamp.fromDate(new Date("2024-12-05")),
+  },
+];
+
+export const seedSalesData = async () => {
+  try {
+    console.log("Starting to seed sales data...");
+
+    const salesRef = collection(db, "sales");
+    for (const sale of sampleSalesData) {
+      await addDoc(salesRef, sale);
+      console.log(`Added sale: ${sale.billNumber} for ${sale.customerName}`);
+    }
+
+    console.log("Successfully seeded sales data!");
+    return { success: true, message: "Sales data added successfully!" };
+  } catch (error) {
+    console.error("Error seeding sales data:", error);
+    return { success: false, message: "Failed to add sales data" };
+  }
+};
