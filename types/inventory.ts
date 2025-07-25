@@ -24,6 +24,7 @@ export interface InventoryItem {
   packagingSize: string;
   batchNumber: string;
   quantityAdded: number;
+  quantity: number; // Current available quantity (decreases with sales)
   buyPrice: number;
   sellPrice: number;
   mfgDate: Date;
