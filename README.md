@@ -133,4 +133,4 @@ This project is still evolving, so contributions should be focused and deliberat
 
 ## License
 
-No license has been added yet.
+MIT
