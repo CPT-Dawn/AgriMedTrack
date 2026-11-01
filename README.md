@@ -1,136 +1,172 @@
+<div align="center">
+
+<img src="assets/icon.png" alt="AgriMedTrack" width="96" height="96" />
+
 # AgriMedTrack
 
-AgriMedTrack is a React Native app built with Expo for agricultural inventory, sales, and stock audit management. It is designed for Patel Krishi Kendra and uses Firebase for authentication, Firestore for data storage, and real-time listeners for operational views.
+**Inventory, sales, and stock audits for the agri-input shop — minus the ledger book with coffee rings.**
 
-This repository is being prepared for public release and is still an active work in progress. The core experience is in place, but some production workflows are intentionally unfinished and will continue to evolve.
+Built for Patel Krishi Kendra. Fluent in fertilizers, pesticides, and batch numbers.
 
-## What It Does
+<br />
 
-- Tracks inventory in real time with batch, packaging, expiry, and stock value visibility.
-- Captures sales transactions with customer, payment, and profit tracking.
-- Surfaces a dashboard with live business metrics, alerts, and recent activity.
-- Maintains an immutable inventory log for stock additions and auditing.
-- Supports Firebase Authentication with persisted session state.
-- Uses reusable form and card components for consistent data entry and review flows.
+[![Expo](https://img.shields.io/badge/Expo-53-000020?style=flat-square&logo=expo&logoColor=white)](https://expo.dev)
+[![React Native](https://img.shields.io/badge/React_Native-0.79-61DAFB?style=flat-square&logo=react&logoColor=black)](https://reactnative.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Firebase](https://img.shields.io/badge/Firebase-12-FFCA28?style=flat-square&logo=firebase&logoColor=black)](https://firebase.google.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-0540F2?style=flat-square)](LICENSE)
+[![Status](https://img.shields.io/badge/status-growing_season-6A7C5F?style=flat-square)](#-status)
 
-## Current Status
+[Features](#-features) · [Status](#-status) · [Quick Start](#-quick-start) · [Architecture](#-architecture) · [Contributing](#-contributing)
 
-The app is functional for internal use and demo flows, but it is not yet fully production hardened.
+</div>
 
-- Dashboard, inventory browsing, sales browsing, and inventory logs are implemented.
-- Add inventory and add sale forms are present and validate user input.
-- Some write-heavy workflows, reporting features, and other backend-hardening tasks are still in progress.
-- Development-only seed actions exist in a few screens to help populate sample data during testing.
+<br />
 
-## Tech Stack
+## 🌱 Why
 
-- Expo and React Native
-- TypeScript
-- Firebase Authentication and Firestore
-- React Navigation
-- Gluestack UI
-- React Native Reanimated
-- Expo Google Fonts
-- AsyncStorage for auth persistence
+A small agri-input shop handles hundreds of products, dozens of suppliers, a batch number on every bag, and an expiry date on every bottle. Usually all of that lives in a notebook and in one person's memory.
 
-## Architecture Overview
+AgriMedTrack moves it to a phone. You can see what's in stock and what's about to expire, and the app keeps a record of where everything went.
 
-The data model is intentionally denormalized for fast reads and predictable screen rendering.
+<br />
 
-- `inventory` stores the current sellable stock.
-- `inventory_logs` stores an append-only audit trail for stock additions.
-- `sales` stores transaction summaries.
-- `sales/{saleId}/items_sold` stores the line items for each sale.
-- `customers` stores aggregated customer balances and pending sale data.
-- `products` and `suppliers` provide master data for cascading forms.
+## ✨ Features
 
-The app uses real-time Firestore listeners in its main hooks so dashboard and list screens update automatically when the underlying data changes.
+|     | Feature | What it does |
+| :-: | :------ | :----------- |
+| 📊 | **Live Dashboard** | Real-time KPIs, low-stock and expiry alerts, top products, and recent activity. |
+| 📦 | **Inventory** | Searchable stock with batch, packaging, expiry, and stock-value at a glance. |
+| ➕ | **Add Stock** | Multi-item entry with cascading *Product → Supplier → Packaging → Batch* selection. |
+| 🧾 | **Sales** | Transaction history with customer, payment status, and profit tracking. |
+| 📜 | **Audit Log** | An append-only trail of every stock addition. History, but with receipts. |
+| 🔐 | **Auth** | Firebase email/password sign-in with a session that remembers you. |
 
-## Getting Started
+<br />
 
-### Prerequisites
+## 🚦 Status
 
-- Node.js 18 or newer
-- npm
-- An Expo-compatible development environment
-- A Firebase project with Authentication and Firestore enabled
+> **Growing season.** The roots are healthy and the harvest is not quite in yet.
 
-### Installation
+| Area | State |
+| :--- | :---: |
+| Dashboard, Inventory, Sales views, Audit logs | 🟢 Working |
+| Authentication with persisted sessions | 🟢 Working |
+| Add Inventory (writes to Firestore) | 🟡 Works, not yet atomic |
+| Add Sale (form and validation) | 🟡 UI complete, submit is a placeholder |
+| Edit and delete sales, Reports | ⚪ Planned |
+| Cloud Functions for transactional writes | ⚪ Planned |
 
-1. Clone the repository.
-2. Install dependencies.
+It's ready for internal use and demos. It isn't ready to run a shop's books on yet.
+
+<br />
+
+## 🚀 Quick Start
+
+**You'll need:** Node.js 18+, npm, the Expo tooling for your platform, and a Firebase project with **Authentication (Email/Password)** and **Firestore** turned on.
 
 ```bash
-npm install
+git clone https://github.com/CPT-Dawn/AgriMedTrack.git
 ```
 
-3. Update Firebase configuration in `services/firebase.ts` with your own project settings.
-4. Make sure email/password authentication is enabled in Firebase Auth.
-5. Create the Firestore collections required by the app, or seed them from your own data setup.
+```bash
+cd AgriMedTrack && npm install
+```
 
-### Run the App
+Point the app at your own Firebase project by replacing the config in [`services/firebase.ts`](services/firebase.ts). Then:
 
 ```bash
 npm start
 ```
 
-Additional scripts:
+| Script | Does |
+| :----- | :--- |
+| `npm start` | Starts the Expo dev server |
+| `npm run android` | Builds and runs on Android |
+| `npm run ios` | Builds and runs on iOS (macOS only, sadly) |
+| `npm run web` | Runs in the browser |
 
-```bash
-npm run android
-npm run ios
-npm run web
+> [!TIP]
+> Empty database? The dev-only seed helpers in [`utils/`](utils/) will fill it with sample data so you're not demoing to an empty screen.
+
+<br />
+
+## 🏗 Architecture
+
+The data model is **denormalized on purpose**. Screens read once and render. There are no join-style lookups chaining across collections.
+
+```mermaid
+flowchart LR
+    P[products] -.master data.-> I
+    S[suppliers] -.master data.-> I
+    I[(inventory<br/><i>current stock</i>)] --> SA[(sales)]
+    SA --> IS[[items_sold<br/><i>subcollection</i>]]
+    SA --> C[(customers<br/><i>balances</i>)]
+    I -. every addition .-> L[(inventory_logs<br/><i>append-only</i>)]
 ```
 
-Note: `npm run ios` requires macOS.
+- **State and history are kept apart.** `inventory` holds what you have now. `inventory_logs` holds how you got there.
+- **Every sale is self-contained.** Product names and prices are copied into the sale record at the moment it happens, so last year's profit stays correct after this year's price changes.
+- **Line items live in a subcollection.** A big sale will never run into Firestore's 1 MB document limit.
+- **Screens update live.** The main hooks use `onSnapshot`, so changes show up without a pull-to-refresh.
 
-## Project Structure
+The full schema is in [`docs/datadesign.md`](docs/datadesign.md).
 
-- `App.tsx` - app bootstrap, navigation, and providers.
-- `screens/` - top-level screens for dashboard, inventory, sales, login, and logs.
-- `components/` - reusable UI components such as cards, chips, forms, and loading states.
-- `hooks/` - data hooks and UI helpers.
-- `services/` - Firebase initialization.
-- `theme/` - colors and font tokens.
-- `types/` - shared TypeScript models.
-- `utils/` - development seed data and helper utilities.
-- `docs/` - implementation notes and design documentation.
+<details>
+<summary><b>📁 Project structure</b></summary>
 
-## Key Screens
+<br />
 
-- Dashboard: live KPIs, alerts, top products, and recent activity.
-- Inventory: searchable inventory view with stock stats and quick actions.
-- Sales: sales list with summary metrics and payment-state tracking.
-- Add Inventory: multi-item stock entry with cascading master-data selection.
-- Add Sale: multi-item sale entry with inventory-backed selection and validation.
-- Inventory Logs: immutable view of stock addition history.
-- Login: Firebase-authenticated entry point for the app.
+```
+AgriMedTrack/
+├── App.tsx          # Bootstrap, navigation, providers
+├── screens/         # Dashboard, Inventory, Sales, Add*, Logs, Login
+├── components/      # Cards, forms, chips, dialogs, toasts
+├── hooks/           # Data hooks (Firestore listeners) + UI helpers
+├── services/        # Firebase initialization
+├── theme/           # Color and font tokens
+├── types/           # Shared TypeScript models
+├── utils/           # Dev-only seed data
+└── docs/            # Design and implementation notes
+```
 
-## Development Notes
+</details>
 
-- The theme uses Montserrat for headlines and Lato for body text.
-- Firestore reads are organized around the app's most common queries to keep screens responsive.
-- Development seed helpers are present to speed up local testing, but they should be treated as non-production utilities.
-- Before public deployment, review Firestore security rules, authentication settings, and any remaining hardcoded environment values.
+<details>
+<summary><b>🧰 Tech stack</b></summary>
 
-## Roadmap
+<br />
 
-Planned or in-progress work includes:
+**Expo** · **React Native** · **TypeScript** · **Firebase Auth** · **Cloud Firestore** · **React Navigation** · **Gluestack UI** · **Reanimated** · **Lottie** · **AsyncStorage**
 
-- Cloud Function-backed transaction processing for sale and stock mutations.
-- Reporting and export features.
-- Additional production hardening and validation.
-- Offline-oriented improvements and further performance tuning.
+Type set in **Montserrat** (headlines) and **Lato** (body). Colors are *Patel Blue* `#0540F2`, *Growth Green* `#6A7C5F`, and *Vibrant Orange* `#F26101`.
 
-## Contributing
+</details>
 
-This project is still evolving, so contributions should be focused and deliberate.
+<br />
 
-1. Open an issue before starting larger changes.
-2. Keep TypeScript models, hooks, and Firestore documents aligned.
-3. Match the existing UI patterns and theme tokens.
-4. Test inventory, sales, and log flows after making data-model changes.
+## 🗺 Roadmap
 
-## License
+- [ ] Cloud Function–backed sales and stock mutations, so writes are all-or-nothing
+- [ ] Edit and delete sales
+- [ ] Reports and exports
+- [ ] Offline-first improvements
+- [ ] Hardened Firestore security rules
 
-MIT
+<br />
+
+## 🤝 Contributing
+
+Contributions are welcome. Start with [**CONTRIBUTING.md**](CONTRIBUTING.md), which covers setup, conventions, and how to open a pull request. Please read the [Code of Conduct](CODE_OF_CONDUCT.md), and report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+
+<br />
+
+## 📄 License
+
+[MIT](LICENSE) © Swastik Patel. You can use it, fork it, or plant it somewhere new.
+
+<br />
+
+<div align="center">
+<sub>Made with ☕ and a healthy respect for expiry dates.</sub>
+</div>
